@@ -219,19 +219,6 @@ export default function PoliceDashboardPage() {
             </div>
           ) : (
             <>
-              {/* Pagination Controls */}
-              <div className="px-3 sm:px-6">
-                <PaginationControls
-                  currentPage={providerPagination.currentPage}
-                  totalPages={providerPagination.totalPages}
-                  pageSize={providerPagination.pageSize}
-                  pageSizeOptions={providerPagination.pageSizeOptions}
-                  totalItems={dashboard.providers.length}
-                  rangeInfo={providerPagination.rangeInfo}
-                  goToPage={providerPagination.goToPage}
-                  setPageSize={providerPagination.setPageSize}
-                />
-              </div>
 
               {/* Mobile: Card layout */}
               <div className="space-y-2 p-3 sm:hidden">
@@ -298,6 +285,20 @@ export default function PoliceDashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Pagination Controls */}
+      {!loading && dashboard && dashboard.providers.length > 0 && (
+        <PaginationControls
+          currentPage={providerPagination.currentPage}
+          totalPages={providerPagination.totalPages}
+          pageSize={providerPagination.pageSize}
+          pageSizeOptions={providerPagination.pageSizeOptions}
+          totalItems={dashboard.providers.length}
+          rangeInfo={providerPagination.rangeInfo}
+          goToPage={providerPagination.goToPage}
+          setPageSize={providerPagination.setPageSize}
+        />
+      )}
     </div>
   );
 }

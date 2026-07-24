@@ -308,20 +308,6 @@ export default function SuspectedPersonsPage() {
         </p>
       )}
 
-      {/* Pagination Controls */}
-      {!loading && persons.length > 0 && (
-        <PaginationControls
-          currentPage={pagination.currentPage}
-          totalPages={pagination.totalPages}
-          pageSize={pagination.pageSize}
-          pageSizeOptions={pagination.pageSizeOptions}
-          totalItems={persons.length}
-          rangeInfo={pagination.rangeInfo}
-          goToPage={pagination.goToPage}
-          setPageSize={pagination.setPageSize}
-        />
-      )}
-
       {/* List */}
       <div className="rounded-xl border bg-card shadow-sm">
         {loading ? (
@@ -717,6 +703,20 @@ export default function SuspectedPersonsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Pagination Controls */}
+      {!loading && persons.length > 0 && (
+        <PaginationControls
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          pageSize={pagination.pageSize}
+          pageSizeOptions={pagination.pageSizeOptions}
+          totalItems={persons.length}
+          rangeInfo={pagination.rangeInfo}
+          goToPage={pagination.goToPage}
+          setPageSize={pagination.setPageSize}
+        />
+      )}
     </div>
   );
 }

@@ -207,20 +207,6 @@ export default function SuspectAlertsPage() {
         </div>
       </div>
 
-      {/* Pagination Controls */}
-      {!loading && matches.length > 0 && (
-        <PaginationControls
-          currentPage={pagination.currentPage}
-          totalPages={pagination.totalPages}
-          pageSize={pagination.pageSize}
-          pageSizeOptions={pagination.pageSizeOptions}
-          totalItems={matches.length}
-          rangeInfo={pagination.rangeInfo}
-          goToPage={pagination.goToPage}
-          setPageSize={pagination.setPageSize}
-        />
-      )}
-
       {/* Alerts List */}
       <div className="rounded-xl border bg-card shadow-sm">
         {loading ? (
@@ -546,6 +532,20 @@ export default function SuspectAlertsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Pagination Controls */}
+      {!loading && matches.length > 0 && (
+        <PaginationControls
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          pageSize={pagination.pageSize}
+          pageSizeOptions={pagination.pageSizeOptions}
+          totalItems={matches.length}
+          rangeInfo={pagination.rangeInfo}
+          goToPage={pagination.goToPage}
+          setPageSize={pagination.setPageSize}
+        />
+      )}
     </div>
   );
 }

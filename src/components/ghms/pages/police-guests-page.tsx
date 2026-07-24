@@ -137,20 +137,6 @@ export default function PoliceGuestsPage() {
         </p>
       )}
 
-      {/* Pagination Controls */}
-      {!loading && guests.length > 0 && (
-        <PaginationControls
-          currentPage={pagination.currentPage}
-          totalPages={pagination.totalPages}
-          pageSize={pagination.pageSize}
-          pageSizeOptions={pagination.pageSizeOptions}
-          totalItems={guests.length}
-          rangeInfo={pagination.rangeInfo}
-          goToPage={pagination.goToPage}
-          setPageSize={pagination.setPageSize}
-        />
-      )}
-
       {/* Guest List — Cards on mobile, Table on md+ */}
       <div className="rounded-xl border bg-card shadow-sm">
         {loading ? (
@@ -385,6 +371,20 @@ export default function PoliceGuestsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Pagination Controls */}
+      {!loading && guests.length > 0 && (
+        <PaginationControls
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          pageSize={pagination.pageSize}
+          pageSizeOptions={pagination.pageSizeOptions}
+          totalItems={guests.length}
+          rangeInfo={pagination.rangeInfo}
+          goToPage={pagination.goToPage}
+          setPageSize={pagination.setPageSize}
+        />
+      )}
     </div>
   );
 }
