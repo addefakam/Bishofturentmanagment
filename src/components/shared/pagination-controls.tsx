@@ -71,18 +71,20 @@ export function PaginationControls({
   totalPages,
   pageSize,
   pageSizeOptions,
+  totalItems,
   rangeInfo,
   goToPage,
   setPageSize,
 }: PaginationControlsProps) {
-  // Don't render pagination if only 1 page
-  if (totalPages <= 1) return null;
+  // Don't render anything if no data at all
+  if (totalItems === 0) return null;
 
   const pageNumbers = getPageNumbers(currentPage, totalPages);
+  const hasMultiplePages = totalPages > 1;
 
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-1 py-3">
-      {/* Left: showing info + page size selector */}
+      {/* Left: showing info + page size selector (ALWAYS shown when data exists) */}
       <div className="flex items-center gap-3 text-sm text-muted-foreground order-2 sm:order-1">
         <span className="text-xs whitespace-nowrap">
           Showing {rangeInfo.from}&ndash;{rangeInfo.to} of {rangeInfo.total}
@@ -107,44 +109,46 @@ export function PaginationControls({
         </div>
       </div>
 
-      {/* Right: page navigation */}
-      <Pagination className="order-1 sm:order-2 mx-0 w-auto">
-        <PaginationContent>
-          <PaginationItem>
-            <PaginationPrevious
-              onClick={() => goToPage(currentPage - 1)}
-              className={currentPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              aria-disabled={currentPage <= 1}
-            />
-          </PaginationItem>
+      {/* Right: page navigation (only when more than 1 page) */}
+      {hasMultiplePages && (
+        <Pagination className="order-1 sm:order-2 mx-0 w-auto">
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                onClick={() => goToPage(currentPage - 1)}
+                className={currentPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                aria-disabled={currentPage <= 1}
+              />
+            </PaginationItem>
 
-          {pageNumbers.map((page, idx) =>
-            page === "ellipsis" ? (
-              <PaginationItem key={`ellipsis-${idx}`}>
-                <PaginationEllipsis />
-              </PaginationItem>
-            ) : (
-              <PaginationItem key={page}>
-                <PaginationLink
-                  isActive={page === currentPage}
-                  onClick={() => goToPage(page)}
-                  className="cursor-pointer"
-                >
-                  {page}
-                </PaginationLink>
-              </PaginationItem>
-            )
-          )}
+            {pageNumbers.map((page, idx) =>
+              page === "ellipsis" ? (
+                <PaginationItem key={`ellipsis-${idx}`}>
+                  <PaginationEllipsis />
+                </PaginationItem>
+              ) : (
+                <PaginationItem key={page}>
+                  <PaginationLink
+                    isActive={page === currentPage}
+                    onClick={() => goToPage(page)}
+                    className="cursor-pointer"
+                  >
+                    {page}
+                  </PaginationLink>
+                </PaginationItem>
+              )
+            )}
 
-          <PaginationItem>
-            <PaginationNext
-              onClick={() => goToPage(currentPage + 1)}
-              className={currentPage >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              aria-disabled={currentPage >= totalPages}
-            />
-          </PaginationItem>
-        </PaginationContent>
-      </Pagination>
+            <PaginationItem>
+              <PaginationNext
+                onClick={() => goToPage(currentPage + 1)}
+                className={currentPage >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                aria-disabled={currentPage >= totalPages}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
     </div>
   );
 }
