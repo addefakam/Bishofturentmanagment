@@ -294,10 +294,8 @@ export default function SuspectAlertsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-8"></TableHead>
-                    <TableHead>Matched Guest</TableHead>
                     <TableHead>Suspect Name</TableHead>
                     <TableHead>Severity</TableHead>
-                    <TableHead>Match Type</TableHead>
                     <TableHead>Location</TableHead>
                     <TableHead>Detected At</TableHead>
                   </TableRow>
@@ -314,22 +312,11 @@ export default function SuspectAlertsPage() {
                           <span className="block h-2.5 w-2.5 rounded-full bg-red-500" />
                         )}
                       </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{match.guestName}</p>
-                          {match.guestPhone && (
-                            <p className="text-xs text-muted-foreground font-mono">{match.guestPhone}</p>
-                          )}
-                        </div>
-                      </TableCell>
                       <TableCell className="font-medium text-red-700">{match.suspectedPerson.name}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={SEVERITY_STYLES[match.suspectedPerson.severity] || ""}>
                           {match.suspectedPerson.severity}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm">{MATCH_TYPE_LABELS[match.matchType] || match.matchType}</span>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1.5">
