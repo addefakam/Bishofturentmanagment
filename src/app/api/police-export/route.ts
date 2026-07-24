@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthContext, requirePolice } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
   try {
@@ -62,6 +63,7 @@ export async function GET(req: NextRequest) {
       return new Response(csv, { headers: { "Content-Type": "text/csv", "Content-Disposition": `attachment; filename="police-export-${Date.now()}.csv"` } });
     }
 
+    logAudit(req, { action: "EXPORT_DATA", details: `Exported type=${type} format=${format}` });
     return NextResponse.json(data);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to export data";

@@ -50,7 +50,10 @@ export default function PoliceSecurityPage() {
       const d: any = await apiPoliceAuditLogs(params.toString());
       setAuditLogs(d.logs || []);
       setAuditTotal(d.total || 0);
-    } catch { toast.error("Failed to load audit logs"); }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to load audit logs";
+      toast.error(msg);
+    }
     finally { setAuditLoading(false); }
   }, [auditPag.currentPage, auditPag.pageSize, actionFilter]);
 

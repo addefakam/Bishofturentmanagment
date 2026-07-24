@@ -50,6 +50,77 @@ export async function POST() {
       CREATE INDEX IF NOT EXISTS "SuspectMatch_isRead_idx" ON "SuspectMatch"("isRead");
     `);
 
+    // Create AuditLog table
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "AuditLog" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "officerName" TEXT NOT NULL DEFAULT '',
+        "action" TEXT NOT NULL,
+        "targetId" TEXT,
+        "targetType" TEXT NOT NULL DEFAULT '',
+        "details" TEXT,
+        "ipAddress" TEXT NOT NULL DEFAULT '',
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await db.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "AuditLog_action_idx" ON "AuditLog"("action");
+      CREATE INDEX IF NOT EXISTS "AuditLog_createdAt_idx" ON "AuditLog"("createdAt");
+    `);
+
+    // Create Geofence table
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "Geofence" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "name" TEXT NOT NULL,
+        "address" TEXT NOT NULL DEFAULT '',
+        "latitude" REAL NOT NULL DEFAULT 0,
+        "longitude" REAL NOT NULL DEFAULT 0,
+        "radius" REAL NOT NULL DEFAULT 1000,
+        "severity" TEXT NOT NULL DEFAULT 'HIGH',
+        "isActive" BOOLEAN NOT NULL DEFAULT 1,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL
+      );
+    `);
+
+    // Create FrequentStayAlert table
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "FrequentStayAlert" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "guestName" TEXT NOT NULL,
+        "guestPhone" TEXT NOT NULL DEFAULT '',
+        "guestIdNumber" TEXT NOT NULL DEFAULT '',
+        "providerNames" TEXT NOT NULL DEFAULT '[]',
+        "stayCount" INTEGER NOT NULL DEFAULT 0,
+        "avgDaysBetween" REAL NOT NULL DEFAULT 0,
+        "riskLevel" TEXT NOT NULL DEFAULT 'MEDIUM',
+        "isReviewed" BOOLEAN NOT NULL DEFAULT 0,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Create PoliceAlertConfig table
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "PoliceAlertConfig" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "emailEnabled" BOOLEAN NOT NULL DEFAULT 0,
+        "emailRecipients" TEXT NOT NULL DEFAULT '[]',
+        "smsEnabled" BOOLEAN NOT NULL DEFAULT 0,
+        "smsRecipients" TEXT NOT NULL DEFAULT '[]',
+        "escalationDelayMins" INTEGER NOT NULL DEFAULT 60,
+        "criticalImmediate" BOOLEAN NOT NULL DEFAULT 1,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL
+      );
+    `);
+
+    // Ensure a default PoliceAlertConfig exists (idempotent)
+    await db.$executeRawUnsafe(`
+      INSERT OR IGNORE INTO "PoliceAlertConfig" ("id", "createdAt", "updatedAt")
+      VALUES ('default-alert-config', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+    `);
+
     // Migrate stale data: any SUPERUSER with a providerId should be OPERATOR
     const migrated = await db.user.updateMany({
       where: { role: 'SUPERUSER', providerId: { not: null } },

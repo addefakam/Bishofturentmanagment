@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthContext, requirePolice } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 import { ensureSuspectTables } from "@/lib/suspect-check";
 
 export async function GET(req: NextRequest) {
@@ -40,6 +41,7 @@ export async function GET(req: NextRequest) {
       where: { isRead: false },
     });
 
+    logAudit(req, { action: "VIEW_MATCHES", details: `Fetched ${matches.length} matches` });
     return NextResponse.json({ matches, unreadCount });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to fetch suspect matches";
@@ -62,6 +64,7 @@ export async function PUT(req: NextRequest) {
         where: { isRead: false },
         data: { isRead: true },
       });
+      logAudit(req, { action: "MARK_ALL_READ", details: "All suspect matches marked as read" });
       return NextResponse.json({ success: true, message: "All matches marked as read" });
     }
 
@@ -70,6 +73,7 @@ export async function PUT(req: NextRequest) {
         where: { id: { in: ids } },
         data: { isRead: true },
       });
+      logAudit(req, { action: "MARK_READ", details: `Marked ${ids.length} matches as read` });
       return NextResponse.json({ success: true });
     }
 

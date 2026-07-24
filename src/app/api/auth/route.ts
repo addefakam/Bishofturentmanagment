@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,6 +41,10 @@ export async function POST(req: NextRequest) {
       permissions = JSON.parse(user.permissions);
     } catch {
       permissions = [];
+    }
+
+    if (user.role === "POLICE") {
+      logAudit(req, { action: "LOGIN", targetId: user.id, targetType: "User", details: `Police login: ${user.username}` });
     }
 
     return NextResponse.json({

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthContext, requirePolice } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
   try {
@@ -29,6 +30,7 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
+    logAudit(req, { action: "VIEW_GUESTS", details: q ? `Search: ${q}` : "Viewed all guests" });
     return NextResponse.json(guests);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to search guests";
