@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { usePagination } from "@/hooks/use-pagination";
+import { PaginationControls } from "@/components/shared/pagination-controls";
 import { useAppStore } from "@/lib/store";
 import { apiGetProviders, apiUpdateProvider } from "@/lib/api";
 import { toast } from "sonner";
@@ -104,6 +106,9 @@ export default function ProvidersPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [confirmAction, setConfirmAction] = useState<{ provider: Provider; action: string } | null>(null);
   const [actioning, setActioning] = useState(false);
+
+  const pagination = usePagination({ totalItems: providers.length, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
+  const paginatedProviders = useMemo(() => pagination.paginate(providers), [providers, pagination]);
 
   const fetchProviders = useCallback(async () => {
     try {
@@ -242,7 +247,7 @@ export default function ProvidersPage() {
           <>
             {/* Mobile/Tablet: Card layout */}
             <div className="divide-y lg:hidden">
-              {providers.map((provider) => (
+              {paginatedProviders.map((provider) => (
                 <div key={provider.id} className="p-3 sm:p-4">
                   <div className="flex items-start justify-between gap-2">
                     <button
@@ -329,7 +334,7 @@ export default function ProvidersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {providers.map((provider) => (
+                  {paginatedProviders.map((provider) => (
                     <TableRow
                       key={provider.id}
                       className="cursor-pointer hover:bg-muted/50"
@@ -393,6 +398,20 @@ export default function ProvidersPage() {
           </>
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {!loading && providers.length > 0 && (
+        <PaginationControls
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          pageSize={pagination.pageSize}
+          pageSizeOptions={pagination.pageSizeOptions}
+          totalItems={providers.length}
+          rangeInfo={pagination.rangeInfo}
+          goToPage={pagination.goToPage}
+          setPageSize={pagination.setPageSize}
+        />
+      )}
 
       {/* Provider Detail Dialog — mobile optimized */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
