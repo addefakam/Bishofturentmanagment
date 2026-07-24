@@ -79,29 +79,41 @@ export default function PoliceGuestsPage() {
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
-  const pagination = usePagination({ totalItems: guests.length, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
-
-  // Reset to page 1 when search results change
-  useEffect(() => { pagination.resetToFirst(); }, [search]);
-  const paginatedGuests = useMemo(() => pagination.paginate(guests), [guests, pagination]);
-
+  // Fetch ALL guests once, filter client-side
   const fetchGuests = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await apiPoliceGuests(search);
+      const data = await apiPoliceGuests("");
       setGuests(Array.isArray(data) ? data : []);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to search guests";
+      const message = err instanceof Error ? err.message : "Failed to load guests";
       toast.error(message);
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, []);
 
-  useEffect(() => {
-    const timer = setTimeout(() => fetchGuests(), 300);
-    return () => clearTimeout(timer);
-  }, [fetchGuests, refreshKey]);
+  useEffect(() => { fetchGuests(); }, [fetchGuests, refreshKey]);
+
+  // Client-side search filter — instant character-by-character
+  const filteredGuests = useMemo(() => {
+    if (!search.trim()) return guests;
+    const q = search.toLowerCase().trim();
+    return guests.filter((g) =>
+      g.name.toLowerCase().includes(q) ||
+      g.phone.toLowerCase().includes(q) ||
+      g.idNumber.toLowerCase().includes(q) ||
+      g.email.toLowerCase().includes(q) ||
+      g.nationality.toLowerCase().includes(q) ||
+      (g.provider?.name || "").toLowerCase().includes(q)
+    );
+  }, [guests, search]);
+
+  const pagination = usePagination({ totalItems: filteredGuests.length, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
+
+  // Reset to page 1 when search changes
+  useEffect(() => { pagination.resetToFirst(); }, [search]);
+  const paginatedGuests = useMemo(() => pagination.paginate(filteredGuests), [filteredGuests, pagination]);
 
   const openDetail = (guest: Guest) => {
     setSelectedGuest(guest);
@@ -130,9 +142,9 @@ export default function PoliceGuestsPage() {
       </div>
 
       {/* Results count */}
-      {!loading && guests.length > 0 && (
+      {!loading && filteredGuests.length > 0 && (
         <p className="text-xs text-muted-foreground px-1">
-          {guests.length} guest{guests.length !== 1 ? "s" : ""} found
+          {filteredGuests.length} guest{filteredGuests.length !== 1 ? "s" : ""} found
           {search ? ` for "${search}"` : ""}
         </p>
       )}
@@ -145,7 +157,7 @@ export default function PoliceGuestsPage() {
               <Skeleton key={i} className="h-20 w-full sm:h-12" />
             ))}
           </div>
-        ) : guests.length === 0 ? (
+        ) : filteredGuests.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 sm:py-16 text-center">
             <UserCircle className="mb-3 h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground/40" />
             <p className="text-xs sm:text-sm text-muted-foreground">
@@ -373,13 +385,13 @@ export default function PoliceGuestsPage() {
       </Dialog>
 
       {/* Pagination Controls */}
-      {!loading && guests.length > 0 && (
+      {!loading && filteredGuests.length > 0 && (
         <PaginationControls
           currentPage={pagination.currentPage}
           totalPages={pagination.totalPages}
           pageSize={pagination.pageSize}
           pageSizeOptions={pagination.pageSizeOptions}
-          totalItems={guests.length}
+          totalItems={filteredGuests.length}
           rangeInfo={pagination.rangeInfo}
           goToPage={pagination.goToPage}
           setPageSize={pagination.setPageSize}
