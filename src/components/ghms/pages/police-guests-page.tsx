@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { usePagination } from "@/hooks/use-pagination";
+import { PaginationControls } from "@/components/shared/pagination-controls";
 import { useAppStore } from "@/lib/store";
 import { apiPoliceGuests } from "@/lib/api";
 import { toast } from "sonner";
@@ -77,6 +79,12 @@ export default function PoliceGuestsPage() {
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
+  const pagination = usePagination({ totalItems: guests.length, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
+
+  // Reset to page 1 when search results change
+  useEffect(() => { pagination.resetToFirst(); }, [search]);
+  const paginatedGuests = useMemo(() => pagination.paginate(guests), [guests, pagination]);
+
   const fetchGuests = useCallback(async () => {
     try {
       setLoading(true);
@@ -129,6 +137,20 @@ export default function PoliceGuestsPage() {
         </p>
       )}
 
+      {/* Pagination Controls */}
+      {!loading && guests.length > 0 && (
+        <PaginationControls
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          pageSize={pagination.pageSize}
+          pageSizeOptions={pagination.pageSizeOptions}
+          totalItems={guests.length}
+          rangeInfo={pagination.rangeInfo}
+          goToPage={pagination.goToPage}
+          setPageSize={pagination.setPageSize}
+        />
+      )}
+
       {/* Guest List — Cards on mobile, Table on md+ */}
       <div className="rounded-xl border bg-card shadow-sm">
         {loading ? (
@@ -148,7 +170,7 @@ export default function PoliceGuestsPage() {
           <>
             {/* Mobile: Card layout */}
             <div className="divide-y md:hidden">
-              {guests.map((guest) => (
+              {paginatedGuests.map((guest) => (
                 <button
                   key={guest.id}
                   className="flex w-full items-start gap-3 p-3 text-left transition-colors hover:bg-muted/50 active:bg-muted/80"
@@ -198,7 +220,7 @@ export default function PoliceGuestsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {guests.map((guest) => (
+                  {paginatedGuests.map((guest) => (
                     <TableRow
                       key={guest.id}
                       className="cursor-pointer hover:bg-muted/50"

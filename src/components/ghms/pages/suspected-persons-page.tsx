@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, type FormEvent } from "react";
+import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
+import { usePagination } from "@/hooks/use-pagination";
+import { PaginationControls } from "@/components/shared/pagination-controls";
 import { useAppStore } from "@/lib/store";
 import {
   apiGetSuspectedPersons,
@@ -145,6 +147,12 @@ export default function SuspectedPersonsPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const pagination = usePagination({ totalItems: persons.length, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
+
+  // Reset to page 1 when search changes
+  useEffect(() => { pagination.resetToFirst(); }, [search]);
+  const paginatedPersons = useMemo(() => pagination.paginate(persons), [persons, pagination]);
 
   const fetchPersons = useCallback(async () => {
     try {
@@ -300,6 +308,20 @@ export default function SuspectedPersonsPage() {
         </p>
       )}
 
+      {/* Pagination Controls */}
+      {!loading && persons.length > 0 && (
+        <PaginationControls
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          pageSize={pagination.pageSize}
+          pageSizeOptions={pagination.pageSizeOptions}
+          totalItems={persons.length}
+          rangeInfo={pagination.rangeInfo}
+          goToPage={pagination.goToPage}
+          setPageSize={pagination.setPageSize}
+        />
+      )}
+
       {/* List */}
       <div className="rounded-xl border bg-card shadow-sm">
         {loading ? (
@@ -322,7 +344,7 @@ export default function SuspectedPersonsPage() {
           <>
             {/* Mobile: Card layout */}
             <div className="divide-y md:hidden">
-              {persons.map((person) => (
+              {paginatedPersons.map((person) => (
                 <div key={person.id} className="p-3 space-y-2">
                   <div className="flex items-start gap-3">
                     <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
@@ -405,7 +427,7 @@ export default function SuspectedPersonsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {persons.map((person) => (
+                  {paginatedPersons.map((person) => (
                     <TableRow key={person.id} className={!person.is_active ? "opacity-60" : ""}>
                       <TableCell className="font-medium">{person.name}</TableCell>
                       <TableCell className="font-mono text-sm">{person.phone || "—"}</TableCell>

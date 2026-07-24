@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { usePagination } from "@/hooks/use-pagination";
+import { PaginationControls } from "@/components/shared/pagination-controls";
 import { useAppStore } from "@/lib/store";
 import { apiPoliceDashboard, apiGetProviders, apiGetSuspectMatches } from "@/lib/api";
 import { toast } from "sonner";
@@ -95,6 +97,9 @@ export default function PoliceDashboardPage() {
   const [recentGuests, setRecentGuests] = useState<RecentGuest[]>([]);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  const providerPagination = usePagination({ totalItems: dashboard?.providers?.length || 0, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
+  const paginatedProviders = useMemo(() => providerPagination.paginate(dashboard?.providers || []), [dashboard?.providers, providerPagination]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -236,9 +241,23 @@ export default function PoliceDashboardPage() {
             </div>
           ) : (
             <>
+              {/* Pagination Controls */}
+              <div className="px-3 sm:px-6">
+                <PaginationControls
+                  currentPage={providerPagination.currentPage}
+                  totalPages={providerPagination.totalPages}
+                  pageSize={providerPagination.pageSize}
+                  pageSizeOptions={providerPagination.pageSizeOptions}
+                  totalItems={dashboard.providers.length}
+                  rangeInfo={providerPagination.rangeInfo}
+                  goToPage={providerPagination.goToPage}
+                  setPageSize={providerPagination.setPageSize}
+                />
+              </div>
+
               {/* Mobile: Card layout */}
               <div className="space-y-2 p-3 sm:hidden">
-                {dashboard.providers.map((p) => (
+                {paginatedProviders.map((p) => (
                   <div key={p.id} className="rounded-lg border p-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
@@ -277,7 +296,7 @@ export default function PoliceDashboardPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {dashboard.providers.map((p) => (
+                    {paginatedProviders.map((p) => (
                       <TableRow key={p.id}>
                         <TableCell className="font-medium">{p.name}</TableCell>
                         <TableCell>

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { usePagination } from "@/hooks/use-pagination";
+import { PaginationControls } from "@/components/shared/pagination-controls";
 import { useAppStore } from "@/lib/store";
 import { apiGetSuspectMatches, apiMarkMatchesRead } from "@/lib/api";
 import { toast } from "sonner";
@@ -103,6 +105,12 @@ export default function SuspectAlertsPage() {
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
+  const pagination = usePagination({ totalItems: matches.length, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
+
+  // Reset to page 1 when filter changes
+  useEffect(() => { pagination.resetToFirst(); }, [filter]);
+  const paginatedMatches = useMemo(() => pagination.paginate(matches), [matches, pagination]);
+
   const fetchMatches = useCallback(async () => {
     try {
       setLoading(true);
@@ -199,6 +207,20 @@ export default function SuspectAlertsPage() {
         </div>
       </div>
 
+      {/* Pagination Controls */}
+      {!loading && matches.length > 0 && (
+        <PaginationControls
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          pageSize={pagination.pageSize}
+          pageSizeOptions={pagination.pageSizeOptions}
+          totalItems={matches.length}
+          rangeInfo={pagination.rangeInfo}
+          goToPage={pagination.goToPage}
+          setPageSize={pagination.setPageSize}
+        />
+      )}
+
       {/* Alerts List */}
       <div className="rounded-xl border bg-card shadow-sm">
         {loading ? (
@@ -223,7 +245,7 @@ export default function SuspectAlertsPage() {
           <>
             {/* Mobile: Card layout */}
             <div className="divide-y md:hidden">
-              {matches.map((match) => (
+              {paginatedMatches.map((match) => (
                 <button
                   key={match.id}
                   onClick={() => openDetail(match)}
@@ -281,7 +303,7 @@ export default function SuspectAlertsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {matches.map((match) => (
+                  {paginatedMatches.map((match) => (
                     <TableRow
                       key={match.id}
                       className={`cursor-pointer hover:bg-muted/50 ${!match.isRead ? "bg-red-50/40" : ""}`}
