@@ -4,12 +4,11 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { usePagination } from "@/hooks/use-pagination";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import { useAppStore } from "@/lib/store";
-import { apiPoliceDashboard, apiGetProviders, apiGetSuspectMatches } from "@/lib/api";
+import { apiPoliceDashboard, apiGetSuspectMatches } from "@/lib/api";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Table,
   TableBody,
@@ -57,14 +56,6 @@ interface Provider {
   createdAt: string;
 }
 
-interface RecentGuest {
-  id: string;
-  name: string;
-  phone: string;
-  provider: { id: string; name: string } | null;
-  createdAt: string;
-}
-
 const STATUS_BADGE_CLASS: Record<string, string> = {
   APPROVED: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
   PENDING: "bg-yellow-100 text-yellow-800 hover:bg-yellow-100 border-yellow-200",
@@ -94,7 +85,6 @@ function formatDate(dateStr: string) {
 export default function PoliceDashboardPage() {
   const { refreshKey } = useAppStore();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
-  const [recentGuests, setRecentGuests] = useState<RecentGuest[]>([]);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -104,25 +94,13 @@ export default function PoliceDashboardPage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [dashData, provData, alertData] = await Promise.all([
+      const [dashData, alertData] = await Promise.all([
         apiPoliceDashboard(),
-        apiGetProviders(),
         apiGetSuspectMatches("unread=true").catch(() => ({ unreadCount: 0 })),
       ]);
 
       setDashboard(dashData);
       setUnreadAlerts(alertData?.unreadCount || 0);
-
-      const providers: Provider[] = Array.isArray(provData) ? provData : [];
-      setRecentGuests(
-        providers.slice(0, 8).map((p) => ({
-          id: p.id,
-          name: p.name,
-          phone: "",
-          provider: { id: p.id, name: p.name },
-          createdAt: p.createdAt,
-        }))
-      );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to load dashboard";
       toast.error(message);
@@ -317,48 +295,6 @@ export default function PoliceDashboardPage() {
                 </Table>
               </div>
             </>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Recent Provider Registrations */}
-      <Card className="shadow-sm">
-        <CardHeader className="px-4 pb-2 sm:px-6 sm:pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
-            <Building2 className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-            Recent Registrations
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-3 sm:px-6">
-          {loading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          ) : recentGuests.length === 0 ? (
-            <p className="py-6 sm:py-8 text-center text-xs sm:text-sm text-muted-foreground">No recent registrations</p>
-          ) : (
-            <ScrollArea className="max-h-72 sm:max-h-96">
-              <div className="space-y-1.5 sm:space-y-2">
-                {recentGuests.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between rounded-lg border p-2.5 sm:p-3 transition-colors hover:bg-muted/50"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{item.name}</p>
-                      <p className="text-[10px] sm:text-xs text-muted-foreground">
-                        {formatDate(item.createdAt)}
-                      </p>
-                    </div>
-                    <Badge variant="secondary" className="ml-2 shrink-0 text-[10px] sm:text-xs">
-                      {formatDate(item.createdAt)}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
           )}
         </CardContent>
       </Card>
