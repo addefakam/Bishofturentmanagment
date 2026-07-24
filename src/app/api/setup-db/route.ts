@@ -63,10 +63,8 @@ export async function POST() {
         "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    await db.$executeRawUnsafe(`
-      CREATE INDEX IF NOT EXISTS "AuditLog_action_idx" ON "AuditLog"("action");
-      CREATE INDEX IF NOT EXISTS "AuditLog_createdAt_idx" ON "AuditLog"("createdAt");
-    `);
+    await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AuditLog_action_idx" ON "AuditLog"("action")`);
+    await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AuditLog_createdAt_idx" ON "AuditLog"("createdAt")`);
 
     // Create Geofence table
     await db.$executeRawUnsafe(`
