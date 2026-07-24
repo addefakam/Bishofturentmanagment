@@ -24,6 +24,7 @@ import {
   UsersRound,
   ShieldAlert,
   UserX,
+  ScanLine,
 } from "lucide-react";
 
 import { useAppStore, type CurrentUser } from "@/lib/store";
@@ -86,6 +87,26 @@ const POLICE_NAV_ITEMS: NavItem[] = [
     page: "suspected-persons",
     label: "Suspected Persons",
     icon: UserX,
+  },
+  {
+    page: "police-intelligence",
+    label: "Intelligence",
+    icon: BarChart3,
+  },
+  {
+    page: "police-investigation",
+    label: "Investigation",
+    icon: Search,
+  },
+  {
+    page: "police-security",
+    label: "Security",
+    icon: Shield,
+  },
+  {
+    page: "police-scanner",
+    label: "Watchlist Scanner",
+    icon: ScanLine,
   },
 ];
 

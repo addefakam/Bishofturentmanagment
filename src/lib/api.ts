@@ -197,3 +197,17 @@ export const apiDeleteReview = (id: string) =>
 export const apiGetOwnerAccounts = () => req("/api/owner-accounts");
 export const apiUpdateOwnerAccount = (id: string, data: Record<string, unknown>) =>
   req(`/api/owner-accounts/${id}`, { method: "PUT", body: JSON.stringify(data) });
+
+// Police Intelligence & Investigation
+export const apiPoliceIntelligence = () => req("/api/police-intelligence");
+export const apiPoliceMovement = (q: string) => req(`/api/police-intelligence/movement?${q}`);
+export const apiPoliceFrequentStays = (q?: string) => req(`/api/police-intelligence/frequent-stays${q ? `?${q}` : ""}`);
+export const apiPoliceTriggerFrequentAnalysis = () => req("/api/police-intelligence/frequent-stays", { method: "POST" });
+export const apiPoliceGuestLinking = () => req("/api/police-intelligence/linking");
+export const apiPoliceAuditLogs = (q?: string) => req(`/api/police-audit${q ? `?${q}` : ""}`);
+export const apiPoliceGeofences = () => req("/api/police-geofences");
+export const apiPoliceCreateGeofence = (data: Record<string, unknown>) => req("/api/police-geofences", { method: "POST", body: JSON.stringify(data) });
+export const apiPoliceDeleteGeofence = (id: string) => req(`/api/police-geofences?id=${id}`, { method: "DELETE" });
+export const apiPoliceAlertConfig = () => req("/api/police-alert-config");
+export const apiPoliceUpdateAlertConfig = (data: Record<string, unknown>) => req("/api/police-alert-config", { method: "PUT", body: JSON.stringify(data) });
+export const apiPoliceExport = (q: string) => req(`/api/police-export?${q}`);

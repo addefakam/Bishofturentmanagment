@@ -85,6 +85,18 @@ const SuspectAlertsPage = lazyPage(
 const SuspectedPersonsPage = lazyPage(
   () => import("@/components/ghms/pages/suspected-persons-page")
 );
+const PoliceIntelligencePage = lazyPage(
+  () => import("@/components/ghms/pages/police-intelligence-page")
+);
+const PoliceInvestigationPage = lazyPage(
+  () => import("@/components/ghms/pages/police-investigation-page")
+);
+const PoliceSecurityPage = lazyPage(
+  () => import("@/components/ghms/pages/police-security-page")
+);
+const PoliceScannerPage = lazyPage(
+  () => import("@/components/ghms/pages/police-scanner-page")
+);
 const ReviewsPage = lazyPage(
   () => import("@/components/ghms/pages/reviews-page")
 );
@@ -113,6 +125,10 @@ const PAGE_MAP: Record<string, React.LazyExoticComponent<React.ComponentType>> =
     "police-guests": PoliceGuestsPage,
     "suspect-alerts": SuspectAlertsPage,
     "suspected-persons": SuspectedPersonsPage,
+    "police-intelligence": PoliceIntelligencePage,
+    "police-investigation": PoliceInvestigationPage,
+    "police-security": PoliceSecurityPage,
+    "police-scanner": PoliceScannerPage,
     reviews: ReviewsPage,
     "owner-accounts": OwnerAccountsPage,
   };

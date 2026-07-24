@@ -410,3 +410,54 @@ model SuspectMatch {
 
   suspectedPerson SuspectedPerson @relation(fields: [suspectedPersonId], references: [id])
 }
+
+// ─── Police Intelligence & Security ─────────────────────────────────────
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  officerName String   @default("")
+  action      String   // VIEW_GUEST, VIEW_MATCH, EXPORT_DATA, LOGIN, etc.
+  targetId    String?
+  targetType  String?  @default("")
+  details     String?
+  ipAddress   String?  @default("")
+  createdAt   DateTime @default(now())
+}
+
+model Geofence {
+  id          String   @id @default(cuid())
+  name        String
+  address     String   @default("")
+  latitude    Float    @default(0)
+  longitude   Float    @default(0)
+  radius      Float    @default(1000) // meters
+  severity    String   @default("HIGH")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model FrequentStayAlert {
+  id             String   @id @default(cuid())
+  guestName      String
+  guestPhone     String   @default("")
+  guestIdNumber  String   @default("")
+  providerNames  String   @default("[]") // JSON array of provider names
+  stayCount      Int      @default(0)
+  avgDaysBetween Float    @default(0)
+  riskLevel      String   @default("MEDIUM")
+  isReviewed     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+}
+
+model PoliceAlertConfig {
+  id                   String   @id @default(cuid())
+  emailEnabled         Boolean  @default(false)
+  emailRecipients      String   @default("[]") // JSON array of email addresses
+  smsEnabled           Boolean  @default(false)
+  smsRecipients        String   @default("[]") // JSON array of phone numbers
+  escalationDelayMins  Int      @default(60) // minutes before escalating HIGH severity
+  criticalImmediate    Boolean  @default(true) // CRITICAL alerts are immediate
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
