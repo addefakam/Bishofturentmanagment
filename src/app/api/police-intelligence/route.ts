@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
     // Hotspot: group suspect matches by provider
     const matches = await db.suspectMatch.findMany({
-      select: { providerName: true, providerId: true, severity: true, createdAt: true, id: true },
+      select: { providerName: true, providerId: true, createdAt: true, id: true, details: true, suspectedPerson: { select: { severity: true } } },
     });
     const hotspotMap = new Map<string, { providerName: string; providerId: string; matchCount: number; criticalCount: number; highCount: number }>();
     for (const m of matches) {
@@ -24,9 +24,9 @@ export async function GET(req: NextRequest) {
       }
       const entry = hotspotMap.get(key)!;
       entry.matchCount++;
-      const details = JSON.parse(m.details || "{}");
-      if (details.severity === "CRITICAL") entry.criticalCount++;
-      if (details.severity === "HIGH") entry.highCount++;
+      const sev = m.suspectedPerson?.severity || "";
+      if (sev === "CRITICAL") entry.criticalCount++;
+      if (sev === "HIGH") entry.highCount++;
     }
 
     // Occupancy vs Crime correlation (last 6 months)
