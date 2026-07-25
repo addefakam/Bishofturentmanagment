@@ -20,6 +20,7 @@ export const POLICE_RANK_PERMISSIONS: Record<PoliceRank, string[]> = {
     "police-investigation",
     "police-security",
     "police-scanner",
+    "notifications",
   ],
   DETECTIVE: [
     "police-dashboard",
@@ -30,6 +31,7 @@ export const POLICE_RANK_PERMISSIONS: Record<PoliceRank, string[]> = {
     "police-intelligence",
     "police-investigation",
     "police-scanner",
+    "notifications",
   ],
   OFFICER: [
     "police-dashboard",
@@ -38,8 +40,9 @@ export const POLICE_RANK_PERMISSIONS: Record<PoliceRank, string[]> = {
     "suspect-alerts",
     "suspected-persons",
     "police-scanner",
+    "notifications",
   ],
-  VIEWER: ["police-dashboard", "providers", "police-guests"],
+  VIEWER: ["police-dashboard", "providers", "police-guests", "notifications"],
 };
 
 export const RANK_LABELS: Record<PoliceRank, string> = {

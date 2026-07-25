@@ -109,6 +109,12 @@ const POLICE_NAV_ITEMS: NavItem[] = [
     label: "Watchlist Scanner",
     icon: ScanLine,
   },
+  {
+    page: "notifications",
+    label: "Notifications",
+    icon: Bell,
+    badge: "new",
+  },
 ];
 
 // SUPERUSER (admin): dashboard, account management, settings, notifications

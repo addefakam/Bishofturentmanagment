@@ -5,12 +5,20 @@ import { getAuthContext, getProviderFilter, checkWritePermission } from "@/lib/t
 export async function GET(req: NextRequest) {
   try {
     const auth = getAuthContext(req);
-    const { providerId } = getProviderFilter(auth);
 
-    const notifications = await db.notification.findMany({
-      where: { providerId },
-      orderBy: { createdAt: "desc" },
-    });
+    // Police users see ALL notifications (they have cross-provider visibility)
+    let notifications;
+    if (auth.role === "POLICE") {
+      notifications = await db.notification.findMany({
+        orderBy: { createdAt: "desc" },
+      });
+    } else {
+      const { providerId } = getProviderFilter(auth);
+      notifications = await db.notification.findMany({
+        where: { providerId },
+        orderBy: { createdAt: "desc" },
+      });
+    }
 
     return NextResponse.json(notifications);
   } catch (error: unknown) {

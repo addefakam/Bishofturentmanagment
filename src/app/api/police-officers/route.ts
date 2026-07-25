@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
         name,
         role: "POLICE",
         permissions: JSON.stringify([`police_rank:${rank}`]),
+        policeRank: rank,
       },
     });
 
@@ -121,6 +122,7 @@ export async function PUT(req: NextRequest) {
     const updateData: Record<string, unknown> = {};
     if (policeRank && Object.values(POLICE_RANKS).includes(policeRank)) {
       updateData.permissions = JSON.stringify([`police_rank:${policeRank}`]);
+      updateData.policeRank = policeRank;
     }
     if (name) {
       updateData.name = name;
