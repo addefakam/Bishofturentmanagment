@@ -45,6 +45,7 @@ export const POLICE_RANK_PERMISSIONS: Record<PoliceRank, string[]> = {
     "police-investigation",
     "police-scanner",
     "notifications",
+    "owner-accounts",
   ],
   VIEWER: ["police-dashboard", "providers", "police-guests", "notifications"],
 };

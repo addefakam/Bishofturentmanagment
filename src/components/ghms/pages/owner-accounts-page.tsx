@@ -170,9 +170,9 @@ export default function OwnerAccountsPage() {
   const canManagePolice =
     currentUser?.role === "SUPERUSER" ||
     (currentUser?.role === "POLICE" &&
-      (RANK_ORDER[currentUser?.policeRank || ""] || 0) >= RANK_ORDER.DETECTIVE);
+      (RANK_ORDER[currentUser?.policeRank || ""] || 0) >= RANK_ORDER.OFFICER);
 
-  // Which ranks can this user create?
+  // Which ranks can this user create? (one level below their own)
   const maxCreatableRank =
     currentUser?.role === "SUPERUSER"
       ? "ADMIN"
@@ -181,7 +181,9 @@ export default function OwnerAccountsPage() {
           ? "DETECTIVE"
           : currentUser?.policeRank === "DETECTIVE"
             ? "OFFICER"
-            : ""
+            : currentUser?.policeRank === "OFFICER"
+              ? "VIEWER"
+              : ""
         : "";
 
   // ── Reset credentials dialog ──
@@ -300,7 +302,7 @@ export default function OwnerAccountsPage() {
     setPoliceName("");
     setPoliceUsername("");
     setPolicePassword("");
-    setPoliceRank(maxCreatableRank === "DETECTIVE" ? "OFFICER" : "VIEWER");
+    setPoliceRank(maxCreatableRank === "DETECTIVE" ? "OFFICER" : maxCreatableRank === "OFFICER" ? "VIEWER" : "VIEWER");
     setShowPolicePassword(false);
     setPoliceDialogOpen(true);
   };

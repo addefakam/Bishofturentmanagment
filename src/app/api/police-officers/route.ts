@@ -62,9 +62,10 @@ export async function GET(req: NextRequest) {
 /**
  * POST /api/police-officers — Create new police officer
  * - SUPERUSER: can create any rank (ADMIN, DETECTIVE, OFFICER, VIEWER)
- * - POLICE ADMIN: can create any rank (ADMIN, DETECTIVE, OFFICER, VIEWER)
- * - POLICE DETECTIVE: can create OFFICER or VIEWER only
- * - POLICE OFFICER / VIEWER: cannot create other police
+ * - POLICE ADMIN: can create DETECTIVE, OFFICER, VIEWER
+ * - POLICE DETECTIVE: can create OFFICER, VIEWER
+ * - POLICE OFFICER: can create VIEWER only
+ * - POLICE VIEWER: cannot create
  */
 export async function POST(req: NextRequest) {
   try {
@@ -74,12 +75,13 @@ export async function POST(req: NextRequest) {
       // SUPERUSER has full rights to manage police
     } else if (auth.role === "POLICE") {
       requirePolice(auth);
-      const myRank = (auth.policeRank || "OFFICER") as PoliceRank;
+      const myRank = (auth.policeRank || "VIEWER") as PoliceRank;
       const myLevel = RANK_HIERARCHY[myRank] || 0;
 
-      if (myLevel < RANK_HIERARCHY.DETECTIVE) {
+      // VIEWER cannot create anyone
+      if (myLevel < RANK_HIERARCHY.OFFICER) {
         return NextResponse.json(
-          { error: `Requires ${RANK_LABELS.DETECTIVE} rank or higher to create police accounts` },
+          { error: `Requires ${RANK_LABELS.OFFICER} rank or higher to create police accounts` },
           { status: 403 }
         );
       }
@@ -105,13 +107,13 @@ export async function POST(req: NextRequest) {
       ? policeRank
       : "OFFICER") as PoliceRank;
 
-    // DETECTIVE cannot create ADMIN or DETECTIVE
+    // Can only create ranks below your own
     if (auth.role === "POLICE") {
-      const myRank = (auth.policeRank || "OFFICER") as PoliceRank;
+      const myRank = (auth.policeRank || "VIEWER") as PoliceRank;
       const myLevel = RANK_HIERARCHY[myRank] || 0;
       const requestedLevel = RANK_HIERARCHY[requestedRank] || 0;
 
-      if (requestedLevel >= RANK_HIERARCHY[myRank]) {
+      if (requestedLevel >= myLevel) {
         return NextResponse.json(
           { error: `Cannot create a police account with ${RANK_LABELS[requestedRank]} rank. You can only create ranks below ${RANK_LABELS[myRank]}.` },
           { status: 403 }
@@ -169,8 +171,9 @@ export async function POST(req: NextRequest) {
 /**
  * PUT /api/police-officers — Update officer (rank, name, password)
  * - SUPERUSER: can update any officer
- * - POLICE ADMIN: can update any officer
- * - POLICE DETECTIVE: can update OFFICER/VIEWER only (cannot promote to DETECTIVE or above)
+ * - POLICE ADMIN: can update any officer below ADMIN
+ * - POLICE DETECTIVE: can update OFFICER/VIEWER only
+ * - POLICE OFFICER: can update VIEWER only
  */
 export async function PUT(req: NextRequest) {
   try {
@@ -180,7 +183,7 @@ export async function PUT(req: NextRequest) {
       // SUPERUSER has full rights
     } else if (auth.role === "POLICE") {
       requirePolice(auth);
-      requirePoliceMinRank(auth, "DETECTIVE");
+      requirePoliceMinRank(auth, "OFFICER");
     } else {
       return NextResponse.json(
         { error: "Access denied" },
@@ -212,13 +215,13 @@ export async function PUT(req: NextRequest) {
 
     // Update rank
     if (policeRank && Object.values(POLICE_RANKS).includes(policeRank)) {
-      // DETECTIVE cannot set rank to DETECTIVE or above
+      // Can only assign ranks below your own
       if (auth.role === "POLICE") {
-        const myRank = (auth.policeRank || "OFFICER") as PoliceRank;
+        const myRank = (auth.policeRank || "VIEWER") as PoliceRank;
         const myLevel = RANK_HIERARCHY[myRank] || 0;
         const requestedLevel = RANK_HIERARCHY[policeRank as PoliceRank] || 0;
 
-        if (requestedLevel >= RANK_HIERARCHY[myRank]) {
+        if (requestedLevel >= myLevel) {
           return NextResponse.json(
             { error: `Cannot set rank to ${RANK_LABELS[policeRank as PoliceRank]}. You can only assign ranks below ${RANK_LABELS[myRank]}.` },
             { status: 403 }
@@ -269,8 +272,9 @@ export async function PUT(req: NextRequest) {
 /**
  * DELETE /api/police-officers — Delete officer
  * - SUPERUSER: can delete any officer
- * - POLICE ADMIN: can delete any officer except themselves
+ * - POLICE ADMIN: can delete any officer below ADMIN (except themselves)
  * - POLICE DETECTIVE: can delete OFFICER/VIEWER only
+ * - POLICE OFFICER: can delete VIEWER only
  */
 export async function DELETE(req: NextRequest) {
   try {
@@ -280,7 +284,7 @@ export async function DELETE(req: NextRequest) {
       // SUPERUSER has full rights
     } else if (auth.role === "POLICE") {
       requirePolice(auth);
-      requirePoliceMinRank(auth, "DETECTIVE");
+      requirePoliceMinRank(auth, "OFFICER");
     } else {
       return NextResponse.json(
         { error: "Access denied" },
@@ -307,9 +311,9 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Officer not found" }, { status: 404 });
     }
 
-    // DETECTIVE cannot delete ADMIN or DETECTIVE
+    // Can only delete ranks below your own
     if (auth.role === "POLICE") {
-      const myRank = (auth.policeRank || "OFFICER") as PoliceRank;
+      const myRank = (auth.policeRank || "VIEWER") as PoliceRank;
       const myLevel = RANK_HIERARCHY[myRank] || 0;
       const targetLevel = RANK_HIERARCHY[officer.policeRank as PoliceRank] || 0;
 
