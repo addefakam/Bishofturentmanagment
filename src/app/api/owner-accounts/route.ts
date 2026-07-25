@@ -21,13 +21,14 @@ export async function GET(req: NextRequest) {
         status: true,
         createdAt: true,
         users: {
-          where: { role: "SUPERUSER" },
+          where: { role: { in: ["SUPERUSER", "OPERATOR"] } },
           select: {
             id: true,
             username: true,
             name: true,
             role: true,
             providerId: true,
+            permissions: true,
             createdAt: true,
           },
         },
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    // Fetch all POLICE user accounts
+    // Fetch all POLICE user accounts (with rank info)
     const policeUsers = await db.user.findMany({
       where: { role: "POLICE" },
       select: {
@@ -43,6 +44,8 @@ export async function GET(req: NextRequest) {
         username: true,
         name: true,
         role: true,
+        policeRank: true,
+        permissions: true,
         providerId: true,
         createdAt: true,
       },
