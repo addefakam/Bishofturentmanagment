@@ -17,10 +17,11 @@ import {
 } from "@/components/ui/select";
 import {
   MapPin, AlertTriangle, BarChart3, Activity, TrendingUp, RefreshCw, FileDown, Loader2,
+  Building2, Users, BedDouble, Phone, ShieldAlert, ChevronDown, ChevronUp,
+  Globe, Crosshair,
 } from "lucide-react";
-import dynamic from "next/dynamic";
-
-const MapView = dynamic(() => import("./intelligence-map"), { ssr: false, loading: () => <Skeleton className="h-[400px] w-full rounded-xl" /> });
+import { usePagination } from "@/hooks/use-pagination";
+import { PaginationControls } from "@/components/shared/pagination-controls";
 
 interface HotspotItem { providerName: string; providerId: string; matchCount: number; criticalCount: number; highCount: number; lastMatchDate: string | null; address: string; latitude: number; longitude: number; guestCount: number; roomCount: number; hasCoordinates: boolean; }
 interface ProviderLocation { id: string; name: string; address: string; latitude: number; longitude: number; type: string; phone: string; guestCount: number; roomCount: number; matchCount: number; criticalCount: number; highCount: number; hasCoordinates: boolean; }
@@ -60,11 +61,35 @@ function buildYearOptions() {
 
 const YEAR_OPTIONS = buildYearOptions();
 
+// Severity helpers
+function getSeverity(p: { criticalCount: number; highCount: number; matchCount: number }) {
+  if (p.criticalCount > 0) return "CRITICAL";
+  if (p.highCount > 0) return "HIGH";
+  if (p.matchCount > 0) return "MEDIUM";
+  return "NONE";
+}
+
+function getRiskScore(p: { matchCount: number; criticalCount: number; highCount: number }) {
+  return p.matchCount * 1 + p.criticalCount * 5 + p.highCount * 3;
+}
+
+const SEVERITY_CONFIG: Record<string, { bg: string; text: string; border: string; label: string }> = {
+  CRITICAL: { bg: "bg-red-100", text: "text-red-800", border: "border-red-200", label: "Critical" },
+  HIGH: { bg: "bg-orange-100", text: "text-orange-800", border: "border-orange-200", label: "High" },
+  MEDIUM: { bg: "bg-amber-100", text: "text-amber-800", border: "border-amber-200", label: "Medium" },
+  NONE: { bg: "bg-slate-100", text: "text-slate-600", border: "border-slate-200", label: "No Alerts" },
+};
+
 export default function PoliceIntelligencePage() {
   const { refreshKey } = useAppStore();
   const [data, setData] = useState<{ frequentStays: FreqStayItem[]; hotspotData: HotspotItem[]; allProviderLocations: ProviderLocation[]; occupancyCrimeCorrelation: MonthlyItem[]; recentActivity: AuditItem[] } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"map" | "charts" | "frequent" | "audit">("map");
+  const [activeTab, setActiveTab] = useState<"hotspots" | "charts" | "frequent" | "audit">("hotspots");
+
+  // Hotspot tab state
+  const [hotspotFilter, setHotspotFilter] = useState<string>("ALL");
+  const [hotspotSearch, setHotspotSearch] = useState("");
+  const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
 
   // Report modal state
   const [reportOpen, setReportOpen] = useState(false);
@@ -72,6 +97,9 @@ export default function PoliceIntelligencePage() {
   const [reportYear, setReportYear] = useState(String(new Date().getFullYear()));
   const [reportGenerating, setReportGenerating] = useState(false);
   const reportLinkRef = useRef<HTMLAnchorElement | null>(null);
+
+  // Hotspot pagination
+  const hotspotPag = usePagination({ totalItems: 0, initialPageSize: 12, pageSizeOptions: [6, 12, 24, 48] });
 
   const fetchData = useCallback(async () => {
     try {
@@ -86,6 +114,32 @@ export default function PoliceIntelligencePage() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData, refreshKey]);
+
+  // Filtered hotspot providers
+  const filteredHotspots = (() => {
+    if (!data) return [];
+    let list = data.allProviderLocations || [];
+    if (hotspotFilter !== "ALL") {
+      list = list.filter((p) => getSeverity(p) === hotspotFilter);
+    }
+    if (hotspotSearch.trim()) {
+      const q = hotspotSearch.toLowerCase();
+      list = list.filter((p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.address.toLowerCase().includes(q) ||
+        p.type.toLowerCase().includes(q) ||
+        p.phone.includes(q)
+      );
+    }
+    return list.sort((a, b) => getRiskScore(b) - getRiskScore(a));
+  })();
+
+  // Update pagination when filter changes
+  useEffect(() => {
+    hotspotPag.setTotalItems?.(filteredHotspots.length);
+  }, [filteredHotspots.length]);
+
+  const paginatedHotspots = hotspotPag.paginate(filteredHotspots);
 
   const handleDownloadReport = async () => {
     try {
@@ -110,8 +164,21 @@ export default function PoliceIntelligencePage() {
     }
   };
 
+  // Summary stats
+  const hotspotStats = (() => {
+    if (!data) return { total: 0, withAlerts: 0, critical: 0, totalMatches: 0, totalGuests: 0 };
+    const all = data.allProviderLocations;
+    return {
+      total: all.length,
+      withAlerts: all.filter((p) => p.matchCount > 0).length,
+      critical: all.filter((p) => p.criticalCount > 0).length,
+      totalMatches: all.reduce((s, p) => s + p.matchCount, 0),
+      totalGuests: all.reduce((s, p) => s + p.guestCount, 0),
+    };
+  })();
+
   const tabs = [
-    { key: "map" as const, label: "Crime Hotspot Map", icon: MapPin },
+    { key: "hotspots" as const, label: "Crime Hotspots", icon: MapPin },
     { key: "charts" as const, label: "Analytics", icon: BarChart3 },
     { key: "frequent" as const, label: "Frequent Stays", icon: AlertTriangle },
     { key: "audit" as const, label: "Activity Log", icon: Activity },
@@ -123,7 +190,7 @@ export default function PoliceIntelligencePage() {
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-base sm:text-lg font-semibold">Intelligence Center</h2>
-          <p className="text-xs sm:text-sm text-muted-foreground">Crime analytics, hotspot mapping, and pattern detection</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Crime analytics, hotspot analysis, and pattern detection</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setReportOpen(true)}>
@@ -208,8 +275,244 @@ export default function PoliceIntelligencePage() {
         <Card><CardContent className="py-12 text-center"><p className="text-muted-foreground">No intelligence data available</p></CardContent></Card>
       ) : (
         <>
-          {/* Crime Hotspot Map */}
-          {activeTab === "map" && <MapView allProviders={data.allProviderLocations || []} />}
+          {/* Crime Hotspots - Full Information Display */}
+          {activeTab === "hotspots" && (
+            <div className="space-y-4">
+              {/* Summary Stats */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {[
+                  { label: "Providers", value: hotspotStats.total, icon: Building2, color: "text-indigo-600", bg: "bg-indigo-50" },
+                  { label: "With Alerts", value: hotspotStats.withAlerts, icon: AlertTriangle, color: "text-amber-600", bg: "bg-amber-50" },
+                  { label: "Critical", value: hotspotStats.critical, icon: ShieldAlert, color: "text-red-600", bg: "bg-red-50" },
+                  { label: "Total Matches", value: hotspotStats.totalMatches, icon: MapPin, color: "text-orange-600", bg: "bg-orange-50" },
+                  { label: "Total Guests", value: hotspotStats.totalGuests, icon: Users, color: "text-sky-600", bg: "bg-sky-50" },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-lg border bg-card p-2.5">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <div className={`flex h-6 w-6 items-center justify-center rounded-md ${s.bg}`}>
+                        <s.icon className={`h-3.5 w-3.5 ${s.color}`} />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">{s.label}</span>
+                    </div>
+                    <p className="text-lg font-bold">{s.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Filters */}
+              <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                <div className="flex gap-1 flex-wrap">
+                  {["ALL", "CRITICAL", "HIGH", "MEDIUM", "NONE"].map((sev) => (
+                    <button
+                      key={sev}
+                      onClick={() => setHotspotFilter(sev)}
+                      className={`px-2.5 py-1 text-[10px] font-medium rounded-md border transition-colors ${
+                        hotspotFilter === sev
+                          ? "bg-foreground text-background border-foreground"
+                          : "bg-card text-muted-foreground border-border hover:bg-muted"
+                      }`}
+                    >
+                      {sev === "NONE" ? "No Alerts" : sev === "ALL" ? "All" : sev}
+                      {sev !== "ALL" && sev !== "NONE" && (
+                        <span className="ml-1">
+                          ({(data.allProviderLocations || []).filter((p) => getSeverity(p) === sev).length})
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex-1 w-full sm:w-auto">
+                  <div className="relative">
+                    <MapPin className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder="Search by name, address, type, or phone..."
+                      value={hotspotSearch}
+                      onChange={(e) => setHotspotSearch(e.target.value)}
+                      className="w-full h-8 pl-8 pr-3 text-xs rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                  </div>
+                </div>
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                  {filteredHotspots.length} guesthouse{filteredHotspots.length !== 1 ? "s" : ""} found
+                </span>
+              </div>
+
+              {/* Guesthouse Cards */}
+              {paginatedHotspots.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <Building2 className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
+                    <p className="text-sm text-muted-foreground">No guesthouses match the current filter</p>
+                    <p className="text-xs text-muted-foreground mt-1">Try adjusting the severity filter or search query</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {paginatedHotspots.map((p) => {
+                    const sev = getSeverity(p);
+                    const sevCfg = SEVERITY_CONFIG[sev] || SEVERITY_CONFIG.NONE;
+                    const isExpanded = expandedProvider === p.id;
+
+                    return (
+                      <Card
+                        key={p.id}
+                        className={`overflow-hidden transition-all hover:shadow-md ${
+                          p.matchCount > 0 ? "border-l-4" : ""
+                        }`}
+                        style={{
+                          borderLeftColor: sev === "CRITICAL" ? "#dc2626" : sev === "HIGH" ? "#ea580c" : sev === "MEDIUM" ? "#d97706" : p.matchCount > 0 ? "#6366f1" : undefined,
+                        }}
+                      >
+                        {/* Card Header */}
+                        <div className="p-3 pb-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+                                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-semibold truncate">{p.name}</p>
+                                  <p className="text-[10px] text-muted-foreground capitalize">{p.type || "Guesthouse"}</p>
+                                </div>
+                              </div>
+                            </div>
+                            <Badge variant="outline" className={`text-[9px] shrink-0 ${sevCfg.bg} ${sevCfg.text} ${sevCfg.border}`}>
+                              {sevCfg.label}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        {/* Quick Stats Row */}
+                        <div className="px-3 pb-2">
+                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <MapPin className="h-2.5 w-2.5 shrink-0" />
+                            <span className="truncate">{p.address || "No address set"}</span>
+                          </div>
+                        </div>
+
+                        <div className="px-3 pb-2">
+                          <div className="grid grid-cols-4 gap-1.5">
+                            <div className="text-center rounded-md bg-muted/50 p-1.5">
+                              <p className="text-sm font-bold">{p.guestCount}</p>
+                              <p className="text-[8px] text-muted-foreground">Guests</p>
+                            </div>
+                            <div className="text-center rounded-md bg-muted/50 p-1.5">
+                              <p className="text-sm font-bold">{p.roomCount}</p>
+                              <p className="text-[8px] text-muted-foreground">Rooms</p>
+                            </div>
+                            <div className="text-center rounded-md bg-muted/50 p-1.5">
+                              <p className={`text-sm font-bold ${p.matchCount > 0 ? "text-red-600" : ""}`}>{p.matchCount}</p>
+                              <p className="text-[8px] text-muted-foreground">Matches</p>
+                            </div>
+                            <div className="text-center rounded-md bg-muted/50 p-1.5">
+                              <p className={`text-sm font-bold ${p.criticalCount > 0 ? "text-red-700" : p.highCount > 0 ? "text-orange-600" : ""}`}>
+                                {p.criticalCount + p.highCount}
+                              </p>
+                              <p className="text-[8px] text-muted-foreground">High/Crit</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Expand/Collapse Button */}
+                        <button
+                          onClick={() => setExpandedProvider(isExpanded ? null : p.id)}
+                          className="w-full flex items-center justify-center gap-1 px-3 py-1.5 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 border-t transition-colors"
+                        >
+                          {isExpanded ? (
+                            <><ChevronUp className="h-3 w-3" /> Less Details</>
+                          ) : (
+                            <><ChevronDown className="h-3 w-3" /> Full Details</>
+                          )}
+                        </button>
+
+                        {/* Expanded Details */}
+                        {isExpanded && (
+                          <div className="px-3 pb-3 pt-2 border-t bg-muted/20 space-y-2">
+                            {/* Contact & Location */}
+                            <div className="space-y-1.5">
+                              <div className="flex items-center gap-2 text-xs">
+                                <Phone className="h-3 w-3 text-muted-foreground shrink-0" />
+                                <span>{p.phone || "No phone"}</span>
+                              </div>
+                              <div className="flex items-start gap-2 text-xs">
+                                <Globe className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
+                                <span>{p.address || "No address on file"}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs">
+                                <Crosshair className="h-3 w-3 text-muted-foreground shrink-0" />
+                                <span className="font-mono text-[10px]">
+                                  {p.hasCoordinates
+                                    ? `${p.latitude.toFixed(4)}, ${p.longitude.toFixed(4)}`
+                                    : "Coordinates not set"}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Match Breakdown */}
+                            {p.matchCount > 0 && (
+                              <div className="rounded-md border p-2 bg-red-50/50 border-red-100">
+                                <p className="text-[10px] font-semibold text-red-700 mb-1.5">Alert Breakdown</p>
+                                <div className="flex gap-3">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="h-2 w-2 rounded-full bg-red-500" />
+                                    <span className="text-[10px]">Critical: <strong>{p.criticalCount}</strong></span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="h-2 w-2 rounded-full bg-orange-500" />
+                                    <span className="text-[10px]">High: <strong>{p.highCount}</strong></span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="h-2 w-2 rounded-full bg-amber-500" />
+                                    <span className="text-[10px]">Total: <strong>{p.matchCount}</strong></span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Risk Score Bar */}
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[10px] text-muted-foreground">Risk Score</span>
+                                <span className="text-[10px] font-bold">
+                                  {p.matchCount === 0 ? "0" : getRiskScore(p)}
+                                </span>
+                              </div>
+                              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${
+                                    sev === "CRITICAL" ? "bg-red-500" : sev === "HIGH" ? "bg-orange-500" : sev === "MEDIUM" ? "bg-amber-500" : "bg-indigo-400"
+                                  }`}
+                                  style={{
+                                    width: p.matchCount === 0 ? "0%" : `${Math.min(100, (getRiskScore(p) / Math.max(1, hotspotStats.totalMatches > 0 ? hotspotStats.totalMatches : 1)) * 100)}%`,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Pagination */}
+              {filteredHotspots.length > 0 && (
+                <PaginationControls
+                  currentPage={hotspotPag.currentPage}
+                  totalPages={hotspotPag.totalPages}
+                  pageSize={hotspotPag.pageSize}
+                  pageSizeOptions={hotspotPag.pageSizeOptions}
+                  totalItems={filteredHotspots.length}
+                  rangeInfo={hotspotPag.rangeInfo}
+                  goToPage={hotspotPag.goToPage}
+                  setPageSize={hotspotPag.setPageSize}
+                />
+              )}
+            </div>
+          )}
 
           {/* Analytics Charts */}
           {activeTab === "charts" && (
