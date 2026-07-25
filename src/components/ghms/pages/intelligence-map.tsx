@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { headers } from "@/lib/api";
+import { getHeaders } from "@/lib/api";
 import {
   MapPin, Building2, AlertTriangle, Filter, X, Users, BedDouble,
   ChevronDown, ChevronUp, Crosshair,
@@ -194,7 +194,7 @@ export default function IntelligenceMap({ allProviders }: IntelligenceMapProps) 
     const layer = geofenceLayerRef.current;
     layer.clearLayers();
     if (!showGeofences) return;
-    fetch("/api/police-geofences", { headers: headers() })
+    fetch("/api/police-geofences", { headers: getHeaders() })
       .then((r) => r.json())
       .then((geofences: Array<{ id: string; name: string; latitude: number; longitude: number; radius: number; severity: string; isActive: boolean }>) => {
         const geofColors: Record<string, string> = { CRITICAL: "#dc2626", HIGH: "#ea580c", MEDIUM: "#eab308", LOW: "#22c55e" };

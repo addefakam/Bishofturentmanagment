@@ -1,6 +1,6 @@
 import { useAppStore } from "./store";
 
-export function headers(): Record<string, string> {
+export function getHeaders(): Record<string, string> {
   const user = useAppStore.getState().currentUser;
   return {
     "Content-Type": "application/json",
@@ -16,7 +16,7 @@ export function headers(): Record<string, string> {
 }
 
 async function req(url: string, opts: RequestInit = {}) {
-  const res = await fetch(url, { ...opts, headers: { ...headers(), ...opts.headers } });
+  const res = await fetch(url, { ...opts, headers: { ...getHeaders(), ...opts.headers } });
   if (!res.ok) {
     const t = await res.text().catch(() => "");
     throw new Error(t || `Request failed: ${res.status}`);
@@ -215,7 +215,7 @@ export const apiPoliceExport = (q: string) => req(`/api/police-export?${q}`);
 
 // Police Report (HTML)
 export const apiPoliceReport = (month: number, year: number) =>
-  fetch(`/api/police-report?month=${month}&year=${year}`, { headers: headers() }).then(async (res) => {
+  fetch(`/api/police-report?month=${month}&year=${year}`, { headers: getHeaders() }).then(async (res) => {
     if (!res.ok) {
       const t = await res.text().catch(() => "");
       throw new Error(t || `Report generation failed: ${res.status}`);
