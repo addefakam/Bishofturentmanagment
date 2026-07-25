@@ -1,6 +1,6 @@
 import { useAppStore } from "./store";
 
-function headers(): Record<string, string> {
+export function headers(): Record<string, string> {
   const user = useAppStore.getState().currentUser;
   return {
     "Content-Type": "application/json",
