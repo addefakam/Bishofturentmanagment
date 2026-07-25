@@ -4,12 +4,13 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { usePagination } from "@/hooks/use-pagination";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import { useAppStore } from "@/lib/store";
-import { apiGetProviders, apiUpdateProvider } from "@/lib/api";
+import { apiGetProviders, apiUpdateProvider, apiGeocodeAddress, apiGeocodeBatch } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -51,7 +52,17 @@ import {
   Calendar,
   ShieldCheck,
   User,
+  Globe,
+  MapPinned,
+  RefreshCw,
+  Crosshair,
 } from "lucide-react";
+import dynamic from "next/dynamic";
+
+const CoordinatePicker = dynamic(() => import("@/components/shared/coordinate-picker"), {
+  ssr: false,
+  loading: () => <Skeleton className="h-[250px] w-full rounded-lg" />,
+});
 
 interface Provider {
   id: string;
@@ -67,6 +78,8 @@ interface Provider {
   approvedBy: string | null;
   approvedAt: string | null;
   rejectionReason: string;
+  latitude: number;
+  longitude: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -100,6 +113,19 @@ export default function ProvidersPage() {
   const [loading, setLoading] = useState(true);
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+
+  // Coordinate editing
+  const [coordProvider, setCoordProvider] = useState<Provider | null>(null);
+  const [coordOpen, setCoordOpen] = useState(false);
+  const [editLat, setEditLat] = useState(9.02);
+  const [editLng, setEditLng] = useState(38.75);
+  const [savingCoord, setSavingCoord] = useState(false);
+  const [geocodingOne, setGeocodingOne] = useState(false);
+
+  // Batch geocode
+  const [geocodingAll, setGeocodingAll] = useState(false);
+  const [batchResult, setBatchResult] = useState<{ updated: number; failed: number; total: number; results?: any[] } | null>(null);
+  const [batchOpen, setBatchOpen] = useState(false);
 
   // Action dialogs
   const [rejectDialog, setRejectDialog] = useState<Provider | null>(null);
@@ -135,6 +161,64 @@ export default function ProvidersPage() {
   const openReject = (provider: Provider) => {
     setRejectDialog(provider);
     setRejectReason("");
+  };
+
+  const openCoordPicker = (provider: Provider) => {
+    setCoordProvider(provider);
+    setEditLat(provider.latitude || 9.02);
+    setEditLng(provider.longitude || 38.75);
+    setCoordOpen(true);
+  };
+
+  const geocodeSingle = async () => {
+    if (!coordProvider || !coordProvider.address) {
+      toast.error("Provider has no address to geocode");
+      return;
+    }
+    try {
+      setGeocodingOne(true);
+      const result: any = await apiGeocodeAddress(coordProvider.address);
+      if (result.lat && result.lng) {
+        setEditLat(result.lat);
+        setEditLng(result.lng);
+        toast.success(`Found: ${result.lat.toFixed(4)}, ${result.lng.toFixed(4)}`);
+      } else {
+        toast.error("Could not find coordinates for this address");
+      }
+    } catch {
+      toast.error("Geocoding failed");
+    } finally {
+      setGeocodingOne(false);
+    }
+  };
+
+  const saveCoordinates = async () => {
+    if (!coordProvider) return;
+    try {
+      setSavingCoord(true);
+      await apiUpdateProvider(coordProvider.id, { status: coordProvider.status, latitude: editLat, longitude: editLng });
+      toast.success("Coordinates updated");
+      setCoordOpen(false);
+      triggerRefresh();
+    } catch {
+      toast.error("Failed to save coordinates");
+    } finally {
+      setSavingCoord(false);
+    }
+  };
+
+  const batchGeocode = async () => {
+    try {
+      setGeocodingAll(true);
+      const result: any = await apiGeocodeBatch();
+      setBatchResult(result);
+      toast.success(result.message || `Geocoded ${result.updated} providers`);
+      triggerRefresh();
+    } catch {
+      toast.error("Batch geocoding failed");
+    } finally {
+      setGeocodingAll(false);
+    }
   };
 
   const handleReject = async () => {
@@ -183,11 +267,14 @@ export default function ProvidersPage() {
 
   const approvedCount = providers.filter((p) => p.status === "APPROVED").length;
   const pendingCount = providers.filter((p) => p.status === "PENDING").length;
+  const withCoords = providers.filter(
+    (p) => p.latitude !== 9.02 || p.longitude !== 38.75,
+  ).length;
 
   return (
     <div className="space-y-4 p-3 sm:p-4 md:p-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
         <div className="rounded-xl border bg-card p-3 sm:p-4 shadow-sm">
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-slate-100">
@@ -221,17 +308,35 @@ export default function ProvidersPage() {
             </div>
           </div>
         </div>
+        <div className="rounded-xl border bg-card p-3 sm:p-4 shadow-sm">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-blue-50">
+              <MapPinned className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-[10px] sm:text-sm text-muted-foreground">With Coords</p>
+              <p className="text-lg sm:text-2xl font-bold text-blue-600">{withCoords}/{providers.length}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Providers — Cards on mobile, Table on lg+ */}
-      <div className="rounded-xl border bg-card shadow-sm">
-        <div className="border-b px-4 py-3 sm:px-6 sm:py-4">
+      {/* Geocode All Button */}
+      <div className="flex items-center justify-between">
+        <div>
           <h2 className="text-base sm:text-lg font-semibold">Provider Applications</h2>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            Manage registrations and licensing
-          </p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Manage registrations, licensing, and map locations</p>
         </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setBatchOpen(true)} disabled={geocodingAll}>
+            <Globe className={`mr-1 h-3.5 w-3.5 ${geocodingAll ? "animate-spin" : ""}`} />
+            {geocodingAll ? "Geocoding..." : "Geocode All"}
+          </Button>
+        </div>
+      </div>
 
+      {/* Providers Table/Cards */}
+      <div className="rounded-xl border bg-card shadow-sm">
         {loading ? (
           <div className="space-y-3 p-4 sm:p-6">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -250,67 +355,51 @@ export default function ProvidersPage() {
               {paginatedProviders.map((provider) => (
                 <div key={provider.id} className="p-3 sm:p-4">
                   <div className="flex items-start justify-between gap-2">
-                    <button
-                      className="min-w-0 flex-1 text-left"
-                      onClick={() => openDetail(provider)}
-                    >
+                    <button className="min-w-0 flex-1 text-left" onClick={() => openDetail(provider)}>
                       <div className="flex items-center gap-2">
                         <p className="truncate text-sm font-medium">{provider.name}</p>
                         <StatusBadge status={provider.status} />
                       </div>
                       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <User className="h-3 w-3" /> {provider.ownerName}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" /> {provider.phone}
-                        </span>
+                        <span className="flex items-center gap-1"><User className="h-3 w-3" /> {provider.ownerName}</span>
+                        <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> {provider.phone}</span>
                       </div>
-                      <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
-                        <span className="rounded bg-slate-100 px-1.5 py-0.5 font-medium">
-                          {provider.type.replace(/_/g, " ")}
-                        </span>
-                        {provider.licenseNo && (
-                          <span className="font-mono">Lic: {provider.licenseNo}</span>
+                      {provider.address && (
+                        <div className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <MapPin className="h-3 w-3" /> {provider.address}
+                        </div>
+                      )}
+                      <div className="mt-1 flex items-center gap-2 text-[10px]">
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 font-medium">{provider.type.replace(/_/g, " ")}</span>
+                        {(provider.latitude !== 9.02 || provider.longitude !== 38.75) ? (
+                          <span className="flex items-center gap-0.5 text-emerald-600"><Crosshair className="h-2.5 w-2.5" /> {provider.latitude.toFixed(4)}, {provider.longitude.toFixed(4)}</span>
+                        ) : (
+                          <span className="text-muted-foreground">No coordinates</span>
                         )}
                       </div>
                     </button>
                   </div>
 
-                  {/* Action buttons — always visible on mobile */}
-                  <div className="mt-2.5 flex items-center gap-1.5 border-t pt-2.5">
-                    <button
-                      className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 active:bg-slate-200 sm:hidden"
-                      onClick={() => openDetail(provider)}
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                      Details
+                  <div className="mt-2.5 flex items-center gap-1.5 border-t pt-2.5 flex-wrap">
+                    <button className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100" onClick={() => openDetail(provider)}>
+                      <Eye className="h-3.5 w-3.5" /> Details
+                    </button>
+                    <button className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50" onClick={() => openCoordPicker(provider)}>
+                      <MapPinned className="h-3.5 w-3.5" /> Set Location
                     </button>
                     {provider.status !== "APPROVED" && (
-                      <button
-                        className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 active:bg-emerald-100"
-                        onClick={() => setConfirmAction({ provider, action: "APPROVED" })}
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        <span className="hidden xs:inline">Approve</span>
+                      <button className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50" onClick={() => setConfirmAction({ provider, action: "APPROVED" })}>
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Approve
                       </button>
                     )}
                     {provider.status !== "REJECTED" && (
-                      <button
-                        className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 active:bg-red-100"
-                        onClick={() => openReject(provider)}
-                      >
-                        <XCircle className="h-3.5 w-3.5" />
-                        <span className="hidden xs:inline">Reject</span>
+                      <button className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50" onClick={() => openReject(provider)}>
+                        <XCircle className="h-3.5 w-3.5" /> Reject
                       </button>
                     )}
                     {provider.status === "APPROVED" && (
-                      <button
-                        className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-orange-600 hover:bg-orange-50 active:bg-orange-100"
-                        onClick={() => setConfirmAction({ provider, action: "SUSPENDED" })}
-                      >
-                        <Ban className="h-3.5 w-3.5" />
-                        Suspend
+                      <button className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-orange-600 hover:bg-orange-50" onClick={() => setConfirmAction({ provider, action: "SUSPENDED" })}>
+                        <Ban className="h-3.5 w-3.5" /> Suspend
                       </button>
                     )}
                   </div>
@@ -324,68 +413,49 @@ export default function ProvidersPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Provider Name</TableHead>
+                    <TableHead>Address</TableHead>
                     <TableHead>Owner</TableHead>
                     <TableHead>Phone</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>License No</TableHead>
+                    <TableHead>Coordinates</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedProviders.map((provider) => (
-                    <TableRow
-                      key={provider.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => openDetail(provider)}
-                    >
+                    <TableRow key={provider.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openDetail(provider)}>
                       <TableCell className="font-medium">{provider.name}</TableCell>
+                      <TableCell className="max-w-[150px] truncate text-xs">{provider.address || "—"}</TableCell>
                       <TableCell>{provider.ownerName}</TableCell>
                       <TableCell>{provider.phone}</TableCell>
-                      <TableCell className="max-w-[180px] truncate">{provider.email || "—"}</TableCell>
                       <TableCell>
-                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium">
-                          {provider.type.replace(/_/g, " ")}
-                        </span>
+                        {(provider.latitude !== 9.02 || provider.longitude !== 38.75) ? (
+                          <span className="flex items-center gap-1 text-[10px] font-mono text-emerald-600">
+                            <Crosshair className="h-3 w-3" /> {provider.latitude.toFixed(4)}, {provider.longitude.toFixed(4)}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">Not set</span>
+                        )}
                       </TableCell>
-                      <TableCell className="font-mono text-sm">{provider.licenseNo || "—"}</TableCell>
-                      <TableCell>
-                        <StatusBadge status={provider.status} />
-                      </TableCell>
+                      <TableCell><StatusBadge status={provider.status} /></TableCell>
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
+                          <Button size="sm" variant="ghost" className="h-8 text-blue-600 hover:bg-blue-50" onClick={() => openCoordPicker(provider)}>
+                            <MapPinned className="mr-1 h-3.5 w-3.5" /> Location
+                          </Button>
                           {provider.status !== "APPROVED" && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
-                              onClick={() => setConfirmAction({ provider, action: "APPROVED" })}
-                            >
-                              <CheckCircle2 className="mr-1 h-4 w-4" />
-                              Approve
+                            <Button size="sm" variant="ghost" className="h-8 text-emerald-600 hover:bg-emerald-50" onClick={() => setConfirmAction({ provider, action: "APPROVED" })}>
+                              <CheckCircle2 className="mr-1 h-4 w-4" /> Approve
                             </Button>
                           )}
                           {provider.status !== "REJECTED" && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 text-red-600 hover:bg-red-50 hover:text-red-700"
-                              onClick={() => openReject(provider)}
-                            >
-                              <XCircle className="mr-1 h-4 w-4" />
-                              Reject
+                            <Button size="sm" variant="ghost" className="h-8 text-red-600 hover:bg-red-50" onClick={() => openReject(provider)}>
+                              <XCircle className="mr-1 h-4 w-4" /> Reject
                             </Button>
                           )}
                           {provider.status === "APPROVED" && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
-                              onClick={() => setConfirmAction({ provider, action: "SUSPENDED" })}
-                            >
-                              <Ban className="mr-1 h-4 w-4" />
-                              Suspend
+                            <Button size="sm" variant="ghost" className="h-8 text-orange-600 hover:bg-orange-50" onClick={() => setConfirmAction({ provider, action: "SUSPENDED" })}>
+                              <Ban className="mr-1 h-4 w-4" /> Suspend
                             </Button>
                           )}
                         </div>
@@ -399,27 +469,23 @@ export default function ProvidersPage() {
         )}
       </div>
 
-      {/* Pagination Controls */}
-      {!loading && providers.length > 0 && (
-        <PaginationControls
-          currentPage={pagination.currentPage}
-          totalPages={pagination.totalPages}
-          pageSize={pagination.pageSize}
-          pageSizeOptions={pagination.pageSizeOptions}
-          totalItems={providers.length}
-          rangeInfo={pagination.rangeInfo}
-          goToPage={pagination.goToPage}
-          setPageSize={pagination.setPageSize}
-        />
-      )}
+      <PaginationControls
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        pageSize={pagination.pageSize}
+        pageSizeOptions={pagination.pageSizeOptions}
+        totalItems={providers.length}
+        rangeInfo={pagination.rangeInfo}
+        goToPage={pagination.goToPage}
+        setPageSize={pagination.setPageSize}
+      />
 
-      {/* Provider Detail Dialog — mobile optimized */}
+      {/* Provider Detail Dialog */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto mx-4 sm:mx-0 w-[calc(100%-2rem)] sm:w-full">
           <DialogHeader>
             <DialogTitle className="flex flex-wrap items-center gap-2 text-base sm:text-lg">
-              <Building2 className="h-5 w-5" />
-              {selectedProvider?.name}
+              <Building2 className="h-5 w-5" /> {selectedProvider?.name}
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">Registration details</DialogDescription>
           </DialogHeader>
@@ -427,13 +493,12 @@ export default function ProvidersPage() {
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <StatusBadge status={selectedProvider.status} />
-                <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium">
-                  {selectedProvider.type.replace(/_/g, " ")}
-                </span>
+                <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium">{selectedProvider.type.replace(/_/g, " ")}</span>
+                {(selectedProvider.latitude !== 9.02 || selectedProvider.longitude !== 38.75) && (
+                  <span className="flex items-center gap-1 text-[10px] text-emerald-600"><Crosshair className="h-3 w-3" /> {selectedProvider.latitude.toFixed(4)}, {selectedProvider.longitude.toFixed(4)}</span>
+                )}
               </div>
-
               <Separator />
-
               <div className="space-y-3 text-sm">
                 <div className="flex items-center gap-2.5">
                   <User className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -493,27 +558,25 @@ export default function ProvidersPage() {
                   </div>
                 )}
               </div>
-
-              {selectedProvider.licenseFile && (
-                <a
-                  href={selectedProvider.licenseFile}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs sm:text-sm font-medium text-primary hover:bg-muted transition-colors"
-                >
-                  <FileText className="h-4 w-4" />
-                  View License File
-                </a>
-              )}
-
+              <div className="flex gap-2">
+                {selectedProvider.status === "APPROVED" && (
+                  <Button size="sm" variant="outline" onClick={() => { setDetailOpen(false); openCoordPicker(selectedProvider); }}>
+                    <MapPinned className="mr-1 h-3.5 w-3.5" /> Set Map Location
+                  </Button>
+                )}
+                {selectedProvider.licenseFile && (
+                  <a href={selectedProvider.licenseFile} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs sm:text-sm font-medium text-primary hover:bg-muted">
+                    <FileText className="h-4 w-4" /> View License
+                  </a>
+                )}
+              </div>
               {selectedProvider.rejectionReason && (
                 <>
                   <Separator />
                   <div className="space-y-1.5">
                     <Label className="text-red-600 text-xs">Rejection Reason</Label>
-                    <p className="rounded-lg bg-red-50 p-3 text-xs sm:text-sm text-red-800">
-                      {selectedProvider.rejectionReason}
-                    </p>
+                    <p className="rounded-lg bg-red-50 p-3 text-xs sm:text-sm text-red-800">{selectedProvider.rejectionReason}</p>
                   </div>
                 </>
               )}
@@ -522,13 +585,134 @@ export default function ProvidersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Reject Dialog — mobile optimized */}
+      {/* Coordinate Picker Dialog */}
+      <Dialog open={coordOpen} onOpenChange={setCoordOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4 sm:mx-0 w-[calc(100%-2rem)] sm:w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <MapPinned className="h-5 w-5" /> Set Location — {coordProvider?.name}
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
+              {coordProvider?.address ? `Address: ${coordProvider.address}` : "No address set for this provider"}
+            </DialogDescription>
+          </DialogHeader>
+          {coordProvider && (
+            <div className="space-y-4">
+              {/* Map Picker */}
+              <CoordinatePicker
+                latitude={editLat}
+                longitude={editLng}
+                address={coordProvider.address || ""}
+                onChange={(lat, lng) => { setEditLat(lat); setEditLng(lng); }}
+              />
+
+              {/* Manual input + Geocode */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Latitude</Label>
+                  <Input type="number" step="0.0001" value={editLat} onChange={(e) => setEditLat(parseFloat(e.target.value) || 9.02)} className="text-xs font-mono" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Longitude</Label>
+                  <Input type="number" step="0.0001" value={editLng} onChange={(e) => setEditLng(parseFloat(e.target.value) || 38.75)} className="text-xs font-mono" />
+                </div>
+              </div>
+
+              <DialogFooter className="flex-col gap-2 sm:flex-row">
+                {coordProvider.address && (
+                  <Button variant="outline" onClick={geocodeSingle} disabled={geocodingOne} className="w-full sm:w-auto">
+                    <Globe className={`mr-1 h-3.5 w-3.5 ${geocodingOne ? "animate-spin" : ""}`} />
+                    {geocodingOne ? "Looking up..." : "Auto-detect from Address"}
+                  </Button>
+                )}
+                <Button variant="outline" onClick={() => setCoordOpen(false)} className="w-full sm:w-auto">Cancel</Button>
+                <Button onClick={saveCoordinates} disabled={savingCoord} className="w-full sm:w-auto">
+                  <RefreshCw className={`mr-1 h-3.5 w-3.5 ${savingCoord ? "animate-spin" : ""}`} />
+                  {savingCoord ? "Saving..." : "Save Location"}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Batch Geocode Dialog */}
+      <Dialog open={batchOpen} onOpenChange={setBatchOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto mx-4 sm:mx-0 w-[calc(100%-2rem)] sm:w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Globe className="h-5 w-5" /> Batch Geocode All Providers
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
+              Automatically converts provider addresses to GPS coordinates using OpenStreetMap.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border bg-amber-50 p-3 text-xs text-amber-800">
+              <p className="font-medium mb-1">How it works:</p>
+              <ul className="list-disc list-inside space-y-0.5 text-amber-700">
+                <li>Only processes APPROVED providers with an address</li>
+                <li>Skips providers that already have real coordinates set</li>
+                <li>Uses OpenStreetMap Nominatim (free, no API key needed)</li>
+                <li>Takes ~1-2 seconds per provider due to rate limiting</li>
+              </ul>
+            </div>
+            {!batchResult ? (
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setBatchOpen(false)}>Cancel</Button>
+                <Button onClick={batchGeocode} disabled={geocodingAll}>
+                  <Globe className={`mr-1 h-3.5 w-3.5 ${geocodingAll ? "animate-spin" : ""}`} />
+                  {geocodingAll ? "Geocoding..." : "Start Geocoding"}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="rounded-lg border p-2.5 text-center">
+                    <p className="text-lg font-bold text-emerald-600">{batchResult.updated}</p>
+                    <p className="text-[10px] text-muted-foreground">Updated</p>
+                  </div>
+                  <div className="rounded-lg border p-2.5 text-center">
+                    <p className="text-lg font-bold text-red-600">{batchResult.failed}</p>
+                    <p className="text-[10px] text-muted-foreground">Failed</p>
+                  </div>
+                  <div className="rounded-lg border p-2.5 text-center">
+                    <p className="text-lg font-bold">{batchResult.total}</p>
+                    <p className="text-[10px] text-muted-foreground">Processed</p>
+                  </div>
+                </div>
+                {batchResult.results && (
+                  <div className="max-h-40 overflow-y-auto rounded-lg border divide-y">
+                    {batchResult.results.map((r: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between p-2 text-xs">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{r.name}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{r.address}</p>
+                        </div>
+                        {r.error ? (
+                          <span className="text-red-600 shrink-0">Failed</span>
+                        ) : (
+                          <span className="font-mono text-emerald-600 shrink-0">{r.lat?.toFixed(4)}, {r.lng?.toFixed(4)}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex justify-end">
+                  <Button onClick={() => { setBatchOpen(false); setBatchResult(null); }}>Done</Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Dialog */}
       <Dialog open={!!rejectDialog} onOpenChange={(open) => !open && setRejectDialog(null)}>
         <DialogContent className="max-w-md mx-4 sm:mx-0 w-[calc(100%-2rem)] sm:w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base sm:text-lg text-red-600">
-              <XCircle className="h-5 w-5" />
-              Reject Provider
+              <XCircle className="h-5 w-5" /> Reject Provider
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">
               Rejecting <strong>{rejectDialog?.name}</strong>. Please provide a reason.
@@ -536,25 +720,11 @@ export default function ProvidersPage() {
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="reject-reason" className="text-xs sm:text-sm">Rejection Reason *</Label>
-            <Textarea
-              id="reject-reason"
-              placeholder="Enter the reason for rejection..."
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              rows={3}
-              className="text-sm"
-            />
+            <Textarea id="reject-reason" placeholder="Enter the reason for rejection..." value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} rows={3} className="text-sm" />
           </div>
           <DialogFooter className="flex-col gap-2 sm:flex-row">
-            <Button variant="outline" onClick={() => setRejectDialog(null)} disabled={actioning} className="w-full sm:w-auto">
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleReject}
-              disabled={actioning || !rejectReason.trim()}
-              className="w-full sm:w-auto"
-            >
+            <Button variant="outline" onClick={() => setRejectDialog(null)} disabled={actioning} className="w-full sm:w-auto">Cancel</Button>
+            <Button variant="destructive" onClick={handleReject} disabled={actioning || !rejectReason.trim()} className="w-full sm:w-auto">
               {actioning ? "Rejecting..." : "Confirm Rejection"}
             </Button>
           </DialogFooter>
@@ -577,9 +747,7 @@ export default function ProvidersPage() {
           <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
             <AlertDialogCancel disabled={actioning} className="w-full sm:w-auto">Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() =>
-                confirmAction && handleStatusAction(confirmAction.provider, confirmAction.action)
-              }
+              onClick={() => confirmAction && handleStatusAction(confirmAction.provider, confirmAction.action)}
               disabled={actioning}
               className={
                 confirmAction?.action === "APPROVED"

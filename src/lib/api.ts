@@ -211,3 +211,7 @@ export const apiPoliceDeleteGeofence = (id: string) => req(`/api/police-geofence
 export const apiPoliceAlertConfig = () => req("/api/police-alert-config");
 export const apiPoliceUpdateAlertConfig = (data: Record<string, unknown>) => req("/api/police-alert-config", { method: "PUT", body: JSON.stringify(data) });
 export const apiPoliceExport = (q: string) => req(`/api/police-export?${q}`);
+
+// Geocoding
+export const apiGeocodeAddress = (address: string) => req(`/api/geocode?address=${encodeURIComponent(address)}`);
+export const apiGeocodeBatch = () => req("/api/geocode", { method: "POST" });
