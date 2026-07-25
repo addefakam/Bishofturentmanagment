@@ -97,6 +97,8 @@ model Provider {
   licenseNo   String          @default("")
   licenseFile String          @default("")
   status      ProviderStatus  @default(PENDING)
+  latitude    Float           @default(9.02)
+  longitude   Float           @default(38.75)
   approvedBy  String?
   approvedAt  DateTime?
   rejectionReason String      @default("")

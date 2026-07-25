@@ -29,6 +29,8 @@ export async function POST(req: NextRequest) {
     const phone = formData.get("phone") as string;
     const email = (formData.get("email") as string) || "";
     const address = (formData.get("address") as string) || "";
+    const latitude = parseFloat(formData.get("latitude") as string) || 9.02;
+    const longitude = parseFloat(formData.get("longitude") as string) || 38.75;
     const type = (formData.get("type") as string) || "GUEST_HOUSE";
     const licenseNo = (formData.get("licenseNo") as string) || "";
     const licenseFile = formData.get("licenseFile") as File | null;
@@ -70,6 +72,8 @@ export async function POST(req: NextRequest) {
           phone,
           email,
           address,
+          latitude,
+          longitude,
           type,
           licenseNo,
           licenseFile: licenseFileData,

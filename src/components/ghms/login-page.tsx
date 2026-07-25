@@ -2,7 +2,7 @@
 
 import { useState, useRef, type FormEvent } from "react";
 import { toast } from "sonner";
-import { Building2, KeyRound, UserPlus, LogIn, Upload } from "lucide-react";
+import { Building2, KeyRound, UserPlus, LogIn, Upload, MapPin, Loader2 } from "lucide-react";
 
 import { useAppStore } from "@/lib/store";
 import { apiAuth, apiRegisterProvider } from "@/lib/api";
@@ -46,6 +46,10 @@ export default function LoginPage() {
   const [regPhone, setRegPhone] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regGuestHouseName, setRegGuestHouseName] = useState("");
+  const [regAddress, setRegAddress] = useState("");
+  const [regLatitude, setRegLatitude] = useState("");
+  const [regLongitude, setRegLongitude] = useState("");
+  const [regGeocoding, setRegGeocoding] = useState(false);
   const [regType, setRegType] = useState("");
   const [regLicenseNo, setRegLicenseNo] = useState("");
   const [regLicenseFile, setRegLicenseFile] = useState<File | null>(null);
@@ -105,6 +109,9 @@ export default function LoginPage() {
       formData.append("ownerName", regName.trim());         // backend 'ownerName' = owner full name
       formData.append("phone", regPhone.trim());
       formData.append("email", regEmail.trim());
+      if (regAddress.trim()) formData.append("address", regAddress.trim());
+      if (regLatitude) formData.append("latitude", regLatitude);
+      if (regLongitude) formData.append("longitude", regLongitude);
       formData.append("type", regType);
       formData.append("licenseNo", regLicenseNo.trim());
       formData.append("username", regUsername.trim());
@@ -122,6 +129,9 @@ export default function LoginPage() {
       setRegPhone("");
       setRegEmail("");
       setRegGuestHouseName("");
+      setRegAddress("");
+      setRegLatitude("");
+      setRegLongitude("");
       setRegType("");
       setRegLicenseNo("");
       setRegUsername("");
@@ -137,6 +147,34 @@ export default function LoginPage() {
       toast.error(message);
     } finally {
       setRegLoading(false);
+    }
+  }
+
+  // ── Geocode handler (Nominatim — free, no API key) ──
+  async function handleGeocode() {
+    const query = regAddress.trim() || regGuestHouseName.trim();
+    if (!query) {
+      toast.error("Enter an address or guest house name to geocode.");
+      return;
+    }
+    setRegGeocoding(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ", Ethiopia")}&limit=1`,
+        { headers: { "User-Agent": "GHMS-Registration/1.0" } }
+      );
+      const data = await res.json();
+      if (data && data.length > 0) {
+        setRegLatitude(data[0].lat);
+        setRegLongitude(data[0].lon);
+        toast.success(`Location found: ${data[0].display_name.split(",").slice(0, 2).join(",")}`);
+      } else {
+        toast.error("Could not find coordinates for this address. You can enter them manually.");
+      }
+    } catch {
+      toast.error("Geocoding failed. Please enter coordinates manually.");
+    } finally {
+      setRegGeocoding(false);
     }
   }
 
@@ -357,6 +395,71 @@ export default function LoginPage() {
                         }}
                       />
                     </div>
+                  </div>
+                </div>
+
+                {/* Location (Optional) */}
+                <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Location <span className="text-slate-400 font-normal normal-case">(optional)</span>
+                  </p>
+                  <div className="grid gap-3">
+                    <div className="grid gap-2">
+                      <Label htmlFor="reg-address">Address</Label>
+                      <Input
+                        id="reg-address"
+                        placeholder="Street address, city, or area"
+                        value={regAddress}
+                        onChange={(e) => setRegAddress(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="grid gap-2">
+                        <Label htmlFor="reg-lat">Latitude</Label>
+                        <Input
+                          id="reg-lat"
+                          type="number"
+                          step="any"
+                          placeholder="e.g. 9.02"
+                          value={regLatitude}
+                          onChange={(e) => setRegLatitude(e.target.value)}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="reg-lng">Longitude</Label>
+                        <Input
+                          id="reg-lng"
+                          type="number"
+                          step="any"
+                          placeholder="e.g. 38.75"
+                          value={regLongitude}
+                          onChange={(e) => setRegLongitude(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGeocode}
+                      disabled={regGeocoding}
+                      className="w-full"
+                    >
+                      {regGeocoding ? (
+                        <span className="flex items-center gap-2">
+                          <Loader2 className="size-4 animate-spin" />
+                          Geocoding...
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          <MapPin className="size-4" />
+                          Geocode from Address / Name
+                        </span>
+                      )}
+                    </Button>
+                    <p className="text-[11px] text-slate-400">
+                      Click the button above to auto-fill coordinates, or enter manually.
+                    </p>
                   </div>
                 </div>
 
