@@ -174,6 +174,13 @@ export const apiRegisterProvider = async (data: FormData) => {
 // Police
 export const apiPoliceDashboard = () => req("/api/police-dashboard");
 export const apiPoliceGuests = (q?: string) => req(`/api/police-guests${q ? `?${q}` : ""}`);
+export const apiPoliceOfficers = () => req("/api/police-officers");
+export const apiPoliceCreateOfficer = (data: Record<string, unknown>) =>
+  req("/api/police-officers", { method: "POST", body: JSON.stringify(data) });
+export const apiPoliceUpdateOfficer = (data: Record<string, unknown>) =>
+  req("/api/police-officers", { method: "PUT", body: JSON.stringify(data) });
+export const apiPoliceDeleteOfficer = (id: string) =>
+  req(`/api/police-officers?id=${id}`, { method: "DELETE" });
 
 // Suspected Persons (Police only)
 export const apiGetSuspectedPersons = (q?: string) => req(`/api/suspected-persons${q ? `?${q}` : ""}`);
