@@ -39,6 +39,8 @@ export const POLICE_RANK_PERMISSIONS: Record<PoliceRank, string[]> = {
     "police-guests",
     "suspect-alerts",
     "suspected-persons",
+    "police-intelligence",
+    "police-investigation",
     "police-scanner",
     "notifications",
   ],

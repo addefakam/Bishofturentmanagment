@@ -5,6 +5,7 @@ export interface AuthContext {
   providerId: string | null;
   permissions: string[];
   policeRank: string;
+  userName: string;
 }
 
 export function getAuthContext(req: NextRequest): AuthContext {
@@ -12,13 +13,14 @@ export function getAuthContext(req: NextRequest): AuthContext {
   const providerId = req.headers.get("x-provider-id") || null;
   const permStr = req.headers.get("x-user-permissions") || "[]";
   const policeRank = req.headers.get("x-user-police-rank") || "";
+  const userName = req.headers.get("x-user-name") || "";
   let permissions: string[] = [];
   try {
     permissions = JSON.parse(permStr);
   } catch {
     permissions = [];
   }
-  return { role: role.toUpperCase(), providerId, permissions, policeRank };
+  return { role: role.toUpperCase(), providerId, permissions, policeRank, userName };
 }
 
 export function getProviderFilter(auth: AuthContext) {

@@ -26,15 +26,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Extract policeRank safely (field may not exist yet in older databases)
-    let policeRank = "";
-    try {
-      const rawUser: any = await db.$queryRawUnsafe(`SELECT "policeRank" FROM "User" WHERE "id" = '${user.id}'`);
-      if (Array.isArray(rawUser) && rawUser[0] && rawUser[0].policeRank) {
-        policeRank = rawUser[0].policeRank;
+    // Extract policeRank from the user record directly
+    // (field added via ALTER TABLE — use raw read to handle cases where Prisma
+    //  schema has the field but the ORM property may not be populated on older rows)
+    let policeRank = user.policeRank || "";
+    if (!policeRank) {
+      try {
+        const rawUser: { policeRank: string }[] = await db.$queryRawUnsafe(
+          `SELECT "policeRank" FROM "User" WHERE "id" = ?`,
+          user.id
+        );
+        if (Array.isArray(rawUser) && rawUser[0]?.policeRank) {
+          policeRank = rawUser[0].policeRank;
+        }
+      } catch {
+        // Column might not exist yet
       }
-    } catch {
-      // Column might not exist yet
     }
 
     // POLICE and system admin SUPERUSER (no provider) can login directly

@@ -10,6 +10,7 @@ export function getHeaders(): Record<string, string> {
           "x-provider-id": user.providerId || "",
           "x-user-permissions": JSON.stringify(user.permissions),
           "x-user-police-rank": user.policeRank || "",
+          "x-user-name": user.name || "",
         }
       : {}),
   };

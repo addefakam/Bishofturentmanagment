@@ -19,7 +19,7 @@ export async function logAudit(
 ): Promise<void> {
   try {
     const auth = getAuthContext(req);
-    const officerName = auth.role === "POLICE" ? auth.role : "System";
+    const officerName = auth.role === "POLICE" ? (auth.userName || "Unknown Officer") : "System";
     const forwarded = req.headers.get("x-forwarded-for");
     const ipAddress = forwarded?.split(",")[0]?.trim() || "";
 

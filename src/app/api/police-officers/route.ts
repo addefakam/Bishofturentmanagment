@@ -66,13 +66,13 @@ export async function POST(req: NextRequest) {
       ? policeRank
       : "OFFICER") as PoliceRank;
 
-    // Hash password — use simple base64 for now (production should use bcrypt)
-    const hashedPassword = Buffer.from(password).toString("base64");
+    // Store password as plaintext (matches auth route comparison)
+    // TODO: Production should use bcrypt hashing
 
     const officer = await db.user.create({
       data: {
         username,
-        password: hashedPassword,
+        password,
         name,
         role: "POLICE",
         permissions: JSON.stringify([`police_rank:${rank}`]),
