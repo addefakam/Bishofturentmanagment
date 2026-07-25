@@ -186,6 +186,8 @@ export default function IntelligenceMap({ allProviders }: IntelligenceMapProps) 
         mapInstanceRef.current?.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
       }
     }
+  }, [mapReady, filteredProviders, selectedProvider, severityFilter]);
+
   // Fetch and render geofences
   useEffect(() => {
     if (!mapReady || !geofenceLayerRef.current) return;
@@ -222,8 +224,6 @@ export default function IntelligenceMap({ allProviders }: IntelligenceMapProps) 
       mapInstanceRef.current.removeLayer(geofenceLayerRef.current);
     }
   }, [showGeofences]);
-
-  }, [mapReady, filteredProviders, selectedProvider, severityFilter]);
 
   const flyTo = (p: ProviderLocation) => {
     setSelectedProvider(p);
