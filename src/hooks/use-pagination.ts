@@ -24,6 +24,8 @@ interface UsePaginationReturn {
   goToPage: (page: number) => void;
   /** Change the number of items per page (resets to page 1) */
   setPageSize: (size: number) => void;
+  /** Update total items count dynamically */
+  setTotalItems: (count: number) => void;
   /** Slice an array to the current page items */
   paginate: <T>(items: T[]) => T[];
   /** Current page range info: "Showing X to Y of Z" */
@@ -39,14 +41,15 @@ export function usePagination({
 }: UsePaginationOptions): UsePaginationReturn {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSizeState] = useState(initialPageSize);
+  const [totalItemsState, setTotalItemsState] = useState(totalItems);
 
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const totalPages = Math.max(1, Math.ceil(totalItemsState / pageSize));
 
   const rangeInfo = useMemo(() => {
-    const from = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-    const to = Math.min(currentPage * pageSize, totalItems);
-    return { from, to, total: totalItems };
-  }, [currentPage, pageSize, totalItems]);
+    const from = totalItemsState === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+    const to = Math.min(currentPage * pageSize, totalItemsState);
+    return { from, to, total: totalItemsState };
+  }, [currentPage, pageSize, totalItemsState]);
 
   const goToPage = useCallback(
     (page: number) => {
@@ -65,6 +68,11 @@ export function usePagination({
     setCurrentPage(1);
   }, []);
 
+  const setTotalItems = useCallback((count: number) => {
+    setTotalItemsState(count);
+    setCurrentPage(1);
+  }, []);
+
   const paginate = useCallback(
     <T>(items: T[]): T[] => {
       const start = (currentPage - 1) * pageSize;
@@ -80,6 +88,7 @@ export function usePagination({
     pageSizeOptions,
     goToPage,
     setPageSize,
+    setTotalItems,
     paginate,
     rangeInfo,
     resetToFirst,

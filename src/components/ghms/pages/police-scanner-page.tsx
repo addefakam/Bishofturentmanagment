@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAppStore } from "@/lib/store";
 import { apiPoliceMovement } from "@/lib/api";
 import { toast } from "sonner";
@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { usePagination } from "@/hooks/use-pagination";
+import { PaginationControls } from "@/components/shared/pagination-controls";
 import {
   ScanLine, Search, ShieldAlert, User, Phone, MapPin, Calendar,
   Building2, CreditCard,
@@ -37,6 +39,18 @@ export default function PoliceScannerPage() {
   const [guests, setGuests] = useState<GuestResult[]>([]);
   const [matches, setMatches] = useState<MatchResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+
+  // Pagination for match results
+  const matchPag = usePagination({ totalItems: 0, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
+  // Pagination for guest results
+  const guestPag = usePagination({ totalItems: 0, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
+
+  // Sync pagination totals
+  useEffect(() => { matchPag.setTotalItems?.(matches.length); }, [matches.length]);
+  useEffect(() => { guestPag.setTotalItems?.(guests.length); }, [guests.length]);
+
+  const pagMatches = matchPag.paginate(matches);
+  const pagGuests = guestPag.paginate(guests);
 
   const search = async (value: string) => {
     if (!value.trim()) return;
@@ -127,7 +141,7 @@ export default function PoliceScannerPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {matches.map((m) => (
+                  {pagMatches.map((m) => (
                     <div key={m.id} className="rounded-lg border-2 border-red-200 bg-white p-3">
                       <div className="flex items-center justify-between">
                         <p className="font-bold text-red-800">{m.suspectedPerson.name}</p>
@@ -141,6 +155,18 @@ export default function PoliceScannerPage() {
                     </div>
                   ))}
                 </div>
+                {matches.length > matchPag.pageSize && (
+                  <PaginationControls
+                    currentPage={matchPag.currentPage}
+                    totalPages={matchPag.totalPages}
+                    pageSize={matchPag.pageSize}
+                    pageSizeOptions={matchPag.pageSizeOptions}
+                    totalItems={matches.length}
+                    rangeInfo={matchPag.rangeInfo}
+                    goToPage={matchPag.goToPage}
+                    setPageSize={matchPag.setPageSize}
+                  />
+                )}
               </CardContent>
             </Card>
           )}
@@ -150,7 +176,7 @@ export default function PoliceScannerPage() {
             <Card>
               <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><User className="h-4 w-4" /> Guest Information</CardTitle></CardHeader>
               <CardContent className="space-y-3">
-                {guests.map((g) => (
+                {pagGuests.map((g) => (
                   <div key={g.id} className="space-y-2">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100">
@@ -184,6 +210,18 @@ export default function PoliceScannerPage() {
                     </div>
                   </div>
                 ))}
+                {guests.length > guestPag.pageSize && (
+                  <PaginationControls
+                    currentPage={guestPag.currentPage}
+                    totalPages={guestPag.totalPages}
+                    pageSize={guestPag.pageSize}
+                    pageSizeOptions={guestPag.pageSizeOptions}
+                    totalItems={guests.length}
+                    rangeInfo={guestPag.rangeInfo}
+                    goToPage={guestPag.goToPage}
+                    setPageSize={guestPag.setPageSize}
+                  />
+                )}
               </CardContent>
             </Card>
           )}

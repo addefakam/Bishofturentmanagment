@@ -98,8 +98,11 @@ export default function PoliceIntelligencePage() {
   const [reportGenerating, setReportGenerating] = useState(false);
   const reportLinkRef = useRef<HTMLAnchorElement | null>(null);
 
-  // Hotspot pagination
+  // Paginations
   const hotspotPag = usePagination({ totalItems: 0, initialPageSize: 12, pageSizeOptions: [6, 12, 24, 48] });
+  const freqPag = usePagination({ totalItems: 0, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
+  const auditPag = usePagination({ totalItems: 0, initialPageSize: 20, pageSizeOptions: [10, 20, 50, 100] });
+  const rankingPag = usePagination({ totalItems: 0, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
 
   const fetchData = useCallback(async () => {
     try {
@@ -134,12 +137,20 @@ export default function PoliceIntelligencePage() {
     return list.sort((a, b) => getRiskScore(b) - getRiskScore(a));
   })();
 
-  // Update pagination when filter changes
+  // Update paginations when data/filter changes
+  useEffect(() => { hotspotPag.setTotalItems(filteredHotspots.length); }, [filteredHotspots.length]);
   useEffect(() => {
-    hotspotPag.setTotalItems?.(filteredHotspots.length);
-  }, [filteredHotspots.length]);
+    if (data) {
+      freqPag.setTotalItems(data.frequentStays.length);
+      auditPag.setTotalItems(data.recentActivity.length);
+      rankingPag.setTotalItems(data.hotspotData.length);
+    }
+  }, [data]);
 
   const paginatedHotspots = hotspotPag.paginate(filteredHotspots);
+  const pagFreq = data ? freqPag.paginate(data.frequentStays) : [];
+  const pagAudit = data ? auditPag.paginate(data.recentActivity) : [];
+  const pagRankings = data ? rankingPag.paginate(data.hotspotData) : [];
 
   const handleDownloadReport = async () => {
     try {
@@ -551,9 +562,9 @@ export default function PoliceIntelligencePage() {
                 <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><MapPin className="h-4 w-4" /> Provider Hotspot Rankings</CardTitle></CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {data.hotspotData.slice(0, 10).map((h, i) => (
+                    {pagRankings.map((h, i) => (
                       <div key={h.providerId || i} className="flex items-center gap-3">
-                        <span className="w-5 text-xs font-bold text-muted-foreground">{i + 1}</span>
+                        <span className="w-5 text-xs font-bold text-muted-foreground">{(rankingPag.currentPage - 1) * rankingPag.pageSize + i + 1}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{h.providerName || "Unknown"}</p>
                           <div className="h-2 bg-muted rounded-full overflow-hidden mt-1">
@@ -574,6 +585,9 @@ export default function PoliceIntelligencePage() {
                     ))}
                     {data.hotspotData.length === 0 && <p className="text-center text-xs text-muted-foreground py-4">No hotspot data</p>}
                   </div>
+                  {data.hotspotData.length > rankingPag.pageSize && (
+                    <PaginationControls currentPage={rankingPag.currentPage} totalPages={rankingPag.totalPages} pageSize={rankingPag.pageSize} pageSizeOptions={rankingPag.pageSizeOptions} totalItems={data.hotspotData.length} rangeInfo={rankingPag.rangeInfo} goToPage={rankingPag.goToPage} setPageSize={rankingPag.setPageSize} />
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -590,7 +604,7 @@ export default function PoliceIntelligencePage() {
                   <p className="py-8 text-center text-xs text-muted-foreground">No frequent stay patterns detected. Patterns appear when guests stay at multiple guesthouses with short intervals.</p>
                 ) : (
                   <div className="divide-y">
-                    {data.frequentStays.map((f) => (
+                    {pagFreq.map((f) => (
                       <div key={f.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-3">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
@@ -609,6 +623,9 @@ export default function PoliceIntelligencePage() {
                     ))}
                   </div>
                 )}
+                {data.frequentStays.length > freqPag.pageSize && (
+                  <PaginationControls currentPage={freqPag.currentPage} totalPages={freqPag.totalPages} pageSize={freqPag.pageSize} pageSizeOptions={freqPag.pageSizeOptions} totalItems={data.frequentStays.length} rangeInfo={freqPag.rangeInfo} goToPage={freqPag.goToPage} setPageSize={freqPag.setPageSize} />
+                )}
               </CardContent>
             </Card>
           )}
@@ -624,7 +641,7 @@ export default function PoliceIntelligencePage() {
                   <p className="py-8 text-center text-xs text-muted-foreground">No activity recorded yet</p>
                 ) : (
                   <div className="divide-y">
-                    {data.recentActivity.map((a) => (
+                    {pagAudit.map((a) => (
                       <div key={a.id} className="flex items-center justify-between py-2.5">
                         <div>
                           <div className="flex items-center gap-2">
@@ -637,6 +654,9 @@ export default function PoliceIntelligencePage() {
                       </div>
                     ))}
                   </div>
+                )}
+                {data.recentActivity.length > auditPag.pageSize && (
+                  <PaginationControls currentPage={auditPag.currentPage} totalPages={auditPag.totalPages} pageSize={auditPag.pageSize} pageSizeOptions={auditPag.pageSizeOptions} totalItems={data.recentActivity.length} rangeInfo={auditPag.rangeInfo} goToPage={auditPag.goToPage} setPageSize={auditPag.setPageSize} />
                 )}
               </CardContent>
             </Card>
