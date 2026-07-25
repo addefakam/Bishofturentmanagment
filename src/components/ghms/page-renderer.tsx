@@ -60,7 +60,7 @@ const ResourcesPage = lazyPage(
 const HousekeepingPage = lazyPage(
   () => import("@/components/ghms/pages/housekeeping-page")
 );
-const UsersPage = lazyPage(() => import("@/components/ghms/pages/users-page"));
+// Users page is now handled by OwnerAccountsPage (unified User Management)
 const ReportsPage = lazyPage(
   () => import("@/components/ghms/pages/reports-page")
 );
@@ -116,7 +116,7 @@ const PAGE_MAP: Record<string, React.LazyExoticComponent<React.ComponentType>> =
     expenses: ExpensesPage,
     resources: ResourcesPage,
     housekeeping: HousekeepingPage,
-    users: UsersPage,
+    users: OwnerAccountsPage,
     reports: ReportsPage,
     settings: SettingsPage,
     notifications: NotificationsPage,
