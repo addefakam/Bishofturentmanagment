@@ -111,6 +111,11 @@ const POLICE_NAV_ITEMS: NavItem[] = [
     icon: ScanLine,
   },
   {
+    page: "owner-accounts",
+    label: "Manage Officers",
+    icon: UserCog,
+  },
+  {
     page: "notifications",
     label: "Notifications",
     icon: Bell,

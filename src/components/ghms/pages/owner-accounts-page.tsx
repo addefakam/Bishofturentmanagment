@@ -162,7 +162,9 @@ export default function OwnerAccountsPage() {
   const [policeUsers, setPoliceUsers] = useState<AccountUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<TabType>("overview");
+  const [activeTab, setActiveTab] = useState<TabType>(
+    currentUser?.role === "POLICE" ? "police" : "overview"
+  );
 
   // Determine if current user can manage police
   const canManagePolice =
@@ -211,15 +213,21 @@ export default function OwnerAccountsPage() {
   const fetchAccounts = useCallback(async () => {
     setLoading(true);
     try {
-      const data: ApiResponse = await apiGetOwnerAccounts();
-      setProviders(data.providers);
-      setPoliceUsers(data.policeUsers);
+      if (currentUser?.role === "POLICE") {
+        // POLICE users fetch from police-officers endpoint (owner-accounts may 403)
+        const data = await apiPoliceOfficers();
+        setPoliceUsers(data);
+      } else {
+        const data: ApiResponse = await apiGetOwnerAccounts();
+        setProviders(data.providers);
+        setPoliceUsers(data.policeUsers);
+      }
     } catch {
       toast.error("Failed to load accounts");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentUser?.role]);
 
   const fetchPoliceOnly = useCallback(async () => {
     try {

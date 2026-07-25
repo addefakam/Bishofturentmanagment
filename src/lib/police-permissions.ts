@@ -21,6 +21,7 @@ export const POLICE_RANK_PERMISSIONS: Record<PoliceRank, string[]> = {
     "police-security",
     "police-scanner",
     "notifications",
+    "owner-accounts",
   ],
   DETECTIVE: [
     "police-dashboard",
@@ -32,6 +33,7 @@ export const POLICE_RANK_PERMISSIONS: Record<PoliceRank, string[]> = {
     "police-investigation",
     "police-scanner",
     "notifications",
+    "owner-accounts",
   ],
   OFFICER: [
     "police-dashboard",

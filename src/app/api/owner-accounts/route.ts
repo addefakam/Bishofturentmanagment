@@ -6,7 +6,7 @@ import { getAuthContext } from "@/lib/tenant";
 export async function GET(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);
-    if (auth.role !== "SUPERUSER" && auth.role !== "OPERATOR") {
+    if (auth.role !== "SUPERUSER" && auth.role !== "OPERATOR" && auth.role !== "POLICE") {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 

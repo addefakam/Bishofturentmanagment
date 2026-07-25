@@ -44,7 +44,13 @@ function loadSession(): {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const data = JSON.parse(raw);
-    if (data && data.currentUser) return data;
+    if (data && data.currentUser) {
+      // Ensure policeRank is present (may be missing from old sessions)
+      if (data.currentUser.policeRank === undefined) {
+        data.currentUser.policeRank = "";
+      }
+      return data;
+    }
     return null;
   } catch {
     return null;
