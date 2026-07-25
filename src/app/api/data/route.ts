@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthContext } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 import { Prisma } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
@@ -106,6 +107,13 @@ export async function POST(req: NextRequest) {
     if (auth.role !== "SUPERUSER") {
       return NextResponse.json({ error: "Superuser access required" }, { status: 403 });
     }
+
+    // 🔒 Audit log for data import
+    logAudit(req, {
+      action: "DATA_IMPORT",
+      targetType: "System",
+      details: `Data import by ${auth.userName || auth.role}`,
+    }).catch(() => {});
 
     const body = await req.json();
 

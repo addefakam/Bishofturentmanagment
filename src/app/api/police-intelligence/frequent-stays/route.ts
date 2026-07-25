@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthContext, requirePolice } from "@/lib/tenant";
+import { requirePoliceMinRank } from "@/lib/police-permissions";
 
 export async function GET(req: NextRequest) {
   try {
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);
     requirePolice(auth);
+    requirePoliceMinRank(auth, "DETECTIVE");
 
     // Analyze guests across all providers for frequent stay patterns
     const guests = await db.guest.findMany({

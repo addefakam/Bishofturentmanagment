@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthContext, requirePolice } from "@/lib/tenant";
+import { requirePoliceMinRank } from "@/lib/police-permissions";
 import { ensureSuspectTables } from "@/lib/suspect-check";
 
 export async function GET(
@@ -43,6 +44,7 @@ export async function PUT(
   try {
     const auth = await getAuthContext(req);
     requirePolice(auth);
+    requirePoliceMinRank(auth, "DETECTIVE");
 
     const { id } = await params;
     const body = await req.json();
@@ -81,6 +83,7 @@ export async function DELETE(
   try {
     const auth = await getAuthContext(req);
     requirePolice(auth);
+    requirePoliceMinRank(auth, "DETECTIVE");
 
     const { id } = await params;
     // Delete matches first, then the person

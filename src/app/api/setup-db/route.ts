@@ -1,8 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getAuthContext } from "@/lib/tenant";
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
+    // 🔒 SUPERUSER only — database setup is a privileged operation
+    const auth = await getAuthContext(req);
+    if (auth.role !== "SUPERUSER") {
+      return NextResponse.json({ error: "Superuser access required" }, { status: 403 });
+    }
+
     // Create SuspectedPerson table
     await db.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "SuspectedPerson" (

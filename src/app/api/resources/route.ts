@@ -9,9 +9,6 @@ import {
 export async function GET(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);
-    if (auth.role !== "SUPERUSER" && auth.role !== "OPERATOR" && auth.role !== "POLICE") {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 });
-    }
     const filter = getProviderFilter(auth);
 
     const where: Record<string, unknown> = filter.isPolice

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthContext, requirePolice } from "@/lib/tenant";
+import { requirePoliceMinRank } from "@/lib/police-permissions";
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,6 +23,7 @@ export async function PUT(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);
     requirePolice(auth);
+    requirePoliceMinRank(auth, "ADMIN");
     const body = await req.json();
     let config = await db.policeAlertConfig.findFirst();
     if (!config) {

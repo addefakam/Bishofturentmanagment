@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, checkWritePermission } from "@/lib/tenant";
+import { getAuthContext, getProviderFilter, checkWritePermission } from "@/lib/tenant";
 
 export async function POST(
   req: NextRequest,
@@ -8,12 +8,13 @@ export async function POST(
 ) {
   try {
     const auth = await getAuthContext(req);
-    checkWritePermission(auth, { staffOnlyWrite: true });
+    checkWritePermission(auth, { staffOnlyWrite: true, staffPermissionKey: "reservations", staffCanCreate: true });
 
     const { id } = await params;
+    const { providerId } = getProviderFilter(auth);
 
-    const reservation = await db.reservation.findUnique({
-      where: { id },
+    const reservation = await db.reservation.findFirst({
+      where: { id, providerId },
       include: { room: { select: { id: true, status: true } } },
     });
     if (!reservation) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, getProviderFilter, blockPoliceWrites } from "@/lib/tenant";
+import { getAuthContext, getProviderFilter, checkWritePermission } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);
-    blockPoliceWrites(auth);
+    checkWritePermission(auth, { requireSuperuserOrOperator: true, staffPermissionKey: "reservations", staffCanCreate: true });
 
     const body = await req.json();
     const { guestId, reservationId, rating, comment } = body;

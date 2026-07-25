@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthContext, checkWritePermission } from "@/lib/tenant";
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
+    await getAuthContext(req);
     const categories = await db.expenseCategory.findMany({
       orderBy: { name: "asc" },
     });

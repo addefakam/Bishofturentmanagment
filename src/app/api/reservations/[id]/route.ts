@@ -85,8 +85,9 @@ export async function DELETE(
     checkWritePermission(auth, { requireSuperuserOrOperator: true });
 
     const { id } = await params;
+    const { providerId } = getProviderFilter(auth);
 
-    const existing = await db.reservation.findUnique({ where: { id } });
+    const existing = await db.reservation.findFirst({ where: { id, providerId } });
     if (!existing) {
       return NextResponse.json({ error: "Reservation not found" }, { status: 404 });
     }

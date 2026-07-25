@@ -87,7 +87,6 @@ export function blockPoliceWrites(auth: AuthContext): void {
 
 interface PermissionOptions {
   staffOnlyWrite?: boolean;
-  blockSuperuser?: boolean;
   requireSuperuserOrOperator?: boolean;
   requireOperator?: boolean;
   allowSuperuser?: boolean;
@@ -111,10 +110,6 @@ export function checkWritePermission(
       throw new Error("Operator access required");
     }
     return;
-  }
-
-  if (opts.blockSuperuser && auth.role === "SUPERUSER") {
-    throw new Error("Superusers cannot perform this action");
   }
 
   if (auth.role === "STAFF") {

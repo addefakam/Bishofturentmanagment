@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthContext, requirePolice } from "@/lib/tenant";
+import { requirePoliceMinRank } from "@/lib/police-permissions";
 import { ensureSuspectTables } from "@/lib/suspect-check";
 
 export async function GET(req: NextRequest) {
@@ -50,6 +51,7 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);
     requirePolice(auth);
+    requirePoliceMinRank(auth, "DETECTIVE");
     await ensureSuspectTables();
 
     const body = await req.json();

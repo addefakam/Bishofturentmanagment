@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthContext, requirePolice } from "@/lib/tenant";
+import { requirePoliceMinRank } from "@/lib/police-permissions";
 
 export async function PUT(
   req: NextRequest,
@@ -9,6 +10,7 @@ export async function PUT(
   try {
     const auth = await getAuthContext(req);
     requirePolice(auth);
+    requirePoliceMinRank(auth, "ADMIN");
     const { id } = await params;
     const body = await req.json();
     const { name, latitude, longitude, radius, severity, description, isActive } = body;
@@ -51,6 +53,7 @@ export async function DELETE(
   try {
     const auth = await getAuthContext(req);
     requirePolice(auth);
+    requirePoliceMinRank(auth, "ADMIN");
     const { id } = await params;
 
     await db.$executeRawUnsafe(`DELETE FROM "PoliceGeofence" WHERE "id" = ?`, id);
