@@ -102,8 +102,6 @@ model Provider {
   approvedBy  String?
   approvedAt  DateTime?
   rejectionReason String      @default("")
-  latitude    Float           @default(9.02)
-  longitude   Float           @default(38.75)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
