@@ -251,9 +251,3 @@ export const apiPoliceReport = (month: number, year: number) =>
 // Geocoding
 export const apiGeocodeAddress = (address: string) => req(`/api/geocode?address=${encodeURIComponent(address)}`);
 export const apiGeocodeBatch = () => req("/api/geocode", { method: "POST" });
-
-// Police Officer Management
-export const apiPoliceOfficers = () => req("/api/police-officers");
-export const apiPoliceCreateOfficer = (data: Record<string, unknown>) => req("/api/police-officers", { method: "POST", body: JSON.stringify(data) });
-export const apiPoliceUpdateOfficer = (id: string, data: Record<string, unknown>) => req("/api/police-officers", { method: "PUT", body: JSON.stringify({ id, ...data }) });
-export const apiPoliceDeleteOfficer = (id: string) => req(`/api/police-officers?id=${id}`, { method: "DELETE" });
