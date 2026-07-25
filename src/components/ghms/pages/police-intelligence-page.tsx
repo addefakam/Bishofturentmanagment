@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAppStore } from "@/lib/store";
 import { apiPoliceIntelligence } from "@/lib/api";
 import { toast } from "sonner";
@@ -20,7 +20,8 @@ import dynamic from "next/dynamic";
 
 const MapView = dynamic(() => import("./intelligence-map"), { ssr: false, loading: () => <Skeleton className="h-[400px] w-full rounded-xl" /> });
 
-interface HotspotItem { providerName: string; providerId: string; matchCount: number; criticalCount: number; highCount: number; }
+interface HotspotItem { providerName: string; providerId: string; matchCount: number; criticalCount: number; highCount: number; lastMatchDate: string | null; address: string; latitude: number; longitude: number; guestCount: number; roomCount: number; hasCoordinates: boolean; }
+interface ProviderLocation { id: string; name: string; address: string; latitude: number; longitude: number; type: string; phone: string; guestCount: number; roomCount: number; matchCount: number; criticalCount: number; highCount: number; hasCoordinates: boolean; }
 interface MonthlyItem { month: string; reservations: number; suspectMatches: number; }
 interface FreqStayItem { id: string; guestName: string; guestPhone: string; guestIdNumber: string; providerNames: string; stayCount: number; avgDaysBetween: number; riskLevel: string; isReviewed: boolean; createdAt: string; }
 interface AuditItem { id: string; officerName: string; action: string; targetId: string | null; targetType: string | null; ipAddress: string | null; createdAt: string; }
@@ -33,7 +34,7 @@ const RISK_STYLES: Record<string, string> = {
 
 export default function PoliceIntelligencePage() {
   const { refreshKey } = useAppStore();
-  const [data, setData] = useState<{ frequentStays: FreqStayItem[]; hotspotData: HotspotItem[]; occupancyCrimeCorrelation: MonthlyItem[]; recentActivity: AuditItem[] } | null>(null);
+  const [data, setData] = useState<{ frequentStays: FreqStayItem[]; hotspotData: HotspotItem[]; allProviderLocations: ProviderLocation[]; occupancyCrimeCorrelation: MonthlyItem[]; recentActivity: AuditItem[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"map" | "charts" | "frequent" | "audit">("map");
 
@@ -42,7 +43,10 @@ export default function PoliceIntelligencePage() {
       setLoading(true);
       const res = await apiPoliceIntelligence();
       setData(res);
-    } catch { toast.error("Failed to load intelligence data"); }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to load intelligence data";
+      toast.error(msg);
+    }
     finally { setLoading(false); }
   }, []);
 
@@ -90,7 +94,7 @@ export default function PoliceIntelligencePage() {
       ) : (
         <>
           {/* Crime Hotspot Map */}
-          {activeTab === "map" && <MapView hotspotData={data.hotspotData} />}
+          {activeTab === "map" && <MapView allProviders={data.allProviderLocations || []} />}
 
           {/* Analytics Charts */}
           {activeTab === "charts" && (

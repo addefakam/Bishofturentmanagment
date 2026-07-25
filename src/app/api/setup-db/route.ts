@@ -119,6 +119,10 @@ export async function POST() {
       VALUES ('default-alert-config', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
     `);
 
+    // Add latitude/longitude columns to Provider if missing
+    await db.$executeRawUnsafe(`ALTER TABLE "Provider" ADD COLUMN "latitude" REAL DEFAULT 9.02`).catch(() => {});
+    await db.$executeRawUnsafe(`ALTER TABLE "Provider" ADD COLUMN "longitude" REAL DEFAULT 38.75`).catch(() => {});
+
     // Migrate stale data: any SUPERUSER with a providerId should be OPERATOR
     const migrated = await db.user.updateMany({
       where: { role: 'SUPERUSER', providerId: { not: null } },

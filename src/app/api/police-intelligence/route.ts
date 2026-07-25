@@ -1,33 +1,84 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthContext, requirePolice } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
   try {
     const auth = getAuthContext(req);
     requirePolice(auth);
 
-    const [frequentStays, auditLogs] = await Promise.all([
+    const [frequentStays, auditLogs, allProviders] = await Promise.all([
       db.frequentStayAlert.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
       db.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 50 }),
+      db.provider.findMany({
+        where: { status: "APPROVED" },
+        select: {
+          id: true, name: true, address: true, phone: true, type: true,
+          latitude: true, longitude: true,
+          _count: { select: { guests: true, rooms: true, reservations: true } },
+        },
+      }),
     ]);
 
     // Hotspot: group suspect matches by provider
     const matches = await db.suspectMatch.findMany({
       select: { providerName: true, providerId: true, createdAt: true, id: true, details: true, suspectedPerson: { select: { severity: true } } },
     });
-    const hotspotMap = new Map<string, { providerName: string; providerId: string; matchCount: number; criticalCount: number; highCount: number }>();
+    const hotspotMap = new Map<string, {
+      providerName: string; providerId: string;
+      matchCount: number; criticalCount: number; highCount: number;
+      lastMatchDate: string | null;
+    }>();
     for (const m of matches) {
       const key = m.providerId || m.providerName;
       if (!hotspotMap.has(key)) {
-        hotspotMap.set(key, { providerName: m.providerName, providerId: m.providerId, matchCount: 0, criticalCount: 0, highCount: 0 });
+        hotspotMap.set(key, { providerName: m.providerName, providerId: m.providerId, matchCount: 0, criticalCount: 0, highCount: 0, lastMatchDate: null });
       }
       const entry = hotspotMap.get(key)!;
       entry.matchCount++;
       const sev = m.suspectedPerson?.severity || "";
       if (sev === "CRITICAL") entry.criticalCount++;
       if (sev === "HIGH") entry.highCount++;
+      if (!entry.lastMatchDate || new Date(m.createdAt) > new Date(entry.lastMatchDate)) {
+        entry.lastMatchDate = m.createdAt;
+      }
     }
+
+    // Merge provider geo data with hotspot data
+    const providerGeoMap = new Map(allProviders.map((p) => [p.id, p]));
+    const hotspotData = Array.from(hotspotMap.values()).map((h) => {
+      const provider = providerGeoMap.get(h.providerId);
+      return {
+        ...h,
+        address: provider?.address || "",
+        latitude: provider?.latitude || 9.02,
+        longitude: provider?.longitude || 38.75,
+        guestCount: provider?._count.guests || 0,
+        roomCount: provider?._count.rooms || 0,
+        hasCoordinates: !!(provider?.latitude && provider?.longitude && provider.latitude !== 9.02),
+      };
+    }).sort((a, b) => b.matchCount - a.matchCount);
+
+    // All providers for map display (even those without matches)
+    const allProviderLocations = allProviders.map((p) => {
+      const hotspot = hotspotMap.get(p.id);
+      return {
+        id: p.id,
+        name: p.name,
+        address: p.address,
+        latitude: p.latitude,
+        longitude: p.longitude,
+        type: p.type,
+        phone: p.phone,
+        guestCount: p._count.guests,
+        roomCount: p._count.rooms,
+        matchCount: hotspot?.matchCount || 0,
+        criticalCount: hotspot?.criticalCount || 0,
+        highCount: hotspot?.highCount || 0,
+        hasCoordinates: !!(p.latitude && p.longitude && p.latitude !== 9.02),
+      };
+    });
 
     // Occupancy vs Crime correlation (last 6 months)
     const sixMonthsAgo = new Date();
@@ -55,7 +106,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       frequentStays,
-      hotspotData: Array.from(hotspotMap.values()).sort((a, b) => b.matchCount - a.matchCount),
+      hotspotData,
+      allProviderLocations,
       occupancyCrimeCorrelation: monthlyData,
       recentActivity: auditLogs,
     });

@@ -13,7 +13,7 @@ export async function PUT(
     const { id } = await params;
     const body = await req.json();
 
-    const { status, rejectionReason } = body;
+    const { status, rejectionReason, latitude, longitude } = body;
 
     if (!status || !["PENDING", "APPROVED", "REJECTED", "SUSPENDED"].includes(status)) {
       return NextResponse.json(
@@ -31,6 +31,11 @@ export async function PUT(
       status,
       rejectionReason: rejectionReason || "",
     };
+
+    if (typeof latitude === "number" && typeof longitude === "number") {
+      updateData.latitude = latitude;
+      updateData.longitude = longitude;
+    }
 
     if (status === "APPROVED") {
       updateData.approvedBy = auth.role;
