@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthContext, getProviderFilter, checkWritePermission } from "@/lib/tenant";
+import { hashPassword } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     // SUPERUSER cannot access the users list — use /api/owner-accounts instead
     if (auth.role === "SUPERUSER") {
       return NextResponse.json(
@@ -32,9 +33,13 @@ export async function GET(req: NextRequest) {
         role: true,
         name: true,
         permissions: true,
+        policeRank: true,
         providerId: true,
         createdAt: true,
         updatedAt: true,
+        provider: {
+          select: { name: true },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -48,7 +53,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     const { providerId } = getProviderFilter(auth);
     checkWritePermission(auth, { requireSuperuserOrOperator: true });
 
@@ -69,12 +74,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Hash the password before storing
+    const hashedPassword = await hashPassword(password);
+
     const targetProviderId = bodyProviderId || providerId;
 
     const user = await db.user.create({
       data: {
         username,
-        password,
+        password: hashedPassword,
         role,
         name,
         permissions: typeof permissions === "string" ? permissions : JSON.stringify(permissions || []),

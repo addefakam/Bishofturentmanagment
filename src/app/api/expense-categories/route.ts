@@ -20,7 +20,7 @@ export async function GET(_req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     checkWritePermission(auth, {
       blockSuperuser: true,
       staffPermissionKey: "expenses",

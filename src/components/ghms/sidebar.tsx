@@ -30,6 +30,7 @@ import {
 import { useAppStore, type CurrentUser } from "@/lib/store";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { POLICE_RANK_PERMISSIONS, RANK_LABELS, RANK_BADGE_CLASSES, type PoliceRank } from "@/lib/police-permissions";
+import { apiLogout } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -128,7 +129,9 @@ const SUPERUSER_NAV_ITEMS: NavItem[] = [
 const OPERATOR_EXCLUDED = new Set<string>(["owner-accounts"]);
 
 // ── Permission → page mapping for STAFF role ──
+// Supports both legacy keys (rooms, daytime) and new keys (rooms_view, daytime_view)
 const PERMISSION_PAGE_MAP: Record<string, NavItem> = {
+  // New keys with _view suffix
   rooms_view: { page: "rooms", label: "Rooms", icon: Bed },
   daytime_view: { page: "daytime", label: "Daytime", icon: Sun },
   housekeeping_view: {
@@ -144,6 +147,24 @@ const PERMISSION_PAGE_MAP: Record<string, NavItem> = {
     icon: Bell,
   },
   settings_view: { page: "settings", label: "Settings", icon: Settings },
+  // Legacy keys without _view suffix (backward compat)
+  rooms: { page: "rooms", label: "Rooms", icon: Bed },
+  daytime: { page: "daytime", label: "Daytime", icon: Sun },
+  housekeeping: {
+    page: "housekeeping",
+    label: "Housekeeping",
+    icon: Sparkles,
+  },
+  reports: { page: "reports", label: "Reports", icon: BarChart3 },
+  reviews: { page: "reviews", label: "Reviews", icon: Star },
+  notifications: {
+    page: "notifications",
+    label: "Notifications",
+    icon: Bell,
+  },
+  settings: { page: "settings", label: "Settings", icon: Settings },
+  reservations: { page: "guests-reservations", label: "Reservations", icon: CalendarCheck },
+  guests: { page: "guests-reservations", label: "Guests", icon: UsersRound },
 };
 
 // ── Helper: get nav items based on role ──
@@ -402,7 +423,10 @@ export default function Sidebar() {
 
   if (!mounted || !currentUser) return null;
 
-  function handleLogout() {
+  async function handleLogout() {
+    // Clear httpOnly cookie on server
+    await apiLogout();
+    // Clear local state
     setCurrentUser(null);
     setCurrentPage("login");
     if (isMobile) setSidebarOpen(false);

@@ -5,7 +5,7 @@ import { checkSuspectMatch } from "@/lib/suspect-check";
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     const { isPolice, providerId } = getProviderFilter(auth);
 
     const { searchParams } = req.nextUrl;
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     const { providerId } = getProviderFilter(auth);
     checkWritePermission(auth, { staffOnlyWrite: true, staffPermissionKey: "reservations" });
 

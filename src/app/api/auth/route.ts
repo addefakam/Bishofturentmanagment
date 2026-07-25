@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { hashPassword, verifyPassword, createToken, type JWTPayload } from "@/lib/auth-utils";
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,16 +20,31 @@ export async function POST(req: NextRequest) {
       include: { provider: true },
     });
 
-    if (!user || user.password !== password) {
+    if (!user) {
       return NextResponse.json(
         { error: "Invalid username or password" },
         { status: 401 }
       );
     }
 
-    // Extract policeRank from the user record directly
-    // (field added via ALTER TABLE — use raw read to handle cases where Prisma
-    //  schema has the field but the ORM property may not be populated on older rows)
+    // Verify password (supports both hashed and plain text for backward compat)
+    const valid = await verifyPassword(password, user.password);
+    if (!valid) {
+      return NextResponse.json(
+        { error: "Invalid username or password" },
+        { status: 401 }
+      );
+    }
+
+    // ── Auto-migrate: if password is plain text, hash it now ──
+    if (!user.password.startsWith("$2")) {
+      const hashed = await hashPassword(password);
+      await db.user.update({
+        where: { id: user.id },
+        data: { password: hashed },
+      });
+    }
+
     let policeRank = user.policeRank || "";
     if (!policeRank) {
       try {
@@ -65,7 +81,23 @@ export async function POST(req: NextRequest) {
       logAudit(req, { action: "LOGIN", targetId: user.id, targetType: "User", details: `Police login: ${user.username}` });
     }
 
-    return NextResponse.json({
+    // ── Create JWT token ──
+    const tokenPayload: JWTPayload = {
+      userId: user.id,
+      username: user.username,
+      name: user.name,
+      role: user.role,
+      providerId: user.providerId,
+      permissions,
+      policeRank,
+      providerName: user.provider?.name ?? undefined,
+    };
+
+    const token = await createToken(tokenPayload);
+
+    // Set token as httpOnly cookie (secure in production)
+    const isProduction = process.env.NODE_ENV === "production";
+    const response = NextResponse.json({
       user: {
         id: user.id,
         username: user.username,
@@ -77,6 +109,16 @@ export async function POST(req: NextRequest) {
       },
       providerName: user.provider?.name ?? null,
     });
+
+    response.cookies.set("ghms_token", token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24, // 24 hours
+    });
+
+    return response;
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(
@@ -84,4 +126,17 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// ── Logout endpoint ──
+export async function DELETE() {
+  const response = NextResponse.json({ success: true });
+  response.cookies.set("ghms_token", "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+  return response;
 }

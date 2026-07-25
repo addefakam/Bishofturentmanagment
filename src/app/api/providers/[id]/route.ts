@@ -7,7 +7,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     requirePolice(auth);
 
     const { id } = await params;

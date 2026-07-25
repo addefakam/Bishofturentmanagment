@@ -10,7 +10,7 @@ import { logAudit } from "@/lib/audit";
  */
 export async function POST(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     requirePolice(auth);
 
     const body = await req.json();

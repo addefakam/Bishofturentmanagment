@@ -7,7 +7,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     blockPoliceWrites(auth);
 
     const { id } = await params;

@@ -7,7 +7,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     checkWritePermission(auth, { staffOnlyWrite: true });
 
     const { id } = await params;

@@ -5,8 +5,8 @@ import { getAuthContext } from "@/lib/tenant";
 // GET /api/owner-accounts — OPERATOR lists providers with owner accounts + police accounts
 export async function GET(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
-    if (auth.role !== "OPERATOR") {
+    const auth = await getAuthContext(req);
+    if (auth.role !== "SUPERUSER" && auth.role !== "OPERATOR") {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 

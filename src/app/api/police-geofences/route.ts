@@ -4,7 +4,7 @@ import { getAuthContext, requirePolice } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     requirePolice(auth);
     const geofences = await db.geofence.findMany({ orderBy: { createdAt: "desc" } });
     return NextResponse.json(geofences);
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     requirePolice(auth);
     const body = await req.json();
     const { name, address, latitude, longitude, radius, severity } = body;
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     requirePolice(auth);
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");

@@ -4,7 +4,7 @@ import { getAuthContext, getProviderFilter } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     const filter = getProviderFilter(auth);
 
     const where = filter.isPolice ? {} : { providerId: filter.providerId };

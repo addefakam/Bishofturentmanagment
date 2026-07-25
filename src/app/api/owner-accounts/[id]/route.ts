@@ -9,8 +9,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = getAuthContext(req);
-    if (auth.role !== "OPERATOR") {
+    const auth = await getAuthContext(req);
+    if (auth.role !== "SUPERUSER" && auth.role !== "OPERATOR") {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
@@ -51,7 +51,8 @@ export async function PUT(
       updateData.username = username;
     }
     if (password) {
-      updateData.password = password;
+      const { hashPassword } = await import("@/lib/auth-utils");
+      updateData.password = await hashPassword(password);
     }
 
     const user = await db.user.update({

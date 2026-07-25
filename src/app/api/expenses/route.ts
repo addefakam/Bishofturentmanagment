@@ -8,7 +8,7 @@ import {
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     if (auth.role !== "SUPERUSER" && auth.role !== "OPERATOR" && auth.role !== "POLICE") {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     checkWritePermission(auth, { requireSuperuserOrOperator: true });
 
     const body = await req.json();

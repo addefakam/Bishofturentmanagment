@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthContext, checkWritePermission } from "@/lib/tenant";
+import { hashPassword } from "@/lib/auth-utils";
 
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     checkWritePermission(auth, { requireSuperuserOrOperator: true });
 
     const { id } = await params;
@@ -35,7 +36,10 @@ export async function PUT(
 
     const updateData: Record<string, unknown> = {};
     if (body.username !== undefined) updateData.username = body.username;
-    if (body.password) updateData.password = body.password;
+    if (body.password) {
+      // Hash the new password
+      updateData.password = await hashPassword(body.password);
+    }
     if (body.role !== undefined) updateData.role = body.role;
     if (body.name !== undefined) updateData.name = body.name;
     if (body.permissions !== undefined) {
@@ -43,6 +47,7 @@ export async function PUT(
         ? body.permissions
         : JSON.stringify(body.permissions);
     }
+    if (body.policeRank !== undefined) updateData.policeRank = body.policeRank;
     if (body.providerId !== undefined) updateData.providerId = body.providerId;
 
     const user = await db.user.update({
@@ -54,9 +59,13 @@ export async function PUT(
         role: true,
         name: true,
         permissions: true,
+        policeRank: true,
         providerId: true,
         createdAt: true,
         updatedAt: true,
+        provider: {
+          select: { name: true },
+        },
       },
     });
 
@@ -75,7 +84,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     checkWritePermission(auth, { requireSuperuserOrOperator: true });
 
     const { id } = await params;

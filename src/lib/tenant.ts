@@ -1,14 +1,44 @@
 import { NextRequest } from "next/server";
+import { verifyToken, type JWTPayload } from "@/lib/auth-utils";
+import { db } from "@/lib/db";
 
 export interface AuthContext {
+  userId: string;
   role: string;
   providerId: string | null;
   permissions: string[];
   policeRank: string;
   userName: string;
+  // Raw JWT payload for reference
+  token: JWTPayload;
 }
 
-export function getAuthContext(req: NextRequest): AuthContext {
+/**
+ * Server-side auth: reads JWT from httpOnly cookie and verifies it.
+ * Falls back to header-based auth for backward compatibility during migration.
+ * Once all clients use cookies, the header fallback can be removed.
+ */
+export async function getAuthContext(req: NextRequest): Promise<AuthContext> {
+  // ── Primary: Read JWT from httpOnly cookie ──
+  const token = req.cookies.get("ghms_token")?.value;
+
+  if (token) {
+    const payload = await verifyToken(token);
+    if (payload) {
+      return {
+        userId: payload.userId,
+        role: payload.role,
+        providerId: payload.providerId,
+        permissions: payload.permissions,
+        policeRank: payload.policeRank,
+        userName: payload.name,
+        token: payload,
+      };
+    }
+  }
+
+  // ── Fallback: Header-based auth (backward compat during migration) ──
+  // This allows the existing client to keep working until it's updated to use cookies
   const role = req.headers.get("x-user-role") || "";
   const providerId = req.headers.get("x-provider-id") || null;
   const permStr = req.headers.get("x-user-permissions") || "[]";
@@ -20,7 +50,24 @@ export function getAuthContext(req: NextRequest): AuthContext {
   } catch {
     permissions = [];
   }
-  return { role: role.toUpperCase(), providerId, permissions, policeRank, userName };
+
+  return {
+    userId: "",
+    role: role.toUpperCase(),
+    providerId,
+    permissions,
+    policeRank,
+    userName,
+    token: {
+      userId: "",
+      username: userName,
+      role: role.toUpperCase(),
+      providerId,
+      permissions,
+      policeRank,
+      name: userName,
+    },
+  };
 }
 
 export function getProviderFilter(auth: AuthContext) {
@@ -40,10 +87,10 @@ export function blockPoliceWrites(auth: AuthContext): void {
 
 interface PermissionOptions {
   staffOnlyWrite?: boolean;
-  blockSuperuser?: boolean;        // kept for backwards compat, now redundant
-  requireSuperuserOrOperator?: boolean; // backwards compat alias for requireOperator
-  requireOperator?: boolean;       // only OPERATOR can perform this action
-  allowSuperuser?: boolean;        // explicitly allow SUPERUSER (settings, concerns)
+  blockSuperuser?: boolean;
+  requireSuperuserOrOperator?: boolean;
+  requireOperator?: boolean;
+  allowSuperuser?: boolean;
   staffPermissionKey?: string;
   staffCanCreate?: boolean;
 }
@@ -54,14 +101,11 @@ export function checkWritePermission(
 ): void {
   if (auth.role === "POLICE") throw new Error("Police cannot perform this action");
 
-  // SUPERUSER: restricted to owner-only actions (settings, submit concerns)
-  // Blocked from all other write operations
   if (auth.role === "SUPERUSER") {
     if (opts.allowSuperuser) return;
     throw new Error("Owners cannot perform this action. Contact your operator for assistance.");
   }
 
-  // requireOperator / requireSuperuserOrOperator → only OPERATOR
   if (opts.requireOperator || opts.requireSuperuserOrOperator) {
     if (auth.role !== "OPERATOR") {
       throw new Error("Operator access required");
@@ -69,7 +113,6 @@ export function checkWritePermission(
     return;
   }
 
-  // blockSuperuser is now redundant (SUPERUSER is blocked above) but kept for safety
   if (opts.blockSuperuser && auth.role === "SUPERUSER") {
     throw new Error("Superusers cannot perform this action");
   }

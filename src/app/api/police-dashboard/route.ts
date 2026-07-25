@@ -4,7 +4,7 @@ import { getAuthContext, requirePolice } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     requirePolice(auth);
 
     // City-wide stats

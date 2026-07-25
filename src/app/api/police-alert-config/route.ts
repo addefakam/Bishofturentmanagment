@@ -4,7 +4,7 @@ import { getAuthContext, requirePolice } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     requirePolice(auth);
     let config = await db.policeAlertConfig.findFirst();
     if (!config) {
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     requirePolice(auth);
     const body = await req.json();
     let config = await db.policeAlertConfig.findFirst();

@@ -4,7 +4,7 @@ import { getAuthContext, getProviderFilter, checkWritePermission } from "@/lib/t
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
 
     // Police users see ALL notifications (they have cross-provider visibility)
     let notifications;
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     const { providerId } = getProviderFilter(auth);
     // SUPERUSER can submit concerns; others blocked (notifications are system-generated)
     checkWritePermission(auth, { allowSuperuser: true });

@@ -11,7 +11,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     checkWritePermission(auth, { requireSuperuserOrOperator: true });
 
     const { id } = await params;
@@ -66,7 +66,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     checkWritePermission(auth, { requireSuperuserOrOperator: true });
 
     const { id } = await params;

@@ -6,7 +6,7 @@ import { ensureSuspectTables } from "@/lib/suspect-check";
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     requirePolice(auth);
     await ensureSuspectTables();
 
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     requirePolice(auth);
     await ensureSuspectTables();
 

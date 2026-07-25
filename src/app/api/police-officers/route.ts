@@ -3,13 +3,14 @@ import { db } from "@/lib/db";
 import { getAuthContext, requirePolice } from "@/lib/tenant";
 import { requirePoliceMinRank, POLICE_RANKS, type PoliceRank } from "@/lib/police-permissions";
 import { logAudit } from "@/lib/audit";
+import { hashPassword } from "@/lib/auth-utils";
 
 /**
  * GET /api/police-officers — List all POLICE users (ADMIN only)
  */
 export async function GET(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     requirePolice(auth);
 
     const officers = await db.user.findMany({
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     requirePolice(auth);
     requirePoliceMinRank(auth, "ADMIN");
 
@@ -66,13 +67,13 @@ export async function POST(req: NextRequest) {
       ? policeRank
       : "OFFICER") as PoliceRank;
 
-    // Store password as plaintext (matches auth route comparison)
-    // TODO: Production should use bcrypt hashing
+    // Hash the password before storing
+    const hashedPassword = await hashPassword(password);
 
     const officer = await db.user.create({
       data: {
         username,
-        password,
+        password: hashedPassword,
         name,
         role: "POLICE",
         permissions: JSON.stringify([`police_rank:${rank}`]),
@@ -103,7 +104,7 @@ export async function POST(req: NextRequest) {
  */
 export async function PUT(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     requirePolice(auth);
     requirePoliceMinRank(auth, "ADMIN");
 
@@ -157,7 +158,7 @@ export async function PUT(req: NextRequest) {
  */
 export async function DELETE(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     requirePolice(auth);
     requirePoliceMinRank(auth, "ADMIN");
 

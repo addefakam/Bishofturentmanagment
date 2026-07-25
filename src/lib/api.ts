@@ -4,6 +4,7 @@ export function getHeaders(): Record<string, string> {
   const user = useAppStore.getState().currentUser;
   return {
     "Content-Type": "application/json",
+    // Headers are now just for backward compat — server reads JWT from cookie
     ...(user
       ? {
           "x-user-role": user.role,
@@ -17,7 +18,11 @@ export function getHeaders(): Record<string, string> {
 }
 
 async function req(url: string, opts: RequestInit = {}) {
-  const res = await fetch(url, { ...opts, headers: { ...getHeaders(), ...opts.headers } });
+  const res = await fetch(url, {
+    ...opts,
+    headers: { ...getHeaders(), ...opts.headers },
+    credentials: "include", // Always include cookies (JWT httpOnly)
+  });
   if (!res.ok) {
     const t = await res.text().catch(() => "");
     throw new Error(t || `Request failed: ${res.status}`);
@@ -28,6 +33,18 @@ async function req(url: string, opts: RequestInit = {}) {
 // Auth
 export const apiAuth = (data: { username: string; password: string }) =>
   req("/api/auth", { method: "POST", body: JSON.stringify(data) });
+
+// Logout — calls server to clear httpOnly cookie
+export const apiLogout = async () => {
+  try {
+    await fetch("/api/auth", {
+      method: "DELETE",
+      credentials: "include",
+    });
+  } catch {
+    // Ignore logout errors
+  }
+};
 
 // Dashboard
 export const apiDashboard = () => req("/api/dashboard");
@@ -146,7 +163,7 @@ export const apiGetProviders = () => req("/api/providers");
 export const apiUpdateProvider = (id: string, data: Record<string, unknown>) =>
   req(`/api/providers/${id}`, { method: "PUT", body: JSON.stringify(data) });
 export const apiRegisterProvider = async (data: FormData) => {
-  const res = await fetch("/api/providers", { method: "POST", body: data });
+  const res = await fetch("/api/providers", { method: "POST", body: data, credentials: "include" });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(json.error || `Registration failed: ${res.status}`);
@@ -216,7 +233,7 @@ export const apiPoliceExport = (q: string) => req(`/api/police-export?${q}`);
 
 // Police Report (HTML)
 export const apiPoliceReport = (month: number, year: number) =>
-  fetch(`/api/police-report?month=${month}&year=${year}`, { headers: getHeaders() }).then(async (res) => {
+  fetch(`/api/police-report?month=${month}&year=${year}`, { headers: { ...getHeaders() }, credentials: "include" }).then(async (res) => {
     if (!res.ok) {
       const t = await res.text().catch(() => "");
       throw new Error(t || `Report generation failed: ${res.status}`);

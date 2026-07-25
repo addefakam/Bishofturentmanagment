@@ -33,7 +33,7 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
 // GET /api/geocode?address=... — geocode a single address (useful for preview)
 export async function GET(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     requirePolice(auth);
 
     const { searchParams } = new URL(req.url);
@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
 // POST /api/geocode — batch geocode all providers that have an address but default coordinates
 export async function POST(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     requirePolice(auth);
 
     const providers = await db.provider.findMany({

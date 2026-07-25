@@ -11,7 +11,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     checkWritePermission(auth, { staffPermissionKey: "rooms" });
 
     const { id } = await params;

@@ -11,7 +11,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     checkWritePermission(auth, {
       blockSuperuser: true,
       staffPermissionKey: "housekeeping",
@@ -69,7 +69,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     checkWritePermission(auth, {
       blockSuperuser: true,
       staffPermissionKey: "housekeeping",

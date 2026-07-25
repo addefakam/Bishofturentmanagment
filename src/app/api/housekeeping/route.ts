@@ -8,7 +8,7 @@ import {
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     const filter = getProviderFilter(auth);
 
     const where: Record<string, unknown> = filter.isPolice
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     checkWritePermission(auth, {
       blockSuperuser: true,
       staffPermissionKey: "housekeeping",

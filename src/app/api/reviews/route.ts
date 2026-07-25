@@ -4,7 +4,7 @@ import { getAuthContext, getProviderFilter, blockPoliceWrites } from "@/lib/tena
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     const { isPolice, providerId } = getProviderFilter(auth);
 
     const { searchParams } = req.nextUrl;
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     blockPoliceWrites(auth);
 
     const body = await req.json();

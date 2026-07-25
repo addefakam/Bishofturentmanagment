@@ -5,7 +5,7 @@ import { logAudit } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     requirePolice(auth);
     const { searchParams } = new URL(req.url);
     const type = searchParams.get("type") || "all";

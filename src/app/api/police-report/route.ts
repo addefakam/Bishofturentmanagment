@@ -37,7 +37,7 @@ function riskBadge(risk: string): string {
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     requirePolice(auth);
 
     const now = new Date();

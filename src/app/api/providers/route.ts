@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthContext, requirePolice } from "@/lib/tenant";
+import { hashPassword } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     requirePolice(auth);
 
     const providers = await db.provider.findMany({
@@ -81,10 +82,13 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      // Hash password before storing
+      const hashedPassword = await hashPassword(password);
+
       await tx.user.create({
         data: {
           username: username.trim(),
-          password,
+          password: hashedPassword,
           role: "OPERATOR",
           name: ownerName,
           providerId: p.id,
