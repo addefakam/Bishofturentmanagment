@@ -9,6 +9,7 @@ function headers(): Record<string, string> {
           "x-user-role": user.role,
           "x-provider-id": user.providerId || "",
           "x-user-permissions": JSON.stringify(user.permissions),
+          "x-user-police-rank": user.policeRank || "",
         }
       : {}),
   };
@@ -212,6 +213,22 @@ export const apiPoliceAlertConfig = () => req("/api/police-alert-config");
 export const apiPoliceUpdateAlertConfig = (data: Record<string, unknown>) => req("/api/police-alert-config", { method: "PUT", body: JSON.stringify(data) });
 export const apiPoliceExport = (q: string) => req(`/api/police-export?${q}`);
 
+// Police Report (HTML)
+export const apiPoliceReport = (month: number, year: number) =>
+  fetch(`/api/police-report?month=${month}&year=${year}`, { headers: headers() }).then(async (res) => {
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      throw new Error(t || `Report generation failed: ${res.status}`);
+    }
+    return res.text();
+  });
+
 // Geocoding
 export const apiGeocodeAddress = (address: string) => req(`/api/geocode?address=${encodeURIComponent(address)}`);
 export const apiGeocodeBatch = () => req("/api/geocode", { method: "POST" });
+
+// Police Officer Management
+export const apiPoliceOfficers = () => req("/api/police-officers");
+export const apiPoliceCreateOfficer = (data: Record<string, unknown>) => req("/api/police-officers", { method: "POST", body: JSON.stringify(data) });
+export const apiPoliceUpdateOfficer = (id: string, data: Record<string, unknown>) => req("/api/police-officers", { method: "PUT", body: JSON.stringify({ id, ...data }) });
+export const apiPoliceDeleteOfficer = (id: string) => req(`/api/police-officers?id=${id}`, { method: "DELETE" });

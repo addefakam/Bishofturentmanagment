@@ -26,6 +26,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Extract policeRank safely (field may not exist yet in older databases)
+    let policeRank = "";
+    try {
+      const rawUser: any = await db.$queryRawUnsafe(`SELECT "policeRank" FROM "User" WHERE "id" = '${user.id}'`);
+      if (Array.isArray(rawUser) && rawUser[0] && rawUser[0].policeRank) {
+        policeRank = rawUser[0].policeRank;
+      }
+    } catch {
+      // Column might not exist yet
+    }
+
     // POLICE and system admin SUPERUSER (no provider) can login directly
     if (user.role !== "POLICE" && user.providerId) {
       if (!user.provider || user.provider.status !== "APPROVED") {
@@ -55,6 +66,7 @@ export async function POST(req: NextRequest) {
         role: user.role,
         providerId: user.providerId,
         permissions,
+        policeRank,
       },
       providerName: user.provider?.name ?? null,
     });

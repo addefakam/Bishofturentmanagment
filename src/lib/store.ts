@@ -9,6 +9,7 @@ export interface CurrentUser {
   role: string;
   providerId: string | null;
   permissions: string[];
+  policeRank: string;
   providerName?: string;
 }
 

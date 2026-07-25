@@ -120,8 +120,32 @@ export async function POST() {
     `);
 
     // Add latitude/longitude columns to Provider if missing
-    await db.$executeRawUnsafe(`ALTER TABLE "Provider" ADD COLUMN "latitude" REAL DEFAULT 9.02`).catch(() => {});
-    await db.$executeRawUnsafe(`ALTER TABLE "Provider" ADD COLUMN "longitude" REAL DEFAULT 38.75`).catch(() => {});
+    try {
+      const cols: { name: string }[] = await db.$queryRawUnsafe(`PRAGMA table_info("Provider")`);
+      const colNames = cols.map(c => c.name);
+      if (!colNames.includes('latitude')) {
+        await db.$executeRawUnsafe(`ALTER TABLE "Provider" ADD COLUMN "latitude" REAL DEFAULT 9.02`);
+        console.log('[setup-db] Added latitude column to Provider');
+      }
+      if (!colNames.includes('longitude')) {
+        await db.$executeRawUnsafe(`ALTER TABLE "Provider" ADD COLUMN "longitude" REAL DEFAULT 38.75`);
+        console.log('[setup-db] Added longitude column to Provider');
+      }
+    } catch (err) {
+      console.error('[setup-db] Failed to add lat/lng columns:', err);
+    }
+
+    // Add policeRank column to User if missing
+    try {
+      const userCols: { name: string }[] = await db.$queryRawUnsafe(`PRAGMA table_info("User")`);
+      const userColNames = userCols.map(c => c.name);
+      if (!userColNames.includes('policeRank')) {
+        await db.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN "policeRank" TEXT DEFAULT ''`);
+        console.log('[setup-db] Added policeRank column to User');
+      }
+    } catch (err) {
+      console.error('[setup-db] Failed to add policeRank column:', err);
+    }
 
     // Migrate stale data: any SUPERUSER with a providerId should be OPERATOR
     const migrated = await db.user.updateMany({

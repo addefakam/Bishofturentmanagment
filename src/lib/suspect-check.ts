@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { dispatchAlertForMatch } from "./alert-dispatcher";
 
 let tablesEnsured = false;
 
@@ -134,7 +135,7 @@ export async function checkSuspectMatch(params: {
 
     // Create a match record for each suspect found
     for (const suspect of suspects) {
-      await db.suspectMatch.create({
+      const match = await db.suspectMatch.create({
         data: {
           suspectedPersonId: suspect.id,
           matchType,
@@ -148,6 +149,26 @@ export async function checkSuspectMatch(params: {
           details,
         },
       });
+
+      // Fire-and-forget alert dispatch — never blocks or breaks normal flow
+      dispatchAlertForMatch(
+        {
+          id: suspect.id,
+          name: suspect.name,
+          severity: suspect.severity,
+          is_active: suspect.is_active,
+        },
+        {
+          matchId: match.id,
+          providerId: match.providerId,
+          providerName: match.providerName,
+          guestName: match.guestName,
+          guestPhone: match.guestPhone,
+          guestIdNumber: match.guestIdNumber,
+          matchType: match.matchType,
+          details: match.details,
+        }
+      ).catch(() => {});
     }
   } catch (error) {
     // Log but never throw — suspect checking should not break normal operations

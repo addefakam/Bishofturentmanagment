@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { headers } from "@/lib/api";
 import {
   MapPin, Building2, AlertTriangle, Filter, X, Users, BedDouble,
   ChevronDown, ChevronUp, Crosshair,
@@ -65,6 +66,8 @@ export default function IntelligenceMap({ allProviders }: IntelligenceMapProps) 
   const [searchQuery, setSearchQuery] = useState("");
   const [showPanel, setShowPanel] = useState(true);
   const [mapReady, setMapReady] = useState(false);
+  const [showGeofences, setShowGeofences] = useState(false);
+  const geofenceLayerRef = useRef<L.LayerGroup | null>(null);
 
   const filteredProviders = useMemo(() => {
     let list = allProviders;
@@ -105,6 +108,9 @@ export default function IntelligenceMap({ allProviders }: IntelligenceMapProps) 
 
     markersLayerRef.current = L.layerGroup().addTo(map);
     heatLayerRef.current = L.layerGroup().addTo(map);
+    geofenceLayerRef.current = L.layerGroup().addTo(map);
+    map.addLayer(geofenceLayerRef.current);
+    geofenceLayerRef.current.remove(); // hidden by default
 
     setMapReady(true);
 
@@ -113,6 +119,7 @@ export default function IntelligenceMap({ allProviders }: IntelligenceMapProps) 
       mapInstanceRef.current = null;
       markersLayerRef.current = null;
       heatLayerRef.current = null;
+      geofenceLayerRef.current = null;
       setMapReady(false);
     };
   }, []);
@@ -179,6 +186,43 @@ export default function IntelligenceMap({ allProviders }: IntelligenceMapProps) 
         mapInstanceRef.current?.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
       }
     }
+  // Fetch and render geofences
+  useEffect(() => {
+    if (!mapReady || !geofenceLayerRef.current) return;
+    const layer = geofenceLayerRef.current;
+    layer.clearLayers();
+    if (!showGeofences) return;
+    fetch("/api/police-geofences", { headers: headers() })
+      .then((r) => r.json())
+      .then((geofences: Array<{ id: string; name: string; latitude: number; longitude: number; radius: number; severity: string; isActive: boolean }>) => {
+        const geofColors: Record<string, string> = { CRITICAL: "#dc2626", HIGH: "#ea580c", MEDIUM: "#eab308", LOW: "#22c55e" };
+        for (const gf of geofences) {
+          const color = geofColors[gf.severity] || "#ea580c";
+          L.circle([gf.latitude, gf.longitude], {
+            radius: gf.radius,
+            color,
+            fillColor: color,
+            fillOpacity: 0.08,
+            weight: 2,
+            dashArray: "8 6",
+          })
+            .bindPopup(`<b>${gf.name}</b><br>Severity: ${gf.severity}<br>Radius: ${gf.radius}m`)
+            .addTo(layer);
+        }
+      })
+      .catch(() => {});
+  }, [mapReady, showGeofences]);
+
+  // Toggle geofence layer
+  useEffect(() => {
+    if (!mapInstanceRef.current || !geofenceLayerRef.current) return;
+    if (showGeofences) {
+      mapInstanceRef.current.addLayer(geofenceLayerRef.current);
+    } else {
+      mapInstanceRef.current.removeLayer(geofenceLayerRef.current);
+    }
+  }, [showGeofences]);
+
   }, [mapReady, filteredProviders, selectedProvider, severityFilter]);
 
   const flyTo = (p: ProviderLocation) => {
@@ -247,6 +291,14 @@ export default function IntelligenceMap({ allProviders }: IntelligenceMapProps) 
           </div>
           <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={resetView}>
             <Crosshair className="mr-1 h-3 w-3" /> Reset
+          </Button>
+          <Button
+            variant={showGeofences ? "default" : "outline"}
+            size="sm"
+            className="h-7 text-[10px]"
+            onClick={() => setShowGeofences(!showGeofences)}
+          >
+            <MapPin className="mr-1 h-3 w-3" /> Geofences
           </Button>
           <Button
             variant="outline"

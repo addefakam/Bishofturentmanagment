@@ -4,19 +4,21 @@ export interface AuthContext {
   role: string;
   providerId: string | null;
   permissions: string[];
+  policeRank: string;
 }
 
 export function getAuthContext(req: NextRequest): AuthContext {
   const role = req.headers.get("x-user-role") || "";
   const providerId = req.headers.get("x-provider-id") || null;
   const permStr = req.headers.get("x-user-permissions") || "[]";
+  const policeRank = req.headers.get("x-user-police-rank") || "";
   let permissions: string[] = [];
   try {
     permissions = JSON.parse(permStr);
   } catch {
     permissions = [];
   }
-  return { role: role.toUpperCase(), providerId, permissions };
+  return { role: role.toUpperCase(), providerId, permissions, policeRank };
 }
 
 export function getProviderFilter(auth: AuthContext) {

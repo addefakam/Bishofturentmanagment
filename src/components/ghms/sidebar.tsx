@@ -29,6 +29,7 @@ import {
 
 import { useAppStore, type CurrentUser } from "@/lib/store";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { POLICE_RANK_PERMISSIONS, RANK_LABELS, RANK_BADGE_CLASSES, type PoliceRank } from "@/lib/police-permissions";
 
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -142,8 +143,11 @@ const PERMISSION_PAGE_MAP: Record<string, NavItem> = {
 // ── Helper: get nav items based on role ──
 function getNavItems(user: CurrentUser): NavItem[] {
   switch (user.role) {
-    case "POLICE":
-      return POLICE_NAV_ITEMS;
+    case "POLICE": {
+      const rank = (user.policeRank || "OFFICER") as PoliceRank;
+      const allowedPages = POLICE_RANK_PERMISSIONS[rank] || POLICE_RANK_PERMISSIONS.OFFICER;
+      return POLICE_NAV_ITEMS.filter((item) => allowedPages.includes(item.page));
+    }
 
     case "SUPERUSER":
       return SUPERUSER_NAV_ITEMS;
@@ -316,6 +320,14 @@ function SidebarContent({
                   <Shield className="mr-1 size-2.5" />
                   {roleDisplay.label}
                 </Badge>
+                {user.role === "POLICE" && user.policeRank && (
+                  <Badge
+                    variant="outline"
+                    className={`text-[9px] font-semibold leading-none px-1.5 py-0.5 ${RANK_BADGE_CLASSES[(user.policeRank as PoliceRank)] || ""}`}
+                  >
+                    {RANK_LABELS[(user.policeRank as PoliceRank)] || user.policeRank}
+                  </Badge>
+                )}
                 {user.providerName && (
                   <span className="truncate text-[11px] text-slate-400">
                     {user.providerName}

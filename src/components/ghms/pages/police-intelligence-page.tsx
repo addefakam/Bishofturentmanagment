@@ -1,20 +1,22 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAppStore } from "@/lib/store";
-import { apiPoliceIntelligence } from "@/lib/api";
+import { apiPoliceIntelligence, apiPoliceReport } from "@/lib/api";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  MapPin, AlertTriangle, BarChart3, Activity, TrendingUp, RefreshCw,
+  MapPin, AlertTriangle, BarChart3, Activity, TrendingUp, RefreshCw, FileDown, Loader2,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -32,11 +34,44 @@ const RISK_STYLES: Record<string, string> = {
   LOW: "bg-emerald-100 text-emerald-800 border-emerald-200",
 };
 
+const MONTH_OPTIONS = [
+  { value: "1", label: "January" },
+  { value: "2", label: "February" },
+  { value: "3", label: "March" },
+  { value: "4", label: "April" },
+  { value: "5", label: "May" },
+  { value: "6", label: "June" },
+  { value: "7", label: "July" },
+  { value: "8", label: "August" },
+  { value: "9", label: "September" },
+  { value: "10", label: "October" },
+  { value: "11", label: "November" },
+  { value: "12", label: "December" },
+];
+
+function buildYearOptions() {
+  const current = new Date().getFullYear();
+  const opts: { value: string; label: string }[] = [];
+  for (let y = current + 1; y >= current - 3; y--) {
+    opts.push({ value: String(y), label: String(y) });
+  }
+  return opts;
+}
+
+const YEAR_OPTIONS = buildYearOptions();
+
 export default function PoliceIntelligencePage() {
   const { refreshKey } = useAppStore();
   const [data, setData] = useState<{ frequentStays: FreqStayItem[]; hotspotData: HotspotItem[]; allProviderLocations: ProviderLocation[]; occupancyCrimeCorrelation: MonthlyItem[]; recentActivity: AuditItem[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"map" | "charts" | "frequent" | "audit">("map");
+
+  // Report modal state
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportMonth, setReportMonth] = useState(String(new Date().getMonth() + 1));
+  const [reportYear, setReportYear] = useState(String(new Date().getFullYear()));
+  const [reportGenerating, setReportGenerating] = useState(false);
+  const reportLinkRef = useRef<HTMLAnchorElement | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -51,6 +86,29 @@ export default function PoliceIntelligencePage() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData, refreshKey]);
+
+  const handleDownloadReport = async () => {
+    try {
+      setReportGenerating(true);
+      const html = await apiPoliceReport(Number(reportMonth), Number(reportYear));
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `police-report-${reportYear}-${reportMonth.padStart(2, "0")}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setReportOpen(false);
+      toast.success("Report downloaded successfully");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to generate report";
+      toast.error(msg);
+    } finally {
+      setReportGenerating(false);
+    }
+  };
 
   const tabs = [
     { key: "map" as const, label: "Crime Hotspot Map", icon: MapPin },
@@ -67,10 +125,67 @@ export default function PoliceIntelligencePage() {
           <h2 className="text-base sm:text-lg font-semibold">Intelligence Center</h2>
           <p className="text-xs sm:text-sm text-muted-foreground">Crime analytics, hotspot mapping, and pattern detection</p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
-          <RefreshCw className={`mr-1 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setReportOpen(true)}>
+            <FileDown className="mr-1.5 h-3.5 w-3.5" /> Download Report
+          </Button>
+          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+            <RefreshCw className={`mr-1 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
+          </Button>
+        </div>
       </div>
+
+      {/* Report Download Modal */}
+      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileDown className="h-5 w-5" />
+              Download Monthly Report
+            </DialogTitle>
+            <DialogDescription>
+              Generate a printable HTML intelligence report for the selected month.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor="report-month">Month</Label>
+              <Select value={reportMonth} onValueChange={setReportMonth}>
+                <SelectTrigger id="report-month"><SelectValue placeholder="Select month" /></SelectTrigger>
+                <SelectContent>
+                  {MONTH_OPTIONS.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="report-year">Year</Label>
+              <Select value={reportYear} onValueChange={setReportYear}>
+                <SelectTrigger id="report-year"><SelectValue placeholder="Select year" /></SelectTrigger>
+                <SelectContent>
+                  {YEAR_OPTIONS.map((y) => (
+                    <SelectItem key={y.value} value={y.value}>{y.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setReportOpen(false)} disabled={reportGenerating}>
+              Cancel
+            </Button>
+            <Button onClick={handleDownloadReport} disabled={reportGenerating}>
+              {reportGenerating ? (
+                <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Generating...</>
+              ) : (
+                <><FileDown className="mr-1.5 h-3.5 w-3.5" /> Download</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <a ref={reportLinkRef} className="hidden" />
 
       {/* Tab Navigation */}
       <div className="flex gap-1 overflow-x-auto rounded-lg border bg-muted/50 p-0.5">
