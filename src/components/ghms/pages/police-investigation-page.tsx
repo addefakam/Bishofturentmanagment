@@ -180,7 +180,7 @@ export default function PoliceInvestigationPage() {
                 <Input placeholder="Guest name, phone, or ID number..." value={search} onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && searchMovement()} className="pl-9" />
               </div>
-              <Button onClick={searchMovement} disabled={moveLoading || !search.trim()}>
+              <Button onClick={searchMovement} disabled={moveLoading || !search.trim()} className="bg-sky-600 hover:bg-sky-700 text-white">
                 <Search className="mr-1 h-3.5 w-3.5" /> {moveLoading ? "Searching..." : "Track"}
               </Button>
             </CardContent>
@@ -311,7 +311,7 @@ export default function PoliceInvestigationPage() {
                   Guests with multiple stays across providers within 30 days
                 </p>
               </div>
-              <Button variant="default" size="sm" onClick={triggerAnalysis} disabled={analyzing} className="gap-1.5 shrink-0">
+              <Button variant="default" size="sm" onClick={triggerAnalysis} disabled={analyzing} className="bg-sky-600 hover:bg-sky-700 text-white gap-1.5 shrink-0">
                 <RefreshCw className={`h-3.5 w-3.5 ${analyzing ? "animate-spin" : ""}`} />
                 {analyzing ? "Analyzing..." : "Run Analysis"}
               </Button>
@@ -551,7 +551,7 @@ export default function PoliceInvestigationPage() {
                 </div>
 
                 <div className="flex justify-end">
-                  <Button size="sm" onClick={saveConfig} disabled={configSaving}>
+                  <Button size="sm" onClick={saveConfig} disabled={configSaving} className="bg-sky-600 hover:bg-sky-700 text-white">
                     <RefreshCw className={"mr-1 h-3.5 w-3.5 " + (configSaving ? "animate-spin" : "")} /> {configSaving ? "Saving..." : "Save Settings"}
                   </Button>
                 </div>
@@ -589,7 +589,7 @@ export default function PoliceInvestigationPage() {
           <Card>
             <CardHeader><CardTitle className="text-sm">Export Everything</CardTitle></CardHeader>
             <CardContent className="flex gap-2">
-              <Button size="sm" onClick={() => handleExport("all", "json")}><Download className="mr-1 h-3.5 w-3.5" /> Full Export (JSON)</Button>
+              <Button size="sm" onClick={() => handleExport("all", "json")} className="bg-sky-600 hover:bg-sky-700 text-white"><Download className="mr-1 h-3.5 w-3.5" /> Full Export (JSON)</Button>
               <Button size="sm" variant="outline" onClick={() => handleExport("all", "csv")}><Download className="mr-1 h-3.5 w-3.5" /> Full Export (CSV)</Button>
             </CardContent>
           </Card>
