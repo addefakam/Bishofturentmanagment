@@ -179,7 +179,7 @@ export default function SuspectAlertsPage() {
             <button
               onClick={() => setFilter("all")}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                filter === "all" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                filter === "all" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}
             >
               All
@@ -187,7 +187,7 @@ export default function SuspectAlertsPage() {
             <button
               onClick={() => setFilter("unread")}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                filter === "unread" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                filter === "unread" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}
             >
               Unread ({unreadCount})

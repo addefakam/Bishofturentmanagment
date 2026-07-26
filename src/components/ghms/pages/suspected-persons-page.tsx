@@ -355,7 +355,7 @@ export default function SuspectedPersonsPage() {
         <button
           onClick={() => setActiveTab("watchlist")}
           className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
-            activeTab === "watchlist" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            activeTab === "watchlist" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <UserX className="h-3.5 w-3.5" /> Watchlist
@@ -363,7 +363,7 @@ export default function SuspectedPersonsPage() {
         <button
           onClick={() => setActiveTab("scanner")}
           className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
-            activeTab === "scanner" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            activeTab === "scanner" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <ScanLine className="h-3.5 w-3.5" /> Scanner
@@ -381,13 +381,13 @@ export default function SuspectedPersonsPage() {
             <div className="flex gap-1 rounded-lg border bg-muted/50 p-0.5">
               <button
                 onClick={() => setScannerMode("manual")}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${scannerMode === "manual" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground"}`}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${scannerMode === "manual" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground"}`}
               >
                 <Search className="h-3.5 w-3.5 mr-1 inline" /> Manual
               </button>
               <button
                 onClick={() => setScannerMode("scan")}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${scannerMode === "scan" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground"}`}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${scannerMode === "scan" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground"}`}
               >
                 <ScanLine className="h-3.5 w-3.5 mr-1 inline" /> Scan
               </button>

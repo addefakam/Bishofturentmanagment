@@ -162,7 +162,7 @@ export default function PoliceInvestigationPage() {
         {tabs.map((tab) => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)}
             className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
-              activeTab === tab.key ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              activeTab === tab.key ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
             }`}>
             <tab.icon className="h-3.5 w-3.5" /> {tab.label}
           </button>
