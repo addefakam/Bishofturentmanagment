@@ -206,41 +206,212 @@ export default function PoliceInvestigationPage() {
       {/* Frequent Stay Alerts */}
       {activeTab === "frequent" && (
         <div className="space-y-4">
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={triggerAnalysis} disabled={analyzing}>
-              <RefreshCw className={`mr-1 h-3.5 w-3.5 ${analyzing ? "animate-spin" : ""}`} /> Run Analysis
-            </Button>
-          </div>
+          {/* Summary stats */}
+          {!freqLoading && freqStays.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Card className="p-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
+                    <AlertTriangle className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total Alerts</p>
+                    <p className="text-base font-semibold">{freqStays.length}</p>
+                  </div>
+                </div>
+              </Card>
+              <Card className="p-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100">
+                    <ShieldAlert className="h-4 w-4 text-red-600" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">High Risk</p>
+                    <p className="text-base font-semibold text-red-700">{freqStays.filter(f => f.riskLevel === "HIGH").length}</p>
+                  </div>
+                </div>
+              </Card>
+              <Card className="p-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Medium Risk</p>
+                    <p className="text-base font-semibold text-amber-700">{freqStays.filter(f => f.riskLevel === "MEDIUM").length}</p>
+                  </div>
+                </div>
+              </Card>
+              <Card className="p-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100">
+                    <Users className="h-4 w-4 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Low Risk</p>
+                    <p className="text-base font-semibold text-emerald-700">{freqStays.filter(f => f.riskLevel === "LOW").length}</p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+
           <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+              <div className="space-y-1">
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  Frequent Stay Alerts
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Guests with multiple stays across providers within 30 days
+                </p>
+              </div>
+              <Button variant="default" size="sm" onClick={triggerAnalysis} disabled={analyzing} className="gap-1.5 shrink-0">
+                <RefreshCw className={`h-3.5 w-3.5 ${analyzing ? "animate-spin" : ""}`} />
+                {analyzing ? "Analyzing..." : "Run Analysis"}
+              </Button>
+            </CardHeader>
             <CardContent className="p-0">
               {freqLoading ? (
-                <div className="space-y-3 p-4"><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>
-              ) : pagFreq.length === 0 ? (
-                <p className="py-8 text-center text-xs text-muted-foreground">No frequent stay alerts. Click &quot;Run Analysis&quot; to scan for patterns.</p>
-              ) : (
-                <div className="divide-y">
-                  {pagFreq.map((f) => (
-                    <div key={f.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 sm:px-4">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4 text-muted-foreground" />
-                          <p className="text-sm font-medium truncate">{f.guestName}</p>
-                          <Badge variant="outline" className={`text-[9px] ${f.riskLevel === "HIGH" ? "bg-red-100 text-red-800 border-red-200" : f.riskLevel === "LOW" ? "bg-emerald-100 text-emerald-800 border-emerald-200" : "bg-yellow-100 text-yellow-800 border-yellow-200"}`}>{f.riskLevel}</Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground font-mono">{f.guestPhone || f.guestIdNumber}</p>
-                        <div className="flex flex-wrap gap-2 mt-1 text-[10px] text-muted-foreground">
-                          <span>{f.stayCount} stays</span>
-                          <span>{f.avgDaysBetween} avg days between</span>
-                          <span className="text-amber-600">Providers: {(JSON.parse(f.providerNames || "[]") as string[]).join(", ")}</span>
+                <div className="space-y-3 p-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-start gap-3 rounded-lg border p-3">
+                      <Skeleton className="h-10 w-10 rounded-full" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-1/3" />
+                        <Skeleton className="h-3 w-1/2" />
+                        <div className="flex gap-2 mt-2">
+                          <Skeleton className="h-5 w-16 rounded-full" />
+                          <Skeleton className="h-5 w-20 rounded-full" />
+                          <Skeleton className="h-5 w-24 rounded-full" />
                         </div>
                       </div>
+                      <Skeleton className="h-6 w-14 rounded-full" />
                     </div>
                   ))}
+                </div>
+              ) : pagFreq.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted mb-3">
+                    <AlertTriangle className="h-7 w-7 text-muted-foreground opacity-60" />
+                  </div>
+                  <p className="text-sm font-medium">No frequent stay alerts yet</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                    Run an analysis to scan for guests with multiple stays across providers within a 30-day window.
+                  </p>
+                  <Button variant="outline" size="sm" onClick={triggerAnalysis} disabled={analyzing} className="mt-4 gap-1.5">
+                    <RefreshCw className={`h-3.5 w-3.5 ${analyzing ? "animate-spin" : ""}`} />
+                    {analyzing ? "Analyzing..." : "Run Analysis Now"}
+                  </Button>
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {pagFreq.map((f) => {
+                    const providers: string[] = (() => {
+                      try { return JSON.parse(f.providerNames || "[]") as string[]; } catch { return []; }
+                    })();
+                    const riskColor = f.riskLevel === "HIGH"
+                      ? "bg-red-100 text-red-800 border-red-200"
+                      : f.riskLevel === "LOW"
+                        ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                        : "bg-amber-100 text-amber-800 border-amber-200";
+                    const riskIcon = f.riskLevel === "HIGH" ? "text-red-600" : f.riskLevel === "LOW" ? "text-emerald-600" : "text-amber-600";
+                    const initials = (f.guestName || "?").split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase();
+
+                    return (
+                      <div key={f.id} className="p-3 sm:p-4 hover:bg-muted/30 transition-colors">
+                        <div className="flex items-start gap-3">
+                          {/* Avatar */}
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-100 to-rose-200 text-rose-800 text-xs font-semibold">
+                            {initials}
+                          </div>
+
+                          {/* Main content */}
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-sm font-semibold truncate">{f.guestName}</p>
+                              <Badge variant="outline" className={`text-[10px] gap-0.5 ${riskColor}`}>
+                                <span className={riskIcon}>●</span>
+                                {f.riskLevel} RISK
+                              </Badge>
+                              {f.isReviewed && (
+                                <Badge variant="secondary" className="text-[10px] bg-slate-100 text-slate-600">
+                                  Reviewed
+                                </Badge>
+                              )}
+                            </div>
+
+                            {/* Contact info */}
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                              {f.guestPhone && (
+                                <span className="flex items-center gap-1">
+                                  <Phone className="h-3 w-3" />
+                                  <code className="font-mono">{f.guestPhone}</code>
+                                </span>
+                              )}
+                              {f.guestIdNumber && (
+                                <span className="flex items-center gap-1">
+                                  <CreditCard className="h-3 w-3" />
+                                  <code className="font-mono">{f.guestIdNumber}</code>
+                                </span>
+                              )}
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                {new Date(f.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
+
+                            {/* Stats row */}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-[11px] font-medium text-blue-700 border border-blue-100">
+                                <Users className="h-3 w-3" />
+                                {f.stayCount} stays
+                              </span>
+                              <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-2 py-1 text-[11px] font-medium text-violet-700 border border-violet-100">
+                                <Calendar className="h-3 w-3" />
+                                {f.avgDaysBetween}d avg gap
+                              </span>
+                              {providers.length > 0 && (
+                                <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-700 border border-amber-100">
+                                  <Building2 className="h-3 w-3" />
+                                  {providers.length} {providers.length === 1 ? "provider" : "providers"}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Provider chips */}
+                            {providers.length > 0 && (
+                              <div className="flex flex-wrap gap-1 pt-1">
+                                {providers.map((p, i) => (
+                                  <span key={i} className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                                    {p}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
           </Card>
-          <PaginationControls currentPage={freqPag.currentPage} totalPages={freqPag.totalPages} pageSize={freqPag.pageSize} pageSizeOptions={freqPag.pageSizeOptions} totalItems={freqStays.length} rangeInfo={freqPag.rangeInfo} goToPage={freqPag.goToPage} setPageSize={freqPag.setPageSize} />
+
+          {freqStays.length > freqPag.pageSize && (
+            <PaginationControls
+              currentPage={freqPag.currentPage}
+              totalPages={freqPag.totalPages}
+              pageSize={freqPag.pageSize}
+              pageSizeOptions={freqPag.pageSizeOptions}
+              totalItems={freqStays.length}
+              rangeInfo={freqPag.rangeInfo}
+              goToPage={freqPag.goToPage}
+              setPageSize={freqPag.setPageSize}
+            />
+          )}
         </div>
       )}
 
