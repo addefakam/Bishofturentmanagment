@@ -2,18 +2,24 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAppStore } from "@/lib/store";
-import { apiPoliceMovement, apiPoliceFrequentStays, apiPoliceTriggerFrequentAnalysis, apiPoliceGuestLinking } from "@/lib/api";
+import { apiPoliceMovement, apiPoliceFrequentStays, apiPoliceTriggerFrequentAnalysis, apiPoliceGuestLinking, apiPoliceAlertConfig, apiPoliceUpdateAlertConfig, apiPoliceExport } from "@/lib/api";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { usePagination } from "@/hooks/use-pagination";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import {
   Search, ArrowRight, AlertTriangle, RefreshCw, Users, GitBranch,
   Phone, CreditCard, MapPin, Calendar, Building2, ShieldAlert,
+  Shield, Download, Mail, Smartphone,
 } from "lucide-react";
 
 interface GuestResult {
@@ -29,6 +35,7 @@ interface LinkedGroup {
   linkType: string; linkValue: string;
   guests: { id: string; name: string; phone: string; idNumber: string; providerName: string; nationality: string }[];
 }
+interface AlertConfig { id: string; emailEnabled: boolean; emailRecipients: string; smsEnabled: boolean; smsRecipients: string; escalationDelayMins: number; criticalImmediate: boolean; }
 
 const STATUS_COLORS: Record<string, string> = {
   ACTIVE: "bg-emerald-100 text-emerald-800",
@@ -39,7 +46,12 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function PoliceInvestigationPage() {
   const { refreshKey } = useAppStore();
-  const [activeTab, setActiveTab] = useState<"movement" | "frequent" | "linking">("movement");
+  const [activeTab, setActiveTab] = useState<"movement" | "frequent" | "linking" | "alerts" | "export">("movement");
+
+  // Alert Config
+  const [config, setConfig] = useState<AlertConfig | null>(null);
+  const [configLoading, setConfigLoading] = useState(true);
+  const [configSaving, setConfigSaving] = useState(false);
 
   // Movement
   const [search, setSearch] = useState("");
@@ -74,7 +86,15 @@ export default function PoliceInvestigationPage() {
     finally { setLinkLoading(false); }
   }, []);
 
+  // Fetch alert config
+  const fetchConfig = useCallback(async () => {
+    try { setConfigLoading(true); const d: any = await apiPoliceAlertConfig(); setConfig(d); }
+    catch { toast.error("Failed to load config"); }
+    finally { setConfigLoading(false); }
+  }, []);
+
   useEffect(() => { fetchFreq(); fetchLinks(); }, [fetchFreq, fetchLinks, refreshKey]);
+  useEffect(() => { if (activeTab === "alerts") fetchConfig(); }, [activeTab, fetchConfig, refreshKey]);
 
   // Search movement
   const searchMovement = async () => {
@@ -99,10 +119,34 @@ export default function PoliceInvestigationPage() {
     finally { setAnalyzing(false); }
   };
 
+  const saveConfig = async () => {
+    if (!config) return;
+    try {
+      setConfigSaving(true);
+      await apiPoliceUpdateAlertConfig(config);
+      toast.success("Alert config saved");
+    } catch { toast.error("Failed to save config"); }
+    finally { setConfigSaving(false); }
+  };
+
+  const handleExport = async (type: string, format: string) => {
+    try {
+      const blob = await apiPoliceExport(`type=${type}&format=${format}`);
+      const url = window.URL.createObjectURL(blob as any);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `police-${type}-${Date.now()}.${format}`;
+      a.click();
+      toast.success("Export downloaded");
+    } catch { toast.error("Export failed"); }
+  };
+
   const tabs = [
     { key: "movement" as const, label: "Guest Movement", icon: ArrowRight },
     { key: "frequent" as const, label: "Frequent Stays", icon: AlertTriangle },
     { key: "linking" as const, label: "Guest Linking", icon: GitBranch },
+    { key: "alerts" as const, label: "Alert Settings", icon: Shield },
+    { key: "export" as const, label: "Legal Export", icon: Download },
   ];
 
   return (
@@ -110,7 +154,7 @@ export default function PoliceInvestigationPage() {
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-base sm:text-lg font-semibold">Investigation Tools</h2>
-          <p className="text-xs sm:text-sm text-muted-foreground">Track guest movement, detect patterns, find linked identities</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Track guest movement, detect patterns, find linked identities, alert settings, and legal data export</p>
         </div>
       </div>
 
@@ -454,6 +498,101 @@ export default function PoliceInvestigationPage() {
             </CardContent>
           </Card>
           <PaginationControls currentPage={linkPag.currentPage} totalPages={linkPag.totalPages} pageSize={linkPag.pageSize} pageSizeOptions={linkPag.pageSizeOptions} totalItems={linkedGroups.length} rangeInfo={linkPag.rangeInfo} goToPage={linkPag.goToPage} setPageSize={linkPag.setPageSize} />
+        </div>
+      )}
+
+      {/* Alert Configuration */}
+      {activeTab === "alerts" && config && (
+        <Card>
+          <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><Shield className="h-4 w-4" /> Alert Notification Settings</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            {configLoading ? <Skeleton className="h-48 w-full" /> : (
+              <>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="flex items-center gap-2"><Mail className="h-4 w-4 text-muted-foreground" /><div><p className="text-sm font-medium">Email Alerts</p><p className="text-[10px] text-muted-foreground">Send alerts to email addresses</p></div></div>
+                    <button onClick={() => setConfig({ ...config, emailEnabled: !config.emailEnabled })} className={"h-5 w-9 rounded-full transition-colors " + (config.emailEnabled ? "bg-emerald-600" : "bg-slate-200")}>
+                      <div className={"h-4 w-4 rounded-full bg-white shadow transition-transform " + (config.emailEnabled ? "translate-x-4" : "translate-x-0.5")} />
+                    </button>
+                  </div>
+                  {config.emailEnabled && (
+                    <div className="ml-8"><Label className="text-xs">Email Recipients (comma-separated)</Label><Input value={config.emailRecipients.replace(/[\[\]"]/g, "")} onChange={(e) => setConfig({ ...config, emailRecipients: JSON.stringify(e.target.value.split(",").map((s) => s.trim())) })} placeholder="officer1@police.gov.et, officer2@police.gov.et" className="text-xs" /></div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="flex items-center gap-2"><Smartphone className="h-4 w-4 text-muted-foreground" /><div><p className="text-sm font-medium">SMS Alerts</p><p className="text-[10px] text-muted-foreground">Send alerts via SMS</p></div></div>
+                    <button onClick={() => setConfig({ ...config, smsEnabled: !config.smsEnabled })} className={"h-5 w-9 rounded-full transition-colors " + (config.smsEnabled ? "bg-emerald-600" : "bg-slate-200")}>
+                      <div className={"h-4 w-4 rounded-full bg-white shadow transition-transform " + (config.smsEnabled ? "translate-x-4" : "translate-x-0.5")} />
+                    </button>
+                  </div>
+                  {config.smsEnabled && (
+                    <div className="ml-8"><Label className="text-xs">SMS Recipients (comma-separated)</Label><Input value={config.smsRecipients.replace(/[\[\]"]/g, "")} onChange={(e) => setConfig({ ...config, smsRecipients: JSON.stringify(e.target.value.split(",").map((s) => s.trim())) })} placeholder="+251911234567, +251922345678" className="text-xs" /></div>
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Escalation Delay (minutes)</Label>
+                    <Input type="number" value={config.escalationDelayMins} onChange={(e) => setConfig({ ...config, escalationDelayMins: parseInt(e.target.value) || 60 })} className="text-xs" />
+                    <p className="text-[10px] text-muted-foreground">How long before escalating HIGH alerts</p>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between rounded-lg border p-3">
+                      <div><p className="text-sm font-medium">CRITICAL = Immediate</p><p className="text-[10px] text-muted-foreground">CRITICAL severity alerts are sent immediately</p></div>
+                      <button onClick={() => setConfig({ ...config, criticalImmediate: !config.criticalImmediate })} className={"h-5 w-9 rounded-full transition-colors " + (config.criticalImmediate ? "bg-red-600" : "bg-slate-200")}>
+                        <div className={"h-4 w-4 rounded-full bg-white shadow transition-transform " + (config.criticalImmediate ? "translate-x-4" : "translate-x-0.5")} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button size="sm" onClick={saveConfig} disabled={configSaving}>
+                    <RefreshCw className={"mr-1 h-3.5 w-3.5 " + (configSaving ? "animate-spin" : "")} /> {configSaving ? "Saving..." : "Save Settings"}
+                  </Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Legal Export */}
+      {activeTab === "export" && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><Download className="h-4 w-4" /> Legal Data Export</CardTitle></CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground mb-4">Export data in court-admissible format. All exports include metadata (timestamp, officer, source) for legal documentation.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {[
+                  { type: "guests", label: "Guest Registry", desc: "All guest records across providers", color: "bg-sky-50 border-sky-200 text-sky-800" },
+                  { type: "matches", label: "Suspect Matches", desc: "All suspect match alerts", color: "bg-red-50 border-red-200 text-red-800" },
+                  { type: "audit", label: "Audit Trail", desc: "Officer activity log", color: "bg-emerald-50 border-emerald-200 text-emerald-800" },
+                ].map((exp) => (
+                  <div key={exp.type} className={`rounded-lg border p-3 ${exp.color}`}>
+                    <p className="text-sm font-medium">{exp.label}</p>
+                    <p className="text-[10px] opacity-75 mb-3">{exp.desc}</p>
+                    <div className="flex gap-1.5">
+                      <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => handleExport(exp.type, "json")}>JSON</Button>
+                      <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => handleExport(exp.type, "csv")}>CSV</Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Export Everything</CardTitle></CardHeader>
+            <CardContent className="flex gap-2">
+              <Button size="sm" onClick={() => handleExport("all", "json")}><Download className="mr-1 h-3.5 w-3.5" /> Full Export (JSON)</Button>
+              <Button size="sm" variant="outline" onClick={() => handleExport("all", "csv")}><Download className="mr-1 h-3.5 w-3.5" /> Full Export (CSV)</Button>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAppStore } from "@/lib/store";
-import { apiPoliceAuditLogs, apiPoliceGeofences, apiPoliceCreateGeofence, apiPoliceDeleteGeofence, apiPoliceAlertConfig, apiPoliceUpdateAlertConfig, apiPoliceExport, apiPoliceOfficers, apiPoliceCreateOfficer, apiPoliceUpdateOfficer, apiPoliceDeleteOfficer } from "@/lib/api";
+import { apiPoliceAuditLogs, apiPoliceGeofences, apiPoliceCreateGeofence, apiPoliceDeleteGeofence, apiPoliceOfficers, apiPoliceCreateOfficer, apiPoliceUpdateOfficer, apiPoliceDeleteOfficer } from "@/lib/api";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,20 +10,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
 import { usePagination } from "@/hooks/use-pagination";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Plus, Trash2, Shield, Download, Mail, Smartphone, RefreshCw, MapPin,
-  Clock, Eye, Activity, AlertTriangle, UserCog, UserPlus,
+  Plus, Trash2, MapPin, RefreshCw, Activity, UserCog, UserPlus,
 } from "lucide-react";
 
 interface AuditLog { id: string; officerName: string; action: string; targetId: string | null; targetType: string | null; ipAddress: string | null; createdAt: string; }
 interface Geofence { id: string; name: string; address: string; latitude: number; longitude: number; radius: number; severity: string; isActive: boolean; createdAt: string; }
-interface AlertConfig { id: string; emailEnabled: boolean; emailRecipients: string; smsEnabled: boolean; smsRecipients: string; escalationDelayMins: number; criticalImmediate: boolean; }
 interface Officer { id: string; username: string; name: string; role: string; permissions: string; providerId: string | null; createdAt: string; }
 
 const ACTION_LABELS: Record<string, string> = {
@@ -33,7 +30,7 @@ const ACTION_LABELS: Record<string, string> = {
 
 export default function PoliceSecurityPage() {
   const { refreshKey } = useAppStore();
-  const [activeTab, setActiveTab] = useState<"audit" | "geofence" | "alerts" | "export" | "officers">("audit");
+  const [activeTab, setActiveTab] = useState<"audit" | "geofence" | "officers">("audit");
 
   // Audit
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -65,11 +62,6 @@ export default function PoliceSecurityPage() {
   const [geoForm, setGeoForm] = useState({ name: "", address: "", latitude: "", longitude: "", radius: "1000", severity: "HIGH" });
   const [geoSaving, setGeoSaving] = useState(false);
 
-  // Alert Config
-  const [config, setConfig] = useState<AlertConfig | null>(null);
-  const [configLoading, setConfigLoading] = useState(true);
-  const [configSaving, setConfigSaving] = useState(false);
-
   // Officers
   const [officers, setOfficers] = useState<Officer[]>([]);
   const [officersLoading, setOfficersLoading] = useState(true);
@@ -85,13 +77,7 @@ export default function PoliceSecurityPage() {
     finally { setGeoLoading(false); }
   }, []);
 
-  const fetchConfig = useCallback(async () => {
-    try { setConfigLoading(true); const d: any = await apiPoliceAlertConfig(); setConfig(d); }
-    catch { toast.error("Failed to load config"); }
-    finally { setConfigLoading(false); }
-  }, []);
-
-  useEffect(() => { if (activeTab === "geofence") fetchGeo(); if (activeTab === "alerts") fetchConfig(); if (activeTab === "officers") fetchOfficers(); }, [activeTab, fetchGeo, fetchConfig, refreshKey]);
+  useEffect(() => { if (activeTab === "geofence") fetchGeo(); if (activeTab === "officers") fetchOfficers(); }, [activeTab, fetchGeo, refreshKey]);
 
   const createGeofence = async () => {
     if (!geoForm.name) { toast.error("Name is required"); return; }
@@ -109,16 +95,6 @@ export default function PoliceSecurityPage() {
   const deleteGeofence = async (id: string) => {
     try { await apiPoliceDeleteGeofence(id); toast.success("Geofence deleted"); fetchGeo(); }
     catch { toast.error("Failed to delete"); }
-  };
-
-  const saveConfig = async () => {
-    if (!config) return;
-    try {
-      setConfigSaving(true);
-      await apiPoliceUpdateAlertConfig(config);
-      toast.success("Alert config saved");
-    } catch { toast.error("Failed to save config"); }
-    finally { setConfigSaving(false); }
   };
 
   const fetchOfficers = useCallback(async () => {
@@ -154,24 +130,10 @@ export default function PoliceSecurityPage() {
     catch { toast.error("Failed to delete officer"); }
   };
 
-  const handleExport = async (type: string, format: string) => {
-    try {
-      const blob = await apiPoliceExport(`type=${type}&format=${format}`);
-      const url = window.URL.createObjectURL(blob as any);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `police-${type}-${Date.now()}.${format}`;
-      a.click();
-      toast.success("Export downloaded");
-    } catch { toast.error("Export failed"); }
-  };
-
   const tabs = [
     { key: "audit" as const, label: "Audit Trail", icon: Activity },
     { key: "geofence" as const, label: "Geofencing", icon: MapPin },
-    { key: "alerts" as const, label: "Alert Settings", icon: Shield },
     { key: "officers" as const, label: "Officers", icon: UserCog },
-    { key: "export" as const, label: "Legal Export", icon: Download },
   ];
 
   return (
@@ -179,7 +141,7 @@ export default function PoliceSecurityPage() {
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-base sm:text-lg font-semibold">Security & Configuration</h2>
-          <p className="text-xs sm:text-sm text-muted-foreground">Audit trail, geofencing, alert settings, and legal data export</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Audit trail, geofencing, and officer management</p>
         </div>
       </div>
 
@@ -301,66 +263,6 @@ export default function PoliceSecurityPage() {
         </div>
       )}
 
-      {/* Alert Configuration */}
-      {activeTab === "alerts" && config && (
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><Shield className="h-4 w-4" /> Alert Notification Settings</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            {configLoading ? <Skeleton className="h-48 w-full" /> : (
-              <>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between rounded-lg border p-3">
-                    <div className="flex items-center gap-2"><Mail className="h-4 w-4 text-muted-foreground" /><div><p className="text-sm font-medium">Email Alerts</p><p className="text-[10px] text-muted-foreground">Send alerts to email addresses</p></div></div>
-                    <button onClick={() => setConfig({ ...config, emailEnabled: !config.emailEnabled })} className={"h-5 w-9 rounded-full transition-colors " + (config.emailEnabled ? "bg-emerald-600" : "bg-slate-200")}>
-                      <div className={"h-4 w-4 rounded-full bg-white shadow transition-transform " + (config.emailEnabled ? "translate-x-4" : "translate-x-0.5")} />
-                    </button>
-                  </div>
-                  {config.emailEnabled && (
-                    <div className="ml-8"><Label className="text-xs">Email Recipients (comma-separated)</Label><Input value={config.emailRecipients.replace(/[\[\]"]/g, "")} onChange={(e) => setConfig({ ...config, emailRecipients: JSON.stringify(e.target.value.split(",").map((s) => s.trim())) })} placeholder="officer1@police.gov.et, officer2@police.gov.et" className="text-xs" /></div>
-                  )}
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between rounded-lg border p-3">
-                    <div className="flex items-center gap-2"><Smartphone className="h-4 w-4 text-muted-foreground" /><div><p className="text-sm font-medium">SMS Alerts</p><p className="text-[10px] text-muted-foreground">Send alerts via SMS</p></div></div>
-                    <button onClick={() => setConfig({ ...config, smsEnabled: !config.smsEnabled })} className={"h-5 w-9 rounded-full transition-colors " + (config.smsEnabled ? "bg-emerald-600" : "bg-slate-200")}>
-                      <div className={"h-4 w-4 rounded-full bg-white shadow transition-transform " + (config.smsEnabled ? "translate-x-4" : "translate-x-0.5")} />
-                    </button>
-                  </div>
-                  {config.smsEnabled && (
-                    <div className="ml-8"><Label className="text-xs">SMS Recipients (comma-separated)</Label><Input value={config.smsRecipients.replace(/[\[\]"]/g, "")} onChange={(e) => setConfig({ ...config, smsRecipients: JSON.stringify(e.target.value.split(",").map((s) => s.trim())) })} placeholder="+251911234567, +251922345678" className="text-xs" /></div>
-                  )}
-                </div>
-
-                <Separator />
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Escalation Delay (minutes)</Label>
-                    <Input type="number" value={config.escalationDelayMins} onChange={(e) => setConfig({ ...config, escalationDelayMins: parseInt(e.target.value) || 60 })} className="text-xs" />
-                    <p className="text-[10px] text-muted-foreground">How long before escalating HIGH alerts</p>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between rounded-lg border p-3">
-                      <div><p className="text-sm font-medium">CRITICAL = Immediate</p><p className="text-[10px] text-muted-foreground">CRITICAL severity alerts are sent immediately</p></div>
-                      <button onClick={() => setConfig({ ...config, criticalImmediate: !config.criticalImmediate })} className={"h-5 w-9 rounded-full transition-colors " + (config.criticalImmediate ? "bg-red-600" : "bg-slate-200")}>
-                        <div className={"h-4 w-4 rounded-full bg-white shadow transition-transform " + (config.criticalImmediate ? "translate-x-4" : "translate-x-0.5")} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <Button size="sm" onClick={saveConfig} disabled={configSaving}>
-                    <RefreshCw className={"mr-1 h-3.5 w-3.5 " + (configSaving ? "animate-spin" : "")} /> {configSaving ? "Saving..." : "Save Settings"}
-                  </Button>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
       {/* Officers Management */}
       {activeTab === "officers" && (
         <div className="space-y-4">
@@ -457,41 +359,6 @@ export default function PoliceSecurityPage() {
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Legal Export */}
-      {activeTab === "export" && (
-        <div className="space-y-4">
-          <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><Download className="h-4 w-4" /> Legal Data Export</CardTitle></CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground mb-4">Export data in court-admissible format. All exports include metadata (timestamp, officer, source) for legal documentation.</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {[
-                  { type: "guests", label: "Guest Registry", desc: "All guest records across providers", color: "bg-sky-50 border-sky-200 text-sky-800" },
-                  { type: "matches", label: "Suspect Matches", desc: "All suspect match alerts", color: "bg-red-50 border-red-200 text-red-800" },
-                  { type: "audit", label: "Audit Trail", desc: "Officer activity log", color: "bg-emerald-50 border-emerald-200 text-emerald-800" },
-                ].map((exp) => (
-                  <div key={exp.type} className={`rounded-lg border p-3 ${exp.color}`}>
-                    <p className="text-sm font-medium">{exp.label}</p>
-                    <p className="text-[10px] opacity-75 mb-3">{exp.desc}</p>
-                    <div className="flex gap-1.5">
-                      <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => handleExport(exp.type, "json")}>JSON</Button>
-                      <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => handleExport(exp.type, "csv")}>CSV</Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader><CardTitle className="text-sm">Export Everything</CardTitle></CardHeader>
-            <CardContent className="flex gap-2">
-              <Button size="sm" onClick={() => handleExport("all", "json")}><Download className="mr-1 h-3.5 w-3.5" /> Full Export (JSON)</Button>
-              <Button size="sm" variant="outline" onClick={() => handleExport("all", "csv")}><Download className="mr-1 h-3.5 w-3.5" /> Full Export (CSV)</Button>
             </CardContent>
           </Card>
         </div>
