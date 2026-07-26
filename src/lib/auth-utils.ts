@@ -21,9 +21,17 @@ export async function verifyPassword(
 }
 
 // ── JWT token management ──
-// JWT_SECRET will be set in env vars; fallback for dev only
+// JWT_SECRET MUST be set in environment variables. No fallback.
+// Throws at call time if missing — server will not start signing/verifying
+// tokens with a known-public secret.
 function getJWTSecret(): Uint8Array {
-  const secret = process.env.JWT_SECRET || "ghms-dev-secret-change-in-production";
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error(
+      "JWT_SECRET environment variable is missing or too short (minimum 32 characters). " +
+      "Generate one with: openssl rand -base64 48"
+    );
+  }
   return new TextEncoder().encode(secret);
 }
 
