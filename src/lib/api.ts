@@ -173,7 +173,14 @@ export const apiRegisterProvider = async (data: FormData) => {
 
 // Police
 export const apiPoliceDashboard = () => req("/api/police-dashboard");
-export const apiPoliceGuests = (q?: string) => req(`/api/police-guests${q ? `?${q}` : ""}`);
+export const apiPoliceGuests = (params?: { q?: string; page?: number; pageSize?: number }) => {
+  const sp = new URLSearchParams();
+  if (params?.q) sp.set("q", params.q);
+  if (params?.page) sp.set("page", String(params.page));
+  if (params?.pageSize) sp.set("pageSize", String(params.pageSize));
+  const qs = sp.toString();
+  return req(`/api/police-guests${qs ? `?${qs}` : ""}`);
+};
 export const apiPoliceOfficers = () => req("/api/police-officers");
 export const apiPoliceCreateOfficer = (data: Record<string, unknown>) =>
   req("/api/police-officers", { method: "POST", body: JSON.stringify(data) });
@@ -183,7 +190,16 @@ export const apiPoliceDeleteOfficer = (id: string) =>
   req(`/api/police-officers?id=${id}`, { method: "DELETE" });
 
 // Suspected Persons (Police only)
-export const apiGetSuspectedPersons = (q?: string) => req(`/api/suspected-persons${q ? `?${q}` : ""}`);
+export const apiGetSuspectedPersons = (params?: { q?: string; severity?: string; active?: string; page?: number; pageSize?: number }) => {
+  const sp = new URLSearchParams();
+  if (params?.q) sp.set("q", params.q);
+  if (params?.severity) sp.set("severity", params.severity);
+  if (params?.active !== undefined) sp.set("active", params.active);
+  if (params?.page) sp.set("page", String(params.page));
+  if (params?.pageSize) sp.set("pageSize", String(params.pageSize));
+  const qs = sp.toString();
+  return req(`/api/suspected-persons${qs ? `?${qs}` : ""}`);
+};
 export const apiCreateSuspectedPerson = (data: Record<string, unknown>) =>
   req("/api/suspected-persons", { method: "POST", body: JSON.stringify(data) });
 export const apiUpdateSuspectedPerson = (id: string, data: Record<string, unknown>) =>
@@ -229,7 +245,13 @@ export const apiPoliceIntelligence = () => req("/api/police-intelligence");
 export const apiPoliceMovement = (q: string) => req(`/api/police-intelligence/movement?${q}`);
 export const apiPoliceFrequentStays = (q?: string) => req(`/api/police-intelligence/frequent-stays${q ? `?${q}` : ""}`);
 export const apiPoliceTriggerFrequentAnalysis = () => req("/api/police-intelligence/frequent-stays", { method: "POST" });
-export const apiPoliceGuestLinking = () => req("/api/police-intelligence/linking");
+export const apiPoliceGuestLinking = (params?: { page?: number; pageSize?: number }) => {
+  const sp = new URLSearchParams();
+  if (params?.page) sp.set("page", String(params.page));
+  if (params?.pageSize) sp.set("pageSize", String(params.pageSize));
+  const qs = sp.toString();
+  return req(`/api/police-intelligence/linking${qs ? `?${qs}` : ""}`);
+};
 export const apiPoliceAuditLogs = (q?: string) => req(`/api/police-audit${q ? `?${q}` : ""}`);
 export const apiPoliceGeofences = () => req("/api/police-geofences");
 export const apiPoliceCreateGeofence = (data: Record<string, unknown>) => req("/api/police-geofences", { method: "POST", body: JSON.stringify(data) });

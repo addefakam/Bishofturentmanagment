@@ -20,6 +20,7 @@ import {
   Search, ArrowRight, AlertTriangle, RefreshCw, Users, GitBranch,
   Phone, CreditCard, MapPin, Calendar, Building2, ShieldAlert,
   Shield, Download, Mail, Smartphone,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 
 interface GuestResult {
@@ -69,8 +70,10 @@ export default function PoliceInvestigationPage() {
   // Linking
   const [linkedGroups, setLinkedGroups] = useState<LinkedGroup[]>([]);
   const [linkLoading, setLinkLoading] = useState(true);
-  const linkPag = usePagination({ totalItems: linkedGroups.length, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
-  const pagLinks = linkPag.paginate(linkedGroups);
+  const [linkTotal, setLinkTotal] = useState(0);
+  const [linkTotalPages, setLinkTotalPages] = useState(1);
+  const [linkPage, setLinkPage] = useState(1);
+  const [linkPageSize, setLinkPageSize] = useState(20);
 
   // Fetch frequent stays
   const fetchFreq = useCallback(async () => {
@@ -81,10 +84,15 @@ export default function PoliceInvestigationPage() {
 
   // Fetch linked guests
   const fetchLinks = useCallback(async () => {
-    try { setLinkLoading(true); const d: any = await apiPoliceGuestLinking(); setLinkedGroups(d.linkedGroups || []); }
-    catch { toast.error("Failed to load guest links"); }
+    try {
+      setLinkLoading(true);
+      const d: any = await apiPoliceGuestLinking({ page: linkPage, pageSize: linkPageSize });
+      setLinkedGroups(d.linkedGroups || []);
+      setLinkTotal(d.total || 0);
+      setLinkTotalPages(d.totalPages || 1);
+    } catch { toast.error("Failed to load guest links"); }
     finally { setLinkLoading(false); }
-  }, []);
+  }, [linkPage, linkPageSize]);
 
   // Fetch alert config
   const fetchConfig = useCallback(async () => {
@@ -93,7 +101,8 @@ export default function PoliceInvestigationPage() {
     finally { setConfigLoading(false); }
   }, []);
 
-  useEffect(() => { fetchFreq(); fetchLinks(); }, [fetchFreq, fetchLinks, refreshKey]);
+  useEffect(() => { fetchFreq(); }, [fetchFreq, refreshKey]);
+  useEffect(() => { fetchLinks(); }, [fetchLinks, refreshKey]);
   useEffect(() => { if (activeTab === "alerts") fetchConfig(); }, [activeTab, fetchConfig, refreshKey]);
 
   // Search movement
@@ -467,11 +476,11 @@ export default function PoliceInvestigationPage() {
             <CardContent className="p-0">
               {linkLoading ? (
                 <div className="space-y-3 p-4"><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>
-              ) : pagLinks.length === 0 ? (
+              ) : linkedGroups.length === 0 ? (
                 <p className="py-8 text-center text-xs text-muted-foreground">No linked guests found</p>
               ) : (
                 <div className="divide-y">
-                  {pagLinks.map((group, gi) => (
+                  {linkedGroups.map((group, gi) => (
                     <div key={gi} className="p-3 sm:px-4">
                       <div className="flex items-center gap-2 mb-2">
                         <Badge variant="secondary" className="text-[9px]">{group.linkType}</Badge>
@@ -497,7 +506,31 @@ export default function PoliceInvestigationPage() {
               )}
             </CardContent>
           </Card>
-          <PaginationControls currentPage={linkPag.currentPage} totalPages={linkPag.totalPages} pageSize={linkPag.pageSize} pageSizeOptions={linkPag.pageSizeOptions} totalItems={linkedGroups.length} rangeInfo={linkPag.rangeInfo} goToPage={linkPag.goToPage} setPageSize={linkPag.setPageSize} />
+          {linkTotal > 0 && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-2">
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span>Showing {linkTotal === 0 ? 0 : (linkPage - 1) * linkPageSize + 1}–{Math.min(linkPage * linkPageSize, linkTotal)} of {linkTotal}</span>
+                <Select value={String(linkPageSize)} onValueChange={(v) => { setLinkPageSize(Number(v)); setLinkPage(1); }}>
+                  <SelectTrigger className="h-7 w-[90px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10 / page</SelectItem>
+                    <SelectItem value="20">20 / page</SelectItem>
+                    <SelectItem value="50">50 / page</SelectItem>
+                    <SelectItem value="100">100 / page</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={linkPage <= 1} onClick={() => setLinkPage(linkPage - 1)}>
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                <span className="text-xs px-2">Page {linkPage} of {linkTotalPages}</span>
+                <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={linkPage >= linkTotalPages} onClick={() => setLinkPage(linkPage + 1)}>
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

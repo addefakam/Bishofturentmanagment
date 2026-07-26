@@ -8,6 +8,7 @@ export async function GET(req: NextRequest) {
     const auth = await getAuthContext(req);
     requirePolice(auth);
 
+    // All queries are capped to prevent OOM. Dashboard doesn't need exhaustive data.
     const [frequentStays, auditLogs, allProviders] = await Promise.all([
       db.frequentStayAlert.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
       db.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 50 }),
@@ -21,9 +22,11 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
-    // Hotspot: group suspect matches by provider
+    // Hotspot: group suspect matches by provider (capped at 5000 recent matches)
     const matches = await db.suspectMatch.findMany({
       select: { providerName: true, providerId: true, createdAt: true, id: true, details: true, suspectedPerson: { select: { severity: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 5000,
     });
     const hotspotMap = new Map<string, {
       providerName: string; providerId: string;
@@ -80,28 +83,41 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // Occupancy vs Crime correlation (last 6 months)
+    // Occupancy vs Crime correlation (last 6 months) — uses SQL GROUP BY for efficiency
+    // instead of loading all records into memory.
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    const reservations = await db.reservation.findMany({
-      where: { createdAt: { gte: sixMonthsAgo } },
-      select: { createdAt: true, status: true, providerId: true },
-    });
-    const suspectMatches = await db.suspectMatch.findMany({
-      where: { createdAt: { gte: sixMonthsAgo } },
-      select: { createdAt: true, providerName: true },
-    });
+    const sixMonthsAgoStr = sixMonthsAgo.toISOString();
 
+    const reservationCounts = await db.$queryRawUnsafe<{month: string; count: bigint}[]>(
+      `SELECT strftime('%Y-%m', "createdAt") as month, COUNT(*) as count
+       FROM "Reservation"
+       WHERE "createdAt" >= ?
+       GROUP BY strftime('%Y-%m', "createdAt")`,
+      sixMonthsAgoStr
+    );
+    const suspectMatchCounts = await db.$queryRawUnsafe<{month: string; count: bigint}[]>(
+      `SELECT strftime('%Y-%m', "createdAt") as month, COUNT(*) as count
+       FROM "SuspectMatch"
+       WHERE "createdAt" >= ?
+       GROUP BY strftime('%Y-%m', "createdAt")`,
+      sixMonthsAgoStr
+    );
+
+    // Build last 6 months data
+    const resMap = new Map(reservationCounts.map(r => [r.month, Number(r.count)]));
+    const matchMap = new Map(suspectMatchCounts.map(m => [m.month, Number(m.count)]));
     const monthlyData: { month: string; reservations: number; suspectMatches: number }[] = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const monthStr = d.toLocaleString("en-US", { month: "short", year: "2-digit" });
-      const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
-      const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 1);
-      const resCount = reservations.filter((r) => r.createdAt >= monthStart && r.createdAt < monthEnd).length;
-      const matchCount = suspectMatches.filter((m) => m.createdAt >= monthStart && m.createdAt < monthEnd).length;
-      monthlyData.push({ month: monthStr, reservations: resCount, suspectMatches: matchCount });
+      monthlyData.push({
+        month: monthStr,
+        reservations: resMap.get(monthKey) || 0,
+        suspectMatches: matchMap.get(monthKey) || 0,
+      });
     }
 
     return NextResponse.json({

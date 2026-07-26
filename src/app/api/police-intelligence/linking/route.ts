@@ -2,60 +2,127 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthContext, requirePolice } from "@/lib/tenant";
 
+const MAX_PAGE_SIZE = 100;
+const DEFAULT_PAGE_SIZE = 20;
+
+interface LinkKeyRow {
+  linkType: string;
+  linkValue: string;
+  total: bigint;
+}
+
+interface GuestRow {
+  id: string;
+  name: string;
+  phone: string;
+  idNumber: string;
+  nationality: string;
+  providerName: string | null;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);
     requirePolice(auth);
 
-    const guests = await db.guest.findMany({
-      include: { provider: { select: { id: true, name: true } } },
-    });
+    const { searchParams } = new URL(req.url);
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+    const pageSize = Math.min(
+      MAX_PAGE_SIZE,
+      Math.max(1, parseInt(searchParams.get("pageSize") || String(DEFAULT_PAGE_SIZE)))
+    );
+    const offset = (page - 1) * pageSize;
 
-    // Find linked guests by phone or ID number
-    const phoneMap = new Map<string, typeof guests[0][]>();
-    const idMap = new Map<string, typeof guests[0][]>();
+    // Step 1: Find all duplicate phone/idNumber keys (capped, paginated).
+    // Uses SQL GROUP BY + HAVING so we don't load all guests into memory.
+    // UNION ALL combines phone and idNumber duplicates into one paginated stream.
+    const linkKeys = await db.$queryRawUnsafe<LinkKeyRow[]>(
+      `SELECT linkType, linkValue, COUNT(*) as total FROM (
+         SELECT 'phone' AS linkType, LOWER(TRIM("phone")) AS linkValue
+         FROM "Guest"
+         WHERE "phone" IS NOT NULL AND "phone" != ''
+         UNION ALL
+         SELECT 'idNumber' AS linkType, LOWER(TRIM("idNumber")) AS linkValue
+         FROM "Guest"
+         WHERE "idNumber" IS NOT NULL AND "idNumber" != ''
+       ) AS combined
+       WHERE linkValue != ''
+       GROUP BY linkType, linkValue
+       HAVING COUNT(*) > 1
+       ORDER BY total DESC
+       LIMIT ? OFFSET ?`,
+      pageSize,
+      offset
+    );
 
-    for (const g of guests) {
-      if (g.phone) {
-        const key = g.phone.toLowerCase().trim();
-        if (!phoneMap.has(key)) phoneMap.set(key, []);
-        phoneMap.get(key)!.push(g);
-      }
-      if (g.idNumber) {
-        const key = g.idNumber.toLowerCase().trim();
-        if (!idMap.has(key)) idMap.set(key, []);
-        idMap.get(key)!.push(g);
-      }
+    // Step 2: Get total count of distinct link keys (for pagination metadata).
+    const totalRow = await db.$queryRawUnsafe<{count: bigint}[]>(
+      `SELECT COUNT(*) as count FROM (
+         SELECT linkType, linkValue
+         FROM (
+           SELECT 'phone' AS linkType, LOWER(TRIM("phone")) AS linkValue
+           FROM "Guest"
+           WHERE "phone" IS NOT NULL AND "phone" != ''
+           UNION ALL
+           SELECT 'idNumber' AS linkType, LOWER(TRIM("idNumber")) AS linkValue
+           FROM "Guest"
+           WHERE "idNumber" IS NOT NULL AND "idNumber" != ''
+         ) AS combined
+         WHERE linkValue != ''
+         GROUP BY linkType, linkValue
+         HAVING COUNT(*) > 1
+       ) AS dup_keys`
+    );
+    const total = Number(totalRow[0]?.count || 0);
+
+    // Step 3: For each link key on the current page, fetch the matching guests.
+    // This is bounded by pageSize * (max group size). With small page sizes,
+    // memory usage is predictable.
+    const linkedGroups: {
+      linkType: string;
+      linkValue: string;
+      guests: {
+        id: string;
+        name: string;
+        phone: string;
+        idNumber: string;
+        providerName: string;
+        nationality: string;
+      }[];
+    }[] = [];
+
+    for (const key of linkKeys) {
+      const field = key.linkType === "phone" ? "phone" : "idNumber";
+      const guests: GuestRow[] = await db.$queryRawUnsafe<GuestRow[]>(
+        `SELECT g."id", g."name", g."phone", g."idNumber", g."nationality",
+                p."name" AS "providerName"
+         FROM "Guest" g
+         LEFT JOIN "Provider" p ON g."providerId" = p."id"
+         WHERE LOWER(TRIM(g."${field}")) = ?
+         ORDER BY g."createdAt" DESC`,
+        key.linkValue
+      );
+      linkedGroups.push({
+        linkType: key.linkType === "phone" ? "Same Phone" : "Same ID Number",
+        linkValue: key.linkValue,
+        guests: guests.map((g) => ({
+          id: g.id,
+          name: g.name,
+          phone: g.phone,
+          idNumber: g.idNumber,
+          providerName: g.providerName || "Unknown",
+          nationality: g.nationality,
+        })),
+      });
     }
 
-    const linkedGroups: { linkType: string; linkValue: string; guests: { id: string; name: string; phone: string; idNumber: string; providerName: string; nationality: string }[] }[] = [];
-    const seen = new Set<string>();
-
-    const process = (type: string, map: Map<string, typeof guests[0][]>) => {
-      for (const [value, group] of map) {
-        if (group.length < 2) continue;
-        const key = `${type}:${value}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        linkedGroups.push({
-          linkType: type === "phone" ? "Same Phone" : "Same ID Number",
-          linkValue: value,
-          guests: group.map((g) => ({
-            id: g.id,
-            name: g.name,
-            phone: g.phone,
-            idNumber: g.idNumber,
-            providerName: g.provider?.name || "Unknown",
-            nationality: g.nationality,
-          })),
-        });
-      }
-    };
-
-    process("phone", phoneMap);
-    process("idNumber", idMap);
-
-    return NextResponse.json({ linkedGroups, total: linkedGroups.length });
+    return NextResponse.json({
+      linkedGroups,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to fetch guest links";
     const status = message.includes("Police") ? 403 : 500;

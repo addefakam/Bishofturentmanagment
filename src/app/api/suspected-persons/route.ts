@@ -4,6 +4,9 @@ import { getAuthContext, requirePolice } from "@/lib/tenant";
 import { requirePoliceMinRank } from "@/lib/police-permissions";
 import { ensureSuspectTables } from "@/lib/suspect-check";
 
+const MAX_PAGE_SIZE = 100;
+const DEFAULT_PAGE_SIZE = 20;
+
 export async function GET(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);
@@ -14,6 +17,12 @@ export async function GET(req: NextRequest) {
     const q = searchParams.get("q") || "";
     const severity = searchParams.get("severity") || "";
     const activeOnly = searchParams.get("active") !== "false";
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+    const pageSize = Math.min(
+      MAX_PAGE_SIZE,
+      Math.max(1, parseInt(searchParams.get("pageSize") || String(DEFAULT_PAGE_SIZE)))
+    );
+    const skip = (page - 1) * pageSize;
 
     const where: Record<string, unknown> = {};
     if (q) {
@@ -31,15 +40,26 @@ export async function GET(req: NextRequest) {
       where.is_active = true;
     }
 
-    const persons = await db.suspectedPerson.findMany({
-      where,
-      include: {
-        _count: { select: { matches: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    const [persons, total] = await Promise.all([
+      db.suspectedPerson.findMany({
+        where,
+        include: {
+          _count: { select: { matches: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: pageSize,
+      }),
+      db.suspectedPerson.count({ where }),
+    ]);
 
-    return NextResponse.json(persons);
+    return NextResponse.json({
+      persons,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to fetch suspected persons";
     const status = message.includes("Police") ? 403 : 500;

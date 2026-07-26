@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef, type FormEvent } from "react";
-import { usePagination } from "@/hooks/use-pagination";
-import { PaginationControls } from "@/components/shared/pagination-controls";
 import { useAppStore } from "@/lib/store";
 import {
   apiGetSuspectedPersons,
@@ -61,6 +59,8 @@ import {
   Calendar,
   Building2,
   CreditCard,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 interface SuspectedPerson {
@@ -164,7 +164,12 @@ export default function SuspectedPersonsPage() {
   const { refreshKey } = useAppStore();
   const [activeTab, setActiveTab] = useState<"watchlist" | "scanner">("watchlist");
   const [persons, setPersons] = useState<SuspectedPerson[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [loading, setLoading] = useState(true);
 
   // Scanner state
@@ -197,30 +202,47 @@ export default function SuspectedPersonsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const pagination = usePagination({ totalItems: persons.length, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
-
-  // Reset to page 1 when search changes
-  useEffect(() => { pagination.resetToFirst(); }, [search]);
-  const paginatedPersons = useMemo(() => pagination.paginate(persons), [persons, pagination]);
+  // Debounce search (300ms) and reset to page 1 on new search
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const fetchPersons = useCallback(async () => {
     try {
       setLoading(true);
-      const query = search ? `q=${encodeURIComponent(search)}` : "";
-      const data = await apiGetSuspectedPersons(query);
-      setPersons(Array.isArray(data) ? data : []);
+      const data: any = await apiGetSuspectedPersons({
+        q: debouncedSearch || undefined,
+        page,
+        pageSize,
+      });
+      setPersons(Array.isArray(data.persons) ? data.persons : []);
+      setTotal(data.total || 0);
+      setTotalPages(data.totalPages || 1);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to load suspected persons";
       toast.error(message);
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, [debouncedSearch, page, pageSize]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => fetchPersons(), 300);
-    return () => clearTimeout(timer);
-  }, [fetchPersons, refreshKey]);
+  useEffect(() => { fetchPersons(); }, [fetchPersons, refreshKey]);
+
+  const goToPage = (p: number) => {
+    setPage(Math.max(1, Math.min(p, totalPages)));
+  };
+
+  const changePageSize = (size: number) => {
+    setPageSize(size);
+    setPage(1);
+  };
+
+  const rangeFrom = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const rangeTo = Math.min(page * pageSize, total);
 
   const openAdd = () => {
     setEditingId(null);
@@ -1005,6 +1027,33 @@ export default function SuspectedPersonsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Pagination Controls — server-side */}
+      {!loading && total > 0 && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-2">
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span>Showing {rangeFrom}–{rangeTo} of {total}</span>
+            <Select value={String(pageSize)} onValueChange={(v) => changePageSize(Number(v))}>
+              <SelectTrigger className="h-7 w-[90px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10 / page</SelectItem>
+                <SelectItem value="20">20 / page</SelectItem>
+                <SelectItem value="50">50 / page</SelectItem>
+                <SelectItem value="100">100 / page</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page <= 1} onClick={() => goToPage(page - 1)}>
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+            <span className="text-xs px-2">Page {page} of {totalPages}</span>
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page >= totalPages} onClick={() => goToPage(page + 1)}>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

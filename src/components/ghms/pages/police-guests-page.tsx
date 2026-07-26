@@ -1,8 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { usePagination } from "@/hooks/use-pagination";
-import { PaginationControls } from "@/components/shared/pagination-controls";
+import { useState, useEffect, useCallback } from "react";
 import { useAppStore } from "@/lib/store";
 import { apiPoliceGuests } from "@/lib/api";
 import { toast } from "sonner";
@@ -26,6 +24,10 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   Search,
   Phone,
@@ -38,6 +40,8 @@ import {
   UserCircle,
   Building2,
   BedDouble,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 interface Guest {
@@ -74,51 +78,63 @@ function formatDate(dateStr: string) {
 export default function PoliceGuestsPage() {
   const { refreshKey } = useAppStore();
   const [guests, setGuests] = useState<Guest[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [loading, setLoading] = useState(true);
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
-  // Fetch ALL guests once, filter client-side
+  // Debounce search input (300ms) to avoid firing a request on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(1); // reset to first page on new search
+    }, 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Fetch guests from server whenever page/pageSize/search changes
   const fetchGuests = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await apiPoliceGuests("");
-      setGuests(Array.isArray(data) ? data : []);
+      const data: any = await apiPoliceGuests({
+        q: debouncedSearch || undefined,
+        page,
+        pageSize,
+      });
+      setGuests(Array.isArray(data.guests) ? data.guests : []);
+      setTotal(data.total || 0);
+      setTotalPages(data.totalPages || 1);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to load guests";
       toast.error(message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [debouncedSearch, page, pageSize]);
 
   useEffect(() => { fetchGuests(); }, [fetchGuests, refreshKey]);
-
-  // Client-side search filter — instant character-by-character
-  const filteredGuests = useMemo(() => {
-    if (!search.trim()) return guests;
-    const q = search.toLowerCase().trim();
-    return guests.filter((g) =>
-      g.name.toLowerCase().includes(q) ||
-      g.phone.toLowerCase().includes(q) ||
-      g.idNumber.toLowerCase().includes(q) ||
-      g.email.toLowerCase().includes(q) ||
-      g.nationality.toLowerCase().includes(q) ||
-      (g.provider?.name || "").toLowerCase().includes(q)
-    );
-  }, [guests, search]);
-
-  const pagination = usePagination({ totalItems: filteredGuests.length, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
-
-  // Reset to page 1 when search changes
-  useEffect(() => { pagination.resetToFirst(); }, [search]);
-  const paginatedGuests = useMemo(() => pagination.paginate(filteredGuests), [filteredGuests, pagination]);
 
   const openDetail = (guest: Guest) => {
     setSelectedGuest(guest);
     setDetailOpen(true);
   };
+
+  const goToPage = (p: number) => {
+    setPage(Math.max(1, Math.min(p, totalPages)));
+  };
+
+  const changePageSize = (size: number) => {
+    setPageSize(size);
+    setPage(1);
+  };
+
+  const rangeFrom = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const rangeTo = Math.min(page * pageSize, total);
 
   return (
     <div className="space-y-4 p-3 sm:p-4 md:p-6">
@@ -142,10 +158,10 @@ export default function PoliceGuestsPage() {
       </div>
 
       {/* Results count */}
-      {!loading && filteredGuests.length > 0 && (
+      {!loading && total > 0 && (
         <p className="text-xs text-muted-foreground px-1">
-          {filteredGuests.length} guest{filteredGuests.length !== 1 ? "s" : ""} found
-          {search ? ` for "${search}"` : ""}
+          {total} guest{total !== 1 ? "s" : ""} found
+          {debouncedSearch ? ` for "${debouncedSearch}"` : ""}
         </p>
       )}
 
@@ -157,18 +173,18 @@ export default function PoliceGuestsPage() {
               <Skeleton key={i} className="h-20 w-full sm:h-12" />
             ))}
           </div>
-        ) : filteredGuests.length === 0 ? (
+        ) : guests.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 sm:py-16 text-center">
             <UserCircle className="mb-3 h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground/40" />
             <p className="text-xs sm:text-sm text-muted-foreground">
-              {search ? "No guests match your search" : "No guests registered yet"}
+              {debouncedSearch ? "No guests match your search" : "No guests registered yet"}
             </p>
           </div>
         ) : (
           <>
             {/* Mobile: Card layout */}
             <div className="divide-y md:hidden">
-              {paginatedGuests.map((guest) => (
+              {guests.map((guest) => (
                 <button
                   key={guest.id}
                   className="flex w-full items-start gap-3 p-3 text-left transition-colors hover:bg-muted/50 active:bg-muted/80"
@@ -218,7 +234,7 @@ export default function PoliceGuestsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedGuests.map((guest) => (
+                  {guests.map((guest) => (
                     <TableRow
                       key={guest.id}
                       className="cursor-pointer hover:bg-muted/50"
@@ -384,18 +400,31 @@ export default function PoliceGuestsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Pagination Controls */}
-      {!loading && filteredGuests.length > 0 && (
-        <PaginationControls
-          currentPage={pagination.currentPage}
-          totalPages={pagination.totalPages}
-          pageSize={pagination.pageSize}
-          pageSizeOptions={pagination.pageSizeOptions}
-          totalItems={filteredGuests.length}
-          rangeInfo={pagination.rangeInfo}
-          goToPage={pagination.goToPage}
-          setPageSize={pagination.setPageSize}
-        />
+      {/* Pagination Controls — server-side */}
+      {!loading && total > 0 && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-2">
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span>Showing {rangeFrom}–{rangeTo} of {total}</span>
+            <Select value={String(pageSize)} onValueChange={(v) => changePageSize(Number(v))}>
+              <SelectTrigger className="h-7 w-[90px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10 / page</SelectItem>
+                <SelectItem value="20">20 / page</SelectItem>
+                <SelectItem value="50">50 / page</SelectItem>
+                <SelectItem value="100">100 / page</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page <= 1} onClick={() => goToPage(page - 1)}>
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+            <span className="text-xs px-2">Page {page} of {totalPages}</span>
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0" disabled={page >= totalPages} onClick={() => goToPage(page + 1)}>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );
