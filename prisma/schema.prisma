@@ -116,6 +116,9 @@ model Provider {
   housekeepingTasks HousekeepingTask[]
   settings    Settings[]
   notifications Notification[]
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 model User {
@@ -131,6 +134,9 @@ model User {
   updatedAt   DateTime        @updatedAt
 
   provider    Provider?       @relation(fields: [providerId], references: [id])
+
+  @@index([providerId])
+  @@index([role])
 }
 
 model Room {
@@ -154,6 +160,8 @@ model Room {
   housekeepingTasks  HousekeepingTask[]
 
   @@unique([number, providerId])
+  @@index([providerId])
+  @@index([status])
 }
 
 model Guest {
@@ -176,6 +184,13 @@ model Guest {
   provider     Provider  @relation(fields: [providerId], references: [id])
   reservations Reservation[]
   reviews      Review[]
+
+  @@index([providerId])
+  @@index([phone])
+  @@index([idNumber])
+  @@index([email])
+  @@index([createdAt])
+  @@index([name])
 }
 
 model Reservation {
@@ -206,6 +221,13 @@ model Reservation {
   room     Room     @relation(fields: [roomId], references: [id])
   payments Payment[]
   reviews  Review[]
+
+  @@index([providerId])
+  @@index([guestId])
+  @@index([roomId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([checkIn])
 }
 
 model DaytimeService {
@@ -222,6 +244,8 @@ model DaytimeService {
 
   provider        Provider        @relation(fields: [providerId], references: [id])
   daytimeBookings DaytimeBooking[]
+
+  @@index([providerId])
 }
 
 model DaytimeBooking {
@@ -245,6 +269,12 @@ model DaytimeBooking {
   provider Provider        @relation(fields: [providerId], references: [id])
   service  DaytimeService  @relation(fields: [serviceId], references: [id])
   payments Payment[]
+
+  @@index([providerId])
+  @@index([serviceId])
+  @@index([guestPhone])
+  @@index([date])
+  @@index([createdAt])
 }
 
 model Expense {
@@ -262,6 +292,10 @@ model Expense {
   updatedAt     DateTime          @updatedAt
 
   provider Provider @relation(fields: [providerId], references: [id])
+
+  @@index([providerId])
+  @@index([date])
+  @@index([category])
 }
 
 model ExpenseCategory {
@@ -288,6 +322,9 @@ model Resource {
   updatedAt    DateTime @updatedAt
 
   provider Provider @relation(fields: [providerId], references: [id])
+
+  @@index([providerId])
+  @@index([category])
 }
 
 model Payment {
@@ -303,6 +340,11 @@ model Payment {
 
   reservation    Reservation?    @relation(fields: [reservationId], references: [id])
   daytimeBooking DaytimeBooking? @relation(fields: [daytimeBookingId], references: [id])
+
+  @@index([providerId])
+  @@index([reservationId])
+  @@index([daytimeBookingId])
+  @@index([createdAt])
 }
 
 model Notification {
@@ -317,6 +359,11 @@ model Notification {
   createdAt DateTime         @default(now())
 
   provider Provider? @relation(fields: [providerId], references: [id])
+
+  @@index([providerId])
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
 }
 
 model HousekeepingTask {
@@ -334,6 +381,11 @@ model HousekeepingTask {
 
   provider Provider @relation(fields: [providerId], references: [id])
   room     Room     @relation(fields: [roomId], references: [id])
+
+  @@index([providerId])
+  @@index([roomId])
+  @@index([status])
+  @@index([scheduledDate])
 }
 
 model Review {
@@ -346,6 +398,10 @@ model Review {
 
   guest       Guest       @relation(fields: [guestId], references: [id])
   reservation Reservation @relation(fields: [reservationId], references: [id])
+
+  @@index([guestId])
+  @@index([reservationId])
+  @@index([createdAt])
 }
 
 model ActivityLog {
@@ -354,6 +410,9 @@ model ActivityLog {
   type       String   @default("INFO")
   providerId String?
   createdAt  DateTime @default(now())
+
+  @@index([providerId])
+  @@index([createdAt])
 }
 
 model Settings {
@@ -374,6 +433,8 @@ model Settings {
   updatedAt       DateTime @updatedAt
 
   provider Provider? @relation(fields: [providerId], references: [id])
+
+  @@index([providerId])
 }
 
 // ─── Suspected Persons (Police-only) ─────────────────────────────────────────
@@ -394,6 +455,12 @@ model SuspectedPerson {
   updatedAt     DateTime         @updatedAt
 
   matches       SuspectMatch[]
+
+  @@index([name])
+  @@index([phone])
+  @@index([idNumber])
+  @@index([severity])
+  @@index([is_active])
 }
 
 model SuspectMatch {
@@ -412,6 +479,13 @@ model SuspectMatch {
   createdAt       DateTime         @default(now())
 
   suspectedPerson SuspectedPerson @relation(fields: [suspectedPersonId], references: [id])
+
+  @@index([suspectedPersonId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@index([guestPhone])
+  @@index([guestIdNumber])
+  @@index([providerId])
 }
 
 // ─── Police Intelligence & Security ─────────────────────────────────────
@@ -425,6 +499,10 @@ model AuditLog {
   details     String?
   ipAddress   String?  @default("")
   createdAt   DateTime @default(now())
+
+  @@index([action])
+  @@index([createdAt])
+  @@index([officerName])
 }
 
 model Geofence {
@@ -438,6 +516,9 @@ model Geofence {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([severity])
 }
 
 model FrequentStayAlert {
@@ -451,6 +532,12 @@ model FrequentStayAlert {
   riskLevel      String   @default("MEDIUM")
   isReviewed     Boolean  @default(false)
   createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([isReviewed])
+  @@index([riskLevel])
+  @@index([guestPhone])
+  @@index([guestIdNumber])
 }
 
 model PoliceAlertConfig {

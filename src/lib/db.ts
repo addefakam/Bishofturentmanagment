@@ -159,6 +159,106 @@ async function ensureSchema(db: PrismaClientInstance) {
       console.log("[db] Added policeRank column to User");
     }
 
+    // ── Production-critical indexes (idempotent) ──
+    // These mirror the @@index directives in prisma/schema.prisma.
+    // Running CREATE INDEX IF NOT EXISTS on every cold start is cheap and
+    // ensures production Turso gets the indexes without a manual db push.
+    const indexStatements = [
+      // Provider
+      `CREATE INDEX IF NOT EXISTS "Provider_status_idx" ON "Provider"("status")`,
+      `CREATE INDEX IF NOT EXISTS "Provider_createdAt_idx" ON "Provider"("createdAt")`,
+      // User
+      `CREATE INDEX IF NOT EXISTS "User_providerId_idx" ON "User"("providerId")`,
+      `CREATE INDEX IF NOT EXISTS "User_role_idx" ON "User"("role")`,
+      // Room
+      `CREATE INDEX IF NOT EXISTS "Room_providerId_idx" ON "Room"("providerId")`,
+      `CREATE INDEX IF NOT EXISTS "Room_status_idx" ON "Room"("status")`,
+      // Guest
+      `CREATE INDEX IF NOT EXISTS "Guest_providerId_idx" ON "Guest"("providerId")`,
+      `CREATE INDEX IF NOT EXISTS "Guest_phone_idx" ON "Guest"("phone")`,
+      `CREATE INDEX IF NOT EXISTS "Guest_idNumber_idx" ON "Guest"("idNumber")`,
+      `CREATE INDEX IF NOT EXISTS "Guest_email_idx" ON "Guest"("email")`,
+      `CREATE INDEX IF NOT EXISTS "Guest_createdAt_idx" ON "Guest"("createdAt")`,
+      `CREATE INDEX IF NOT EXISTS "Guest_name_idx" ON "Guest"("name")`,
+      // Reservation
+      `CREATE INDEX IF NOT EXISTS "Reservation_providerId_idx" ON "Reservation"("providerId")`,
+      `CREATE INDEX IF NOT EXISTS "Reservation_guestId_idx" ON "Reservation"("guestId")`,
+      `CREATE INDEX IF NOT EXISTS "Reservation_roomId_idx" ON "Reservation"("roomId")`,
+      `CREATE INDEX IF NOT EXISTS "Reservation_status_idx" ON "Reservation"("status")`,
+      `CREATE INDEX IF NOT EXISTS "Reservation_createdAt_idx" ON "Reservation"("createdAt")`,
+      `CREATE INDEX IF NOT EXISTS "Reservation_checkIn_idx" ON "Reservation"("checkIn")`,
+      // DaytimeService
+      `CREATE INDEX IF NOT EXISTS "DaytimeService_providerId_idx" ON "DaytimeService"("providerId")`,
+      // DaytimeBooking
+      `CREATE INDEX IF NOT EXISTS "DaytimeBooking_providerId_idx" ON "DaytimeBooking"("providerId")`,
+      `CREATE INDEX IF NOT EXISTS "DaytimeBooking_serviceId_idx" ON "DaytimeBooking"("serviceId")`,
+      `CREATE INDEX IF NOT EXISTS "DaytimeBooking_guestPhone_idx" ON "DaytimeBooking"("guestPhone")`,
+      `CREATE INDEX IF NOT EXISTS "DaytimeBooking_date_idx" ON "DaytimeBooking"("date")`,
+      `CREATE INDEX IF NOT EXISTS "DaytimeBooking_createdAt_idx" ON "DaytimeBooking"("createdAt")`,
+      // Expense
+      `CREATE INDEX IF NOT EXISTS "Expense_providerId_idx" ON "Expense"("providerId")`,
+      `CREATE INDEX IF NOT EXISTS "Expense_date_idx" ON "Expense"("date")`,
+      `CREATE INDEX IF NOT EXISTS "Expense_category_idx" ON "Expense"("category")`,
+      // Resource
+      `CREATE INDEX IF NOT EXISTS "Resource_providerId_idx" ON "Resource"("providerId")`,
+      `CREATE INDEX IF NOT EXISTS "Resource_category_idx" ON "Resource"("category")`,
+      // Payment
+      `CREATE INDEX IF NOT EXISTS "Payment_providerId_idx" ON "Payment"("providerId")`,
+      `CREATE INDEX IF NOT EXISTS "Payment_reservationId_idx" ON "Payment"("reservationId")`,
+      `CREATE INDEX IF NOT EXISTS "Payment_daytimeBookingId_idx" ON "Payment"("daytimeBookingId")`,
+      `CREATE INDEX IF NOT EXISTS "Payment_createdAt_idx" ON "Payment"("createdAt")`,
+      // Notification
+      `CREATE INDEX IF NOT EXISTS "Notification_providerId_idx" ON "Notification"("providerId")`,
+      `CREATE INDEX IF NOT EXISTS "Notification_userId_idx" ON "Notification"("userId")`,
+      `CREATE INDEX IF NOT EXISTS "Notification_isRead_idx" ON "Notification"("isRead")`,
+      `CREATE INDEX IF NOT EXISTS "Notification_createdAt_idx" ON "Notification"("createdAt")`,
+      // HousekeepingTask
+      `CREATE INDEX IF NOT EXISTS "HousekeepingTask_providerId_idx" ON "HousekeepingTask"("providerId")`,
+      `CREATE INDEX IF NOT EXISTS "HousekeepingTask_roomId_idx" ON "HousekeepingTask"("roomId")`,
+      `CREATE INDEX IF NOT EXISTS "HousekeepingTask_status_idx" ON "HousekeepingTask"("status")`,
+      `CREATE INDEX IF NOT EXISTS "HousekeepingTask_scheduledDate_idx" ON "HousekeepingTask"("scheduledDate")`,
+      // Review
+      `CREATE INDEX IF NOT EXISTS "Review_guestId_idx" ON "Review"("guestId")`,
+      `CREATE INDEX IF NOT EXISTS "Review_reservationId_idx" ON "Review"("reservationId")`,
+      `CREATE INDEX IF NOT EXISTS "Review_createdAt_idx" ON "Review"("createdAt")`,
+      // ActivityLog
+      `CREATE INDEX IF NOT EXISTS "ActivityLog_providerId_idx" ON "ActivityLog"("providerId")`,
+      `CREATE INDEX IF NOT EXISTS "ActivityLog_createdAt_idx" ON "ActivityLog"("createdAt")`,
+      // Settings
+      `CREATE INDEX IF NOT EXISTS "Settings_providerId_idx" ON "Settings"("providerId")`,
+      // SuspectedPerson
+      `CREATE INDEX IF NOT EXISTS "SuspectedPerson_name_idx" ON "SuspectedPerson"("name")`,
+      `CREATE INDEX IF NOT EXISTS "SuspectedPerson_phone_idx" ON "SuspectedPerson"("phone")`,
+      `CREATE INDEX IF NOT EXISTS "SuspectedPerson_idNumber_idx" ON "SuspectedPerson"("idNumber")`,
+      `CREATE INDEX IF NOT EXISTS "SuspectedPerson_severity_idx" ON "SuspectedPerson"("severity")`,
+      `CREATE INDEX IF NOT EXISTS "SuspectedPerson_is_active_idx" ON "SuspectedPerson"("is_active")`,
+      // SuspectMatch (extends existing indexes)
+      `CREATE INDEX IF NOT EXISTS "SuspectMatch_createdAt_idx" ON "SuspectMatch"("createdAt")`,
+      `CREATE INDEX IF NOT EXISTS "SuspectMatch_guestPhone_idx" ON "SuspectMatch"("guestPhone")`,
+      `CREATE INDEX IF NOT EXISTS "SuspectMatch_guestIdNumber_idx" ON "SuspectMatch"("guestIdNumber")`,
+      `CREATE INDEX IF NOT EXISTS "SuspectMatch_providerId_idx" ON "SuspectMatch"("providerId")`,
+      // AuditLog (extends existing indexes)
+      `CREATE INDEX IF NOT EXISTS "AuditLog_officerName_idx" ON "AuditLog"("officerName")`,
+      // Geofence
+      `CREATE INDEX IF NOT EXISTS "Geofence_isActive_idx" ON "Geofence"("isActive")`,
+      `CREATE INDEX IF NOT EXISTS "Geofence_severity_idx" ON "Geofence"("severity")`,
+      // FrequentStayAlert
+      `CREATE INDEX IF NOT EXISTS "FrequentStayAlert_createdAt_idx" ON "FrequentStayAlert"("createdAt")`,
+      `CREATE INDEX IF NOT EXISTS "FrequentStayAlert_isReviewed_idx" ON "FrequentStayAlert"("isReviewed")`,
+      `CREATE INDEX IF NOT EXISTS "FrequentStayAlert_riskLevel_idx" ON "FrequentStayAlert"("riskLevel")`,
+      `CREATE INDEX IF NOT EXISTS "FrequentStayAlert_guestPhone_idx" ON "FrequentStayAlert"("guestPhone")`,
+      `CREATE INDEX IF NOT EXISTS "FrequentStayAlert_guestIdNumber_idx" ON "FrequentStayAlert"("guestIdNumber")`,
+    ];
+
+    for (const stmt of indexStatements) {
+      try {
+        await db.$executeRawUnsafe(stmt);
+      } catch (err) {
+        // Index may already exist or column may not exist yet — non-fatal
+        console.warn("[db] Index creation skipped:", (err as Error).message);
+      }
+    }
+
     schemaEnsured = true;
     console.log("[db] Schema auto-migration complete");
   } catch (error) {
