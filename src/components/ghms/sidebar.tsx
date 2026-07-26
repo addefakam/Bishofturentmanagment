@@ -91,11 +91,6 @@ const POLICE_NAV_ITEMS: NavItem[] = [
     icon: UserX,
   },
   {
-    page: "police-intelligence",
-    label: "Intelligence",
-    icon: BarChart3,
-  },
-  {
     page: "police-investigation",
     label: "Investigation",
     icon: Search,
