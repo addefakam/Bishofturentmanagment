@@ -34,7 +34,7 @@ export async function PUT(
     values.push(id);
 
     await db.$executeRawUnsafe(
-      `UPDATE "PoliceGeofence" SET ${updates.join(", ")} WHERE "id" = ?`,
+      `UPDATE "Geofence" SET ${updates.join(", ")} WHERE "id" = ?`,
       ...values
     );
 
@@ -56,7 +56,7 @@ export async function DELETE(
     requirePoliceMinRank(auth, "ADMIN");
     const { id } = await params;
 
-    await db.$executeRawUnsafe(`DELETE FROM "PoliceGeofence" WHERE "id" = ?`, id);
+    await db.$executeRawUnsafe(`DELETE FROM "Geofence" WHERE "id" = ?`, id);
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to delete geofence";
