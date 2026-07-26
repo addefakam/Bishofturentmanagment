@@ -18,9 +18,6 @@ export async function POST(req: NextRequest) {
     const user = await db.user.findUnique({
       where: { username },
       include: { provider: true },
-    }).catch((e: unknown) => {
-      console.error("[auth] DB findUnique failed:", e);
-      throw e;
     });
 
     if (!user) {
@@ -31,10 +28,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify password (supports both hashed and plain text for backward compat)
-    const valid = await verifyPassword(password, user.password).catch((e: unknown) => {
-      console.error("[auth] verifyPassword failed:", e);
-      throw e;
-    });
+    const valid = await verifyPassword(password, user.password);
     if (!valid) {
       return NextResponse.json(
         { error: "Invalid username or password" },
@@ -99,19 +93,7 @@ export async function POST(req: NextRequest) {
       providerName: user.provider?.name ?? undefined,
     };
 
-    let token: string;
-    try {
-      token = await createToken(tokenPayload);
-    } catch (e: unknown) {
-      console.error("[auth] createToken failed:", e);
-      return NextResponse.json(
-        {
-          error: "Login failed: token signing error",
-          detail: e instanceof Error ? e.message : String(e),
-        },
-        { status: 500 }
-      );
-    }
+    const token = await createToken(tokenPayload);
 
     // Set token as httpOnly cookie (secure in production)
     const isProduction = process.env.NODE_ENV === "production";
@@ -140,10 +122,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(
-      {
-        error: "Internal server error",
-        detail: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
-      },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
