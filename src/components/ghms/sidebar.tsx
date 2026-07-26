@@ -92,7 +92,7 @@ const POLICE_NAV_ITEMS: NavItem[] = [
   },
   {
     page: "police-investigation",
-    label: "Investigation",
+    label: "Investigation & Settings",
     icon: Search,
   },
   {
