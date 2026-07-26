@@ -41,6 +41,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { usePagination } from "@/hooks/use-pagination";
+import { PaginationControls } from "@/components/shared/pagination-controls";
 import {
   Search,
   Plus,
@@ -170,6 +172,14 @@ export default function SuspectedPersonsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+
+  // Client-side pagination for the watchlist table
+  const pagination = usePagination({
+    totalItems: persons.length,
+    initialPageSize: 10,
+    pageSizeOptions: [5, 10, 20, 50],
+  });
+  const paginatedPersons = pagination.paginate(persons);
   const [loading, setLoading] = useState(true);
 
   // Scanner state
