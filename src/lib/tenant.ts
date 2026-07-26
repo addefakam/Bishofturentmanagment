@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { verifyToken, type JWTPayload } from "@/lib/auth-utils";
-import { db } from "@/lib/db";
 
 export interface AuthContext {
   userId: string;
@@ -15,59 +14,43 @@ export interface AuthContext {
 
 /**
  * Server-side auth: reads JWT from httpOnly cookie and verifies it.
- * Falls back to header-based auth for backward compatibility during migration.
- * Once all clients use cookies, the header fallback can be removed.
+ * No header-based fallback — JWT is the only source of truth.
+ * Throws on missing/invalid token so the API route returns 401.
  */
 export async function getAuthContext(req: NextRequest): Promise<AuthContext> {
-  // ── Primary: Read JWT from httpOnly cookie ──
   const token = req.cookies.get("ghms_token")?.value;
 
-  if (token) {
-    const payload = await verifyToken(token);
-    if (payload) {
-      return {
-        userId: payload.userId,
-        role: payload.role,
-        providerId: payload.providerId,
-        permissions: payload.permissions,
-        policeRank: payload.policeRank,
-        userName: payload.name,
-        token: payload,
-      };
-    }
+  if (!token) {
+    throw new AuthError("Not authenticated", 401);
   }
 
-  // ── Fallback: Header-based auth (backward compat during migration) ──
-  // This allows the existing client to keep working until it's updated to use cookies
-  const role = req.headers.get("x-user-role") || "";
-  const providerId = req.headers.get("x-provider-id") || null;
-  const permStr = req.headers.get("x-user-permissions") || "[]";
-  const policeRank = req.headers.get("x-user-police-rank") || "";
-  const userName = req.headers.get("x-user-name") || "";
-  let permissions: string[] = [];
-  try {
-    permissions = JSON.parse(permStr);
-  } catch {
-    permissions = [];
+  const payload = await verifyToken(token);
+  if (!payload) {
+    throw new AuthError("Invalid or expired session", 401);
   }
 
   return {
-    userId: "",
-    role: role.toUpperCase(),
-    providerId,
-    permissions,
-    policeRank,
-    userName,
-    token: {
-      userId: "",
-      username: userName,
-      role: role.toUpperCase(),
-      providerId,
-      permissions,
-      policeRank,
-      name: userName,
-    },
+    userId: payload.userId,
+    role: payload.role,
+    providerId: payload.providerId,
+    permissions: payload.permissions,
+    policeRank: payload.policeRank,
+    userName: payload.name,
+    token: payload,
   };
+}
+
+/**
+ * Thrown when authentication fails. API routes should catch this
+ * and return a 401 with the message.
+ */
+export class AuthError extends Error {
+  statusCode: number;
+  constructor(message: string, statusCode = 401) {
+    super(message);
+    this.name = "AuthError";
+    this.statusCode = statusCode;
+  }
 }
 
 export function getProviderFilter(auth: AuthContext) {
@@ -90,6 +73,7 @@ interface PermissionOptions {
   requireSuperuserOrOperator?: boolean;
   requireOperator?: boolean;
   allowSuperuser?: boolean;
+  blockSuperuser?: boolean;
   staffPermissionKey?: string;
   staffCanCreate?: boolean;
 }
@@ -102,6 +86,9 @@ export function checkWritePermission(
 
   if (auth.role === "SUPERUSER") {
     if (opts.allowSuperuser) return;
+    if (opts.blockSuperuser) {
+      throw new Error("Owners cannot perform this action. Contact your operator for assistance.");
+    }
     throw new Error("Owners cannot perform this action. Contact your operator for assistance.");
   }
 
