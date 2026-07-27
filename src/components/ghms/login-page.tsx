@@ -74,7 +74,7 @@ export default function LoginPage() {
       const userData = resp.user;
       setCurrentUser({ ...userData, providerName: resp.providerName });
       // Route based on role
-      const page = userData.role === "POLICE" ? "police-dashboard" : "dashboard";
+      const page = userData.role === "POLICE" ? "police-dashboard" : userData.role === "SUPERUSER" ? "owner-accounts" : "dashboard";
       setCurrentPage(page);
       toast.success(`Welcome back, ${userData.name}!`);
     } catch (err: unknown) {

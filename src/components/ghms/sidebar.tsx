@@ -114,9 +114,8 @@ const POLICE_NAV_ITEMS: NavItem[] = [
   },
 ];
 
-// SUPERUSER (admin): dashboard, police admin management, guesthouse management, settings, notifications
+// SUPERUSER (admin): police admin management, guesthouse management, settings, notifications (no dashboard)
 const SUPERUSER_NAV_ITEMS: NavItem[] = [
-  { page: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { page: "owner-accounts", label: "Police Admins", icon: Shield },
   { page: "providers", label: "Guesthouses", icon: Building2 },
   { page: "settings", label: "Settings", icon: Settings },
