@@ -105,7 +105,7 @@ export default function SuspectAlertsPage() {
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
-  const pagination = usePagination({ totalItems: matches.length, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
+  const pagination = usePagination({ totalItems: matches.length, initialPageSize: 5, pageSizeOptions: [5, 10, 20, 50] });
 
   // Reset to page 1 when filter changes
   useEffect(() => { pagination.resetToFirst(); }, [filter]);

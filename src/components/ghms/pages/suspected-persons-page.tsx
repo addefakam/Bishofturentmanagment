@@ -171,12 +171,12 @@ export default function SuspectedPersonsPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(5);
 
   // Client-side pagination for the watchlist table
   const pagination = usePagination({
     totalItems: persons.length,
-    initialPageSize: 10,
+    initialPageSize: 5,
     pageSizeOptions: [5, 10, 20, 50],
   });
   const paginatedPersons = pagination.paginate(persons);
@@ -189,8 +189,8 @@ export default function SuspectedPersonsPage() {
   const [scanGuests, setScanGuests] = useState<ScannerGuest[]>([]);
   const [scanMatches, setScanMatches] = useState<ScannerMatch[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
-  const matchPag = usePagination({ totalItems: 0, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
-  const guestPag = usePagination({ totalItems: 0, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
+  const matchPag = usePagination({ totalItems: 0, initialPageSize: 5, pageSizeOptions: [5, 10, 20, 50] });
+  const guestPag = usePagination({ totalItems: 0, initialPageSize: 5, pageSizeOptions: [5, 10, 20, 50] });
 
   useEffect(() => { matchPag.setTotalItems?.(scanMatches.length); }, [scanMatches.length]);
   useEffect(() => { guestPag.setTotalItems?.(scanGuests.length); }, [scanGuests.length]);

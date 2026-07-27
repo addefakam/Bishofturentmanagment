@@ -134,7 +134,7 @@ export default function ProvidersPage() {
   const [confirmAction, setConfirmAction] = useState<{ provider: Provider; action: string } | null>(null);
   const [actioning, setActioning] = useState(false);
 
-  const pagination = usePagination({ totalItems: providers.length, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
+  const pagination = usePagination({ totalItems: providers.length, initialPageSize: 5, pageSizeOptions: [5, 10, 20, 50] });
   const paginatedProviders = useMemo(() => pagination.paginate(providers), [providers, pagination]);
 
   const fetchProviders = useCallback(async () => {

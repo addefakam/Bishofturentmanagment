@@ -5,7 +5,7 @@ import { useState, useMemo, useCallback } from "react";
 interface UsePaginationOptions {
   /** Total number of items */
   totalItems: number;
-  /** Initial page size (default: 10) */
+  /** Initial page size (default: 5) */
   initialPageSize?: number;
   /** Available page size options (default: [5, 10, 20, 50]) */
   pageSizeOptions?: number[];
@@ -36,7 +36,7 @@ interface UsePaginationReturn {
 
 export function usePagination({
   totalItems,
-  initialPageSize = 10,
+  initialPageSize = 5,
   pageSizeOptions = [5, 10, 20, 50],
 }: UsePaginationOptions): UsePaginationReturn {
   const [currentPage, setCurrentPage] = useState(1);

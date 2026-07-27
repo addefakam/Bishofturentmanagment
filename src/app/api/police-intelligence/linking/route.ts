@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getAuthContext, requirePolice } from "@/lib/tenant";
 
 const MAX_PAGE_SIZE = 100;
-const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 5;
 
 interface LinkKeyRow {
   linkType: string;

@@ -4,7 +4,7 @@ import { getAuthContext, requirePolice } from "@/lib/tenant";
 import { logAudit } from "@/lib/audit";
 
 const MAX_PAGE_SIZE = 100;
-const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 5;
 
 export async function GET(req: NextRequest) {
   try {

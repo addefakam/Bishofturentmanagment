@@ -88,7 +88,7 @@ export default function PoliceDashboardPage() {
   const [unreadAlerts, setUnreadAlerts] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const providerPagination = usePagination({ totalItems: dashboard?.providers?.length || 0, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
+  const providerPagination = usePagination({ totalItems: dashboard?.providers?.length || 0, initialPageSize: 5, pageSizeOptions: [5, 10, 20, 50] });
   const paginatedProviders = useMemo(() => providerPagination.paginate(dashboard?.providers || []), [dashboard?.providers, providerPagination]);
 
   const fetchData = useCallback(async () => {

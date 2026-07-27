@@ -100,9 +100,9 @@ export default function PoliceIntelligencePage() {
 
   // Paginations
   const hotspotPag = usePagination({ totalItems: 0, initialPageSize: 12, pageSizeOptions: [6, 12, 24, 48] });
-  const freqPag = usePagination({ totalItems: 0, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
+  const freqPag = usePagination({ totalItems: 0, initialPageSize: 5, pageSizeOptions: [5, 10, 20, 50] });
   const auditPag = usePagination({ totalItems: 0, initialPageSize: 20, pageSizeOptions: [10, 20, 50, 100] });
-  const rankingPag = usePagination({ totalItems: 0, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
+  const rankingPag = usePagination({ totalItems: 0, initialPageSize: 5, pageSizeOptions: [5, 10, 20, 50] });
 
   const fetchData = useCallback(async () => {
     try {

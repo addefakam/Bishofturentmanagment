@@ -64,7 +64,7 @@ export default function PoliceInvestigationPage() {
   const [freqStays, setFreqStays] = useState<any[]>([]);
   const [freqLoading, setFreqLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
-  const freqPag = usePagination({ totalItems: freqStays.length, initialPageSize: 10, pageSizeOptions: [5, 10, 20, 50] });
+  const freqPag = usePagination({ totalItems: freqStays.length, initialPageSize: 5, pageSizeOptions: [5, 10, 20, 50] });
   const pagFreq = freqPag.paginate(freqStays);
 
   // Linking
@@ -73,7 +73,7 @@ export default function PoliceInvestigationPage() {
   const [linkTotal, setLinkTotal] = useState(0);
   const [linkTotalPages, setLinkTotalPages] = useState(1);
   const [linkPage, setLinkPage] = useState(1);
-  const [linkPageSize, setLinkPageSize] = useState(20);
+  const [linkPageSize, setLinkPageSize] = useState(5);
 
   // Fetch frequent stays
   const fetchFreq = useCallback(async () => {
