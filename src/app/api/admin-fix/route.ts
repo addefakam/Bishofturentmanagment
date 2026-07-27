@@ -55,58 +55,75 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // ── Fix mode: upsert admin user ──
+    // ── Fix mode: find existing admin user, then update or create ──
     const adminPassword = await hashPassword("123");
 
-    const adminUser = await db.user.upsert({
+    const existing = await db.user.findFirst({
       where: { username: "admin" },
-      update: {
-        role: "SUPERUSER",
-        name: "System Admin",
-        password: adminPassword,
-        providerId: null,
-        policeRank: "",
-        permissions: JSON.stringify([
-          "reservations",
-          "guests",
-          "rooms",
-          "dashboard",
-          "reports",
-          "expenses",
-          "users",
-          "settings",
-          "police",
-          "providers",
-          "owner-accounts",
-          "guesthouses",
-        ]),
-      },
-      create: {
-        username: "admin",
-        password: adminPassword,
-        role: "SUPERUSER",
-        name: "System Admin",
-        providerId: null,
-        policeRank: "",
-        permissions: JSON.stringify([
-          "reservations",
-          "guests",
-          "rooms",
-          "dashboard",
-          "reports",
-          "expenses",
-          "users",
-          "settings",
-          "police",
-          "providers",
-          "owner-accounts",
-          "guesthouses",
-        ]),
-      },
     });
+
+    let adminUser;
+    let action: string;
+
+    if (existing) {
+      // Update existing admin user to SUPERUSER
+      adminUser = await db.user.update({
+        where: { id: existing.id },
+        data: {
+          role: "SUPERUSER",
+          name: "System Admin",
+          password: adminPassword,
+          providerId: null,
+          policeRank: "",
+          permissions: JSON.stringify([
+            "reservations",
+            "guests",
+            "rooms",
+            "dashboard",
+            "reports",
+            "expenses",
+            "users",
+            "settings",
+            "police",
+            "providers",
+            "owner-accounts",
+            "guesthouses",
+          ]),
+        },
+      });
+      action = "updated-existing";
+    } else {
+      // Create new admin user as SUPERUSER
+      adminUser = await db.user.create({
+        data: {
+          username: "admin",
+          password: adminPassword,
+          role: "SUPERUSER",
+          name: "System Admin",
+          providerId: null,
+          policeRank: "",
+          permissions: JSON.stringify([
+            "reservations",
+            "guests",
+            "rooms",
+            "dashboard",
+            "reports",
+            "expenses",
+            "users",
+            "settings",
+            "police",
+            "providers",
+            "owner-accounts",
+            "guesthouses",
+          ]),
+        },
+      });
+      action = "created-new";
+    }
 
     return NextResponse.json({
       mode: "fix-applied",
+      action,
       env: envStatus,
       adminUser: {
         id: adminUser.id,
