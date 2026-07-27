@@ -6,7 +6,13 @@ import { hashPassword } from "@/lib/auth-utils";
 export async function GET(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);
-    requirePolice(auth);
+    // Both POLICE and SUPERUSER can list providers (guesthouses)
+    if (auth.role !== "POLICE" && auth.role !== "SUPERUSER") {
+      return NextResponse.json(
+        { error: "Access denied" },
+        { status: 403 }
+      );
+    }
 
     const providers = await db.provider.findMany({
       orderBy: { createdAt: "desc" },
@@ -15,7 +21,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(providers);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to fetch providers";
-    const status = message.includes("Police") ? 403 : 500;
+    const status = message.includes("denied") ? 403 : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }

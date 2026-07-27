@@ -8,7 +8,14 @@ export async function PUT(
 ) {
   try {
     const auth = await getAuthContext(req);
-    requirePolice(auth);
+
+    // Both POLICE and SUPERUSER can update providers, but with different constraints
+    if (auth.role !== "POLICE" && auth.role !== "SUPERUSER") {
+      return NextResponse.json(
+        { error: "Access denied" },
+        { status: 403 }
+      );
+    }
 
     const { id } = await params;
     const body = await req.json();
@@ -19,6 +26,16 @@ export async function PUT(
       return NextResponse.json(
         { error: "Valid status is required (PENDING, APPROVED, REJECTED, SUSPENDED)" },
         { status: 400 }
+      );
+    }
+
+    // SUPERUSER can ONLY suspend guesthouses.
+    // They cannot approve, reject, or re-activate guesthouses.
+    // Reactivation of a suspended guesthouse must be done by the Police module.
+    if (auth.role === "SUPERUSER" && status !== "SUSPENDED") {
+      return NextResponse.json(
+        { error: "Superuser can only suspend guesthouses. Approve, reject, and reactivate are reserved for the Police module." },
+        { status: 403 }
       );
     }
 
@@ -52,7 +69,8 @@ export async function PUT(
     const message = error instanceof Error ? error.message : "Failed to update provider";
     const status =
       message.includes("not found") ? 404 :
-      message.includes("Police") ? 403 :
+      message.includes("denied") ? 403 :
+      message.includes("Superuser") ? 403 :
       message.includes("required") ? 400 : 500;
     return NextResponse.json({ error: message }, { status });
   }

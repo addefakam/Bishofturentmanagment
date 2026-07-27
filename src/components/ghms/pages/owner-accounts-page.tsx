@@ -145,7 +145,9 @@ export default function OwnerAccountsPage() {
     (currentUser?.role === "POLICE" &&
       (RANK_ORDER[currentUser?.policeRank || ""] || 0) >= RANK_ORDER.OFFICER);
 
-  // Which ranks can this user create? (one level below their own)
+  // Which ranks can this user create?
+  // - SUPERUSER: ADMIN only (server-side enforces the same constraint)
+  // - POLICE: one level below their own rank
   const maxCreatableRank =
     currentUser?.role === "SUPERUSER"
       ? "ADMIN"
@@ -160,9 +162,30 @@ export default function OwnerAccountsPage() {
         : "";
 
   // Ranks available in the dropdown for the Add/Edit dialog
-  const availableRanks = maxCreatableRank
-    ? Object.keys(RANK_ORDER).filter((r) => (RANK_ORDER[r] || 0) <= (RANK_ORDER[maxCreatableRank] || 0))
-    : [];
+  // - SUPERUSER: only ADMIN
+  // - POLICE: from VIEWER up to maxCreatableRank
+  const availableRanks =
+    currentUser?.role === "SUPERUSER"
+      ? ["ADMIN"]
+      : maxCreatableRank
+        ? Object.keys(RANK_ORDER).filter((r) => (RANK_ORDER[r] || 0) <= (RANK_ORDER[maxCreatableRank] || 0))
+        : [];
+
+  // Whether the current user can edit/delete a specific police officer.
+  // - SUPERUSER: only ADMIN-rank officers
+  // - POLICE: ranks strictly below their own (existing logic)
+  const canManageOfficer = (police: AccountUser): boolean => {
+    if (!canManagePolice) return false;
+    if (police.id === currentUser?.id) return false;
+    if (currentUser?.role === "SUPERUSER") {
+      return (police.policeRank || "OFFICER") === "ADMIN";
+    }
+    // POLICE
+    const myRank = (currentUser?.policeRank || "VIEWER") as string;
+    const myLevel = RANK_ORDER[myRank] || 0;
+    const targetLevel = RANK_ORDER[police.policeRank || "OFFICER"] || 0;
+    return targetLevel < myLevel;
+  };
 
   // ── Reset credentials dialog ──
   const [resetOpen, setResetOpen] = useState(false);
@@ -445,7 +468,7 @@ export default function OwnerAccountsPage() {
           </p>
 
           <div className="flex gap-2">
-            {canManagePolice && !isSelf && (
+            {canManageOfficer(police) && (
               <>
                 <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={() => openEditPolice(police)}>
                   <Pencil className="h-3.5 w-3.5" />
@@ -494,7 +517,7 @@ export default function OwnerAccountsPage() {
         </td>
         <td className="px-4 py-3">
           <div className="flex items-center justify-end gap-1.5">
-            {canManagePolice && !isSelf && (
+            {canManageOfficer(police) && (
               <>
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={() => openEditPolice(police)}>
                   <Pencil className="h-3.5 w-3.5" />
@@ -519,12 +542,18 @@ export default function OwnerAccountsPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">
-          {currentUser?.role === "POLICE" ? "Manage Officers" : "Account Management"}
+          {currentUser?.role === "POLICE"
+            ? "Manage Officers"
+            : currentUser?.role === "SUPERUSER"
+              ? "Account Management"
+              : "Account Management"}
         </h1>
         <p className="text-sm text-muted-foreground">
           {currentUser?.role === "POLICE"
             ? "Create and manage police officers. You can manage ranks below your current rank."
-            : "Manage owner accounts and police officers."}
+            : currentUser?.role === "SUPERUSER"
+              ? "Manage Police Admin accounts (create, edit, delete, reset credentials) and reset credentials for guesthouse owners. Suspend guesthouses from the Guesthouses page."
+              : "Manage owner accounts and police officers."}
         </p>
       </div>
 
@@ -668,7 +697,7 @@ export default function OwnerAccountsPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    {canManagePolice && police.id !== currentUser?.id && (
+                    {canManageOfficer(police) && (
                       <>
                         <Button variant="outline" size="sm" className="gap-1.5" onClick={() => openEditPolice(police)}>
                           <Pencil className="h-3.5 w-3.5" />
@@ -911,8 +940,12 @@ export default function OwnerAccountsPage() {
             </DialogTitle>
             <DialogDescription>
               {editMode
-                ? "Update officer details. Change rank or name as needed."
-                : `Create a new police officer with ${POLICE_RANK_LABEL[maxCreatableRank] || ""} rank or below.`}
+                ? currentUser?.role === "SUPERUSER"
+                  ? "Update the Police Admin's name or password. Rank stays as ADMIN."
+                  : "Update officer details. Change rank or name as needed."
+                : currentUser?.role === "SUPERUSER"
+                  ? "Create a new Police Admin account. Only ADMIN-rank officers can be created by the Superuser; lower ranks are managed by the Police Admin."
+                  : `Create a new police officer with ${POLICE_RANK_LABEL[maxCreatableRank] || ""} rank or below.`}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handlePoliceSubmit} className="space-y-4">
@@ -956,7 +989,9 @@ export default function OwnerAccountsPage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                {POLICE_RANK_DESC[policeRank] || ""}
+                {currentUser?.role === "SUPERUSER"
+                  ? "Superuser can only create and manage ADMIN-rank police accounts. Lower ranks (DETECTIVE, OFFICER, VIEWER) are managed by the Police Admin."
+                  : POLICE_RANK_DESC[policeRank] || ""}
               </p>
             </div>
 

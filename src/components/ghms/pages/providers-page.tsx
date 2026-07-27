@@ -108,7 +108,8 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function ProvidersPage() {
-  const { refreshKey, triggerRefresh } = useAppStore();
+  const { refreshKey, triggerRefresh, currentUser } = useAppStore();
+  const isSuperuser = currentUser?.role === "SUPERUSER";
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
@@ -324,14 +325,22 @@ export default function ProvidersPage() {
       {/* Geocode All Button */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-base sm:text-lg font-semibold">Provider Applications</h2>
-          <p className="text-xs sm:text-sm text-muted-foreground">Manage registrations, licensing, and map locations</p>
+          <h2 className="text-base sm:text-lg font-semibold">
+            {isSuperuser ? "Guesthouses" : "Provider Applications"}
+          </h2>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            {isSuperuser
+              ? "View registered guesthouses and suspend any that violate policy. Approval / rejection of pending registrations is handled by the Police module."
+              : "Manage registrations, licensing, and map locations"}
+          </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setBatchOpen(true)} disabled={geocodingAll}>
-            <Globe className={`mr-1 h-3.5 w-3.5 ${geocodingAll ? "animate-spin" : ""}`} />
-            {geocodingAll ? "Geocoding..." : "Geocode All"}
-          </Button>
+          {!isSuperuser && (
+            <Button variant="outline" size="sm" onClick={() => setBatchOpen(true)} disabled={geocodingAll}>
+              <Globe className={`mr-1 h-3.5 w-3.5 ${geocodingAll ? "animate-spin" : ""}`} />
+              {geocodingAll ? "Geocoding..." : "Geocode All"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -384,15 +393,17 @@ export default function ProvidersPage() {
                     <button className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100" onClick={() => openDetail(provider)}>
                       <Eye className="h-3.5 w-3.5" /> Details
                     </button>
-                    <button className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50" onClick={() => openCoordPicker(provider)}>
-                      <MapPinned className="h-3.5 w-3.5" /> Set Location
-                    </button>
-                    {provider.status !== "APPROVED" && (
+                    {!isSuperuser && (
+                      <button className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50" onClick={() => openCoordPicker(provider)}>
+                        <MapPinned className="h-3.5 w-3.5" /> Set Location
+                      </button>
+                    )}
+                    {!isSuperuser && provider.status !== "APPROVED" && (
                       <button className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50" onClick={() => setConfirmAction({ provider, action: "APPROVED" })}>
                         <CheckCircle2 className="h-3.5 w-3.5" /> Approve
                       </button>
                     )}
-                    {provider.status !== "REJECTED" && (
+                    {!isSuperuser && provider.status !== "REJECTED" && (
                       <button className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50" onClick={() => openReject(provider)}>
                         <XCircle className="h-3.5 w-3.5" /> Reject
                       </button>
@@ -440,15 +451,17 @@ export default function ProvidersPage() {
                       <TableCell><StatusBadge status={provider.status} /></TableCell>
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
-                          <Button size="sm" variant="ghost" className="h-8 text-blue-600 hover:bg-blue-50" onClick={() => openCoordPicker(provider)}>
-                            <MapPinned className="mr-1 h-3.5 w-3.5" /> Location
-                          </Button>
-                          {provider.status !== "APPROVED" && (
+                          {!isSuperuser && (
+                            <Button size="sm" variant="ghost" className="h-8 text-blue-600 hover:bg-blue-50" onClick={() => openCoordPicker(provider)}>
+                              <MapPinned className="mr-1 h-3.5 w-3.5" /> Location
+                            </Button>
+                          )}
+                          {!isSuperuser && provider.status !== "APPROVED" && (
                             <Button size="sm" variant="ghost" className="h-8 text-emerald-600 hover:bg-emerald-50" onClick={() => setConfirmAction({ provider, action: "APPROVED" })}>
                               <CheckCircle2 className="mr-1 h-4 w-4" /> Approve
                             </Button>
                           )}
-                          {provider.status !== "REJECTED" && (
+                          {!isSuperuser && provider.status !== "REJECTED" && (
                             <Button size="sm" variant="ghost" className="h-8 text-red-600 hover:bg-red-50" onClick={() => openReject(provider)}>
                               <XCircle className="mr-1 h-4 w-4" /> Reject
                             </Button>
@@ -559,7 +572,7 @@ export default function ProvidersPage() {
                 )}
               </div>
               <div className="flex gap-2">
-                {selectedProvider.status === "APPROVED" && (
+                {!isSuperuser && selectedProvider.status === "APPROVED" && (
                   <Button size="sm" variant="outline" onClick={() => { setDetailOpen(false); openCoordPicker(selectedProvider); }}>
                     <MapPinned className="mr-1 h-3.5 w-3.5" /> Set Map Location
                   </Button>
