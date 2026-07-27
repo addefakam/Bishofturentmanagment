@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useCallback } from "react";
-import { ShieldCheck, X, LogOut } from "lucide-react";
+import { ShieldCheck, LogOut } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAppStore } from "@/lib/store";
