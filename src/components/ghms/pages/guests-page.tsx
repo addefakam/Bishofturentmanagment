@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Fragment } from "react";
+import { useState, useEffect, useCallback, Fragment, useMemo } from "react";
 import { useAppStore } from "@/lib/store";
 import {
   apiGetGuests,
@@ -75,6 +75,8 @@ import {
   FileText,
   Users,
 } from "lucide-react";
+import { usePagination } from "@/hooks/use-pagination";
+import { PaginationControls } from "@/components/shared/pagination-controls";
 
 interface Guest {
   id: string;
@@ -230,6 +232,13 @@ export default function GuestsPage() {
     );
   });
 
+  const pagination = usePagination({
+    totalItems: filteredGuests.length,
+    initialPageSize: 5,
+    pageSizeOptions: [5, 10, 20, 50],
+  });
+  const paginatedGuests = useMemo(() => pagination.paginate(filteredGuests), [filteredGuests, pagination]);
+
   // Desktop table view
   const renderTable = () => (
     <div className="hidden md:block rounded-xl border bg-white">
@@ -255,7 +264,7 @@ export default function GuestsPage() {
               </TableCell>
             </TableRow>
           ) : (
-            filteredGuests.map((guest) => (
+            paginatedGuests.map((guest) => (
               <Fragment key={guest.id}>
                 <TableRow
                   className="cursor-pointer"
@@ -409,7 +418,7 @@ export default function GuestsPage() {
           </p>
         </div>
       ) : (
-        filteredGuests.map((guest) => (
+        paginatedGuests.map((guest) => (
           <div
             key={guest.id}
             className="rounded-xl border bg-white p-4 transition-shadow hover:shadow-sm"
@@ -531,6 +540,19 @@ export default function GuestsPage() {
       {/* Content */}
       {renderTable()}
       {renderCards()}
+
+      {/* Pagination */}
+      {filteredGuests.length > 5 && (
+        <PaginationControls
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          pageSize={pagination.pageSize}
+          pageSizeOptions={pagination.pageSizeOptions}
+          goToPage={pagination.goToPage}
+          setPageSize={pagination.setPageSize}
+          rangeInfo={pagination.rangeInfo}
+        />
+      )}
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
