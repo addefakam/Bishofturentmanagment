@@ -17,7 +17,7 @@ export function getHeaders(): Record<string, string> {
   };
 }
 
-async function req(url: string, opts: RequestInit = {}) {
+export async function req(url: string, opts: RequestInit = {}) {
   const res = await fetch(url, {
     ...opts,
     headers: { ...getHeaders(), ...opts.headers },
