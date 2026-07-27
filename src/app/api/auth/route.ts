@@ -130,10 +130,20 @@ export async function POST(req: NextRequest) {
 
 // ── Logout endpoint ──
 export async function DELETE() {
+  const isProduction = process.env.NODE_ENV === "production";
   const response = NextResponse.json({ success: true });
+  // Clear primary session
   response.cookies.set("ghms_token", "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isProduction,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+  // Also clear joint session if active
+  response.cookies.set("ghms_token_joint", "", {
+    httpOnly: true,
+    secure: isProduction,
     sameSite: "lax",
     path: "/",
     maxAge: 0,

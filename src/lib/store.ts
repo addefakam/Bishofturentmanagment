@@ -21,6 +21,12 @@ interface PreselectedRoom {
   pricePerNight: number;
 }
 
+export interface JointSessionInfo {
+  active: boolean;
+  superuser: { id: string; username: string; name: string } | null;
+  policeAdmin: { id: string; username: string; name: string; rank: string } | null;
+}
+
 interface AppState {
   currentPage: string;
   setCurrentPage: (p: string) => void;
@@ -32,6 +38,11 @@ interface AppState {
   triggerRefresh: () => void;
   preselectedRoom: PreselectedRoom | null;
   setPreselectedRoom: (r: PreselectedRoom | null) => void;
+  // Joint session state (Concurrent Dual Session)
+  jointSession: JointSessionInfo;
+  setJointSession: (info: JointSessionInfo) => void;
+  jointLoginDialogOpen: boolean;
+  setJointLoginDialogOpen: (open: boolean) => void;
 }
 
 // ── localStorage helpers (SSR-safe) ──
@@ -99,7 +110,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setCurrentUser: (u) => {
     persistSession(u);
     if (!u) {
-      set({ currentUser: null, currentPage: "login" });
+      set({ currentUser: null, currentPage: "login", jointSession: { active: false, superuser: null, policeAdmin: null } });
     } else {
       set({ currentUser: u });
     }
@@ -110,4 +121,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   triggerRefresh: () => set((s) => ({ refreshKey: s.refreshKey + 1 })),
   preselectedRoom: null,
   setPreselectedRoom: (r) => set({ preselectedRoom: r }),
+  // Joint session (Concurrent Dual Session)
+  jointSession: { active: false, superuser: null, policeAdmin: null },
+  setJointSession: (info) => set({ jointSession: info }),
+  jointLoginDialogOpen: false,
+  setJointLoginDialogOpen: (open) => set({ jointLoginDialogOpen: open }),
 }));

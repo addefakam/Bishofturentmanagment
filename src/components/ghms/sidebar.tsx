@@ -25,6 +25,7 @@ import {
   ShieldAlert,
   UserX,
   ScanLine,
+  ShieldCheck,
 } from "lucide-react";
 
 import { useAppStore, type CurrentUser } from "@/lib/store";
@@ -306,8 +307,14 @@ function SidebarContent({
   collapsed: boolean;
   onToggleCollapse: () => void;
 }) {
+  const { jointSession, setJointLoginDialogOpen } = useAppStore();
   const navItems = getNavItems(user);
   const roleDisplay = getRoleDisplay(user.role);
+
+  // Determine if user can start a joint session (SUPERUSER or POLICE ADMIN)
+  const canStartJoint =
+    user.role === "SUPERUSER" ||
+    (user.role === "POLICE" && user.policeRank === "ADMIN");
 
   return (
     <div className="flex h-full flex-col">
@@ -375,6 +382,41 @@ function SidebarContent({
               onClick={() => onNavigate(item.page)}
             />
           ))}
+
+          {/* Joint Operations — only shown during active joint session */}
+          {jointSession.active && (
+            <>
+              <Separator className="my-2" />
+              <NavItemButton
+                item={{ page: "joint-operations", label: "Joint Operations", icon: ShieldCheck }}
+                currentPage={currentPage}
+                onClick={() => onNavigate("joint-operations")}
+              />
+            </>
+          )}
+
+          {/* Start Joint Session button — shown for SUPERUSER/POLICE ADMIN when no joint session */}
+          {canStartJoint && !jointSession.active && !collapsed && (
+            <>
+              <Separator className="my-2" />
+              <button
+                onClick={() => setJointLoginDialogOpen(true)}
+                className="flex w-full items-center gap-3 rounded-lg border border-dashed border-amber-300 bg-amber-50/50 px-3 py-2.5 text-sm font-medium text-amber-700 transition-all hover:bg-amber-50 hover:border-amber-400 hover:text-amber-800 outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+              >
+                <ShieldCheck className="size-[18px] shrink-0" />
+                <span>Start Joint Session</span>
+              </button>
+            </>
+          )}
+          {canStartJoint && !jointSession.active && collapsed && (
+            <button
+              onClick={() => setJointLoginDialogOpen(true)}
+              className="flex items-center justify-center rounded-lg border border-dashed border-amber-300 p-2 text-amber-600 hover:bg-amber-50 transition-colors outline-none"
+              title="Start Joint Session"
+            >
+              <ShieldCheck className="size-[18px]" />
+            </button>
+          )}
         </nav>
       </ScrollArea>
 

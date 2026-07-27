@@ -46,6 +46,24 @@ export const apiLogout = async () => {
   }
 };
 
+// ── Joint Session (Concurrent Dual Session) ──
+export const apiJointLogin = (data: { username: string; password: string }) =>
+  req("/api/auth/joint-login", { method: "POST", body: JSON.stringify(data) });
+
+export const apiJointStatus = () =>
+  req("/api/auth/joint-status");
+
+export const apiJointLogout = async () => {
+  try {
+    await fetch("/api/auth/joint-logout", {
+      method: "DELETE",
+      credentials: "include",
+    });
+  } catch {
+    // Ignore errors
+  }
+};
+
 // Dashboard
 export const apiDashboard = () => req("/api/dashboard");
 

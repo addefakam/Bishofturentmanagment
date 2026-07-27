@@ -3,6 +3,8 @@
 import { lazy, Suspense } from "react";
 import { Loader2 } from "lucide-react";
 import { useAppStore } from "@/lib/store";
+import { JointLoginDialog } from "@/components/ghms/joint-login-dialog";
+import JointSessionBanner from "@/components/ghms/joint-session-banner";
 
 // ── Loading fallback ──
 function PageLoader() {
@@ -100,6 +102,9 @@ const ReviewsPage = lazyPage(
 const OwnerAccountsPage = lazyPage(
   () => import("@/components/ghms/pages/owner-accounts-page")
 );
+const JointOperationsPage = lazyPage(
+  () => import("@/components/ghms/pages/joint-operations-page")
+);
 
 // ── Page registry: maps page key → lazy component ──
 const PAGE_MAP: Record<string, React.LazyExoticComponent<React.ComponentType>> =
@@ -127,11 +132,14 @@ const PAGE_MAP: Record<string, React.LazyExoticComponent<React.ComponentType>> =
     "police-security": PoliceSecurityPage,
     reviews: ReviewsPage,
     "owner-accounts": OwnerAccountsPage,
+    "joint-operations": JointOperationsPage,
   };
 
 // ── Page Renderer ──
 export default function PageRenderer() {
   const currentPage = useAppStore((s) => s.currentPage);
+  const jointLoginDialogOpen = useAppStore((s) => s.jointLoginDialogOpen);
+  const setJointLoginDialogOpen = useAppStore((s) => s.setJointLoginDialogOpen);
 
   // If on the login page, don't render anything here — LoginPage handles its own layout
   if (currentPage === "login") return null;
@@ -143,8 +151,15 @@ export default function PageRenderer() {
   }
 
   return (
-    <Suspense fallback={<PageLoader />}>
-      <PageComponent />
-    </Suspense>
+    <>
+      <JointSessionBanner />
+      <Suspense fallback={<PageLoader />}>
+        <PageComponent />
+      </Suspense>
+      <JointLoginDialog
+        open={jointLoginDialogOpen}
+        onOpenChange={setJointLoginDialogOpen}
+      />
+    </>
   );
 }
