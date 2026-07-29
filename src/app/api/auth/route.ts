@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       select: {
         id: true, username: true, name: true, role: true,
         password: true, providerId: true, permissions: true,
-        policeRank: true, phone: true,
+        policeRank: true,
         provider: { select: { id: true, name: true, status: true } },
       },
     });
