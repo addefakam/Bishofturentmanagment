@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * GHMS Middleware — runs on every request (Edge runtime).
+ * GHMS Middleware — runs on API routes only (Edge runtime).
  *
  * Applies:
  *  - Rate limiting on API routes (sliding window per IP)
  *  - Security headers on all responses
- *  - CORS configuration
  */
 
 // ── In-memory rate limit store (Edge-compatible) ──
 const store = new Map<string, { count: number; resetAt: number }>();
 
-// Cleanup every 60s
+// Cleanup every 60s to prevent memory leaks
 let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 if (typeof globalThis !== "undefined" && !cleanupTimer) {
   cleanupTimer = setInterval(() => {
@@ -48,9 +47,7 @@ function checkLimit(ip: string, key: string, limit: number, windowMs: number): b
 
 // ── Rate limit configs per route pattern ──
 function getLimitConfig(pathname: string): { limit: number; windowSeconds: number } {
-  // Auth endpoints — strictest
   if (pathname.startsWith("/api/auth")) return { limit: 15, windowSeconds: 60 };
-  // Heavy data export / report endpoints
   if (
     pathname.includes("/export") ||
     pathname.includes("/report") ||
@@ -58,21 +55,18 @@ function getLimitConfig(pathname: string): { limit: number; windowSeconds: numbe
   ) {
     return { limit: 8, windowSeconds: 60 };
   }
-  // Write operations (POST/PUT/DELETE)
-  // (handled below by checking method)
-  // General read API
   return { limit: 80, windowSeconds: 60 };
 }
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip non-API routes — only rate-limit API calls
+  // Skip non-API routes
   if (!pathname.startsWith("/api/")) {
     return NextResponse.next();
   }
 
-  // Skip health check — no rate limit
+  // Skip health check — no rate limit, no extra headers
   if (pathname === "/api/health") {
     return NextResponse.next();
   }
@@ -104,14 +98,12 @@ export function middleware(request: NextRequest) {
 
   const response = NextResponse.next();
 
-  // Add security & cache headers
+  // Add rate limit header (lightweight — no crypto.randomUUID)
   response.headers.set("X-RateLimit-Limit", String(limit));
-  response.headers.set("X-Request-Id", crypto.randomUUID());
 
   return response;
 }
 
 export const config = {
-  // Only run middleware on API routes for performance
   matcher: ["/api/:path*"],
 };

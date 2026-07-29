@@ -17,7 +17,12 @@ export async function POST(req: NextRequest) {
 
     const user = await db.user.findUnique({
       where: { username },
-      include: { provider: true },
+      select: {
+        id: true, username: true, name: true, role: true,
+        password: true, providerId: true, permissions: true,
+        policeRank: true, email: true, phone: true,
+        provider: { select: { id: true, name: true, status: true } },
+      },
     });
 
     if (!user) {
@@ -36,29 +41,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Auto-migrate: if password is plain text, hash it now ──
+    // ── Auto-migrate: hash plain-text passwords in background (don't block response) ──
     if (!user.password.startsWith("$2")) {
-      const hashed = await hashPassword(password);
-      await db.user.update({
-        where: { id: user.id },
-        data: { password: hashed },
-      });
+      hashPassword(password).then((hashed) =>
+        db.user.update({ where: { id: user.id }, data: { password: hashed } }).catch(() => {})
+      );
     }
 
-    let policeRank = user.policeRank || "";
-    if (!policeRank) {
-      try {
-        const rawUser: { policeRank: string }[] = await db.$queryRawUnsafe(
-          `SELECT "policeRank" FROM "User" WHERE "id" = ?`,
-          user.id
-        );
-        if (Array.isArray(rawUser) && rawUser[0]?.policeRank) {
-          policeRank = rawUser[0].policeRank;
-        }
-      } catch {
-        // Column might not exist yet
-      }
-    }
+    const policeRank = user.policeRank || "";
 
     // POLICE and system admin SUPERUSER (no provider) can login directly
     if (user.role !== "POLICE" && user.providerId) {
