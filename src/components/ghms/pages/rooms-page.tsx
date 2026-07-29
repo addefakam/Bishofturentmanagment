@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import * as XLSX from "xlsx";
 import { useAppStore } from "@/lib/store";
+import { formatDaysRemaining, formatCycle } from "@/lib/subscription";
 import {
   apiGetRooms,
   apiCreateRoom,
@@ -195,6 +196,51 @@ function downloadTemplate() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Rooms");
   XLSX.writeFile(wb, "rooms_import_template.xlsx");
+}
+
+// ── Subscription Status Badge (for Rooms page header) ──
+function SubscriptionBadge() {
+  const { currentUser, subscription } = useAppStore();
+
+  // Only show for OPERATOR/STAFF
+  if (!currentUser || (currentUser.role !== "OPERATOR" && currentUser.role !== "STAFF")) return null;
+  if (!subscription) return null;
+
+  const isActive = subscription.status === "ACTIVE";
+  const isWarning = subscription.status === "WARNING";
+  const isGrace = subscription.status === "GRACE";
+  const isSuspended = subscription.status === "SUSPENDED";
+
+  const badgeClass = isActive
+    ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+    : isSuspended || isGrace
+    ? "border-rose-300 bg-rose-50 text-rose-700"
+    : "border-amber-300 bg-amber-50 text-amber-700";
+
+  const dotClass = isActive
+    ? "bg-emerald-500"
+    : isSuspended || isGrace
+    ? "bg-rose-500"
+    : "bg-amber-500";
+
+  const label = isActive
+    ? "Active"
+    : isSuspended
+    ? "Suspended"
+    : isGrace
+    ? "Expired"
+    : "Expiring";
+
+  return (
+    <div className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeClass} animate-subtle-pulse`}>
+      <span className={`relative flex h-2 w-2`}>
+        <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${dotClass}`} />
+        <span className={`relative inline-flex h-2 w-2 rounded-full ${dotClass}`} />
+      </span>
+      <span>{label}</span>
+      <span className="font-mono text-[11px] opacity-70">{Math.abs(subscription.daysRemaining)}d</span>
+    </div>
+  );
 }
 
 export default function RoomsPage() {
@@ -469,7 +515,10 @@ export default function RoomsPage() {
             Manage your {rooms.length} room{rooms.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center flex-wrap">
+          {/* Subscription status badge */}
+          <SubscriptionBadge />
+
           <Button variant="outline" onClick={() => setImportDialogOpen(true)} className="gap-2">
             <FileSpreadsheet className="h-4 w-4" />
             Import Excel

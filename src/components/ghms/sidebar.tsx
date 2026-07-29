@@ -535,18 +535,13 @@ function SidebarContent({
       {/* ── Navigation links ── */}
       <ScrollArea className="flex-1 px-3 py-3">
         <nav className="flex flex-col gap-1" aria-label="Main navigation">
-          {navItems.map((item, idx) => (
-            <React.Fragment key={item.page}>
-              <NavItemButton
-                item={item}
-                currentPage={currentPage}
-                onClick={() => onNavigate(item.page)}
-              />
-              {/* Subscription status — show after Rooms (index 1) for providers */}
-              {idx === 1 && (user.role === "OPERATOR" || user.role === "STAFF") && (
-                <SubscriptionStatusCard collapsed={collapsed} />
-              )}
-            </React.Fragment>
+          {navItems.map((item) => (
+            <NavItemButton
+              key={item.page}
+              item={item}
+              currentPage={currentPage}
+              onClick={() => onNavigate(item.page)}
+            />
           ))}
 
           {/* Joint Operations — only shown during active joint session */}
@@ -585,6 +580,13 @@ function SidebarContent({
           )}
         </nav>
       </ScrollArea>
+
+      {/* ── Subscription status for providers ── */}
+      {(user.role === "OPERATOR" || user.role === "STAFF") && (
+        <div className="px-3 py-2">
+          <SubscriptionStatusCard collapsed={collapsed} />
+        </div>
+      )}
 
       <Separator className="bg-slate-200/60" />
 
