@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import React, { useSyncExternalStore } from "react";
 import {
   LayoutDashboard,
   Bed,
@@ -335,7 +335,7 @@ function SubscriptionStatusCard({ collapsed }: { collapsed: boolean }) {
       : "text-amber-600";
     return (
       <div className="flex flex-col items-center gap-1 px-2 py-2">
-        <div className={`flex h-8 w-8 items-center justify-center rounded-full ${bgClass}`}>
+        <div className={`flex h-8 w-8 items-center justify-center rounded-full ${bgClass} animate-pulse shadow-sm`}> 
           <Clock className={`size-4 ${iconClass}`} />
         </div>
       </div>
@@ -376,7 +376,7 @@ function SubscriptionStatusCard({ collapsed }: { collapsed: boolean }) {
   const Icon = isSuspended || isGrace ? AlertTriangle : Clock;
 
   return (
-    <div className={`rounded-lg border p-3 ${containerClass}`}>
+    <div className={`rounded-lg border p-3 ${containerClass} animate-subtle-pulse shadow-sm`}> 
       <div className="flex items-center gap-2">
         <Icon className={`h-4 w-4 shrink-0 ${iconColorClass}`} />
         <p className={`text-xs font-semibold ${titleClass}`}>
@@ -530,25 +530,23 @@ function SidebarContent({
         </div>
       </div>
 
-      {/* ── Subscription status for providers ── */}
-      {(user.role === "OPERATOR" || user.role === "STAFF") && (
-        <div className="flex justify-end px-3 pb-1">
-          <SubscriptionStatusCard collapsed={collapsed} />
-        </div>
-      )}
-
       <Separator className="bg-slate-200/60" />
 
       {/* ── Navigation links ── */}
       <ScrollArea className="flex-1 px-3 py-3">
         <nav className="flex flex-col gap-1" aria-label="Main navigation">
-          {navItems.map((item) => (
-            <NavItemButton
-              key={item.page}
-              item={item}
-              currentPage={currentPage}
-              onClick={() => onNavigate(item.page)}
-            />
+          {navItems.map((item, idx) => (
+            <React.Fragment key={item.page}>
+              <NavItemButton
+                item={item}
+                currentPage={currentPage}
+                onClick={() => onNavigate(item.page)}
+              />
+              {/* Subscription status — show after Rooms (index 1) for providers */}
+              {idx === 1 && (user.role === "OPERATOR" || user.role === "STAFF") && (
+                <SubscriptionStatusCard collapsed={collapsed} />
+              )}
+            </React.Fragment>
           ))}
 
           {/* Joint Operations — only shown during active joint session */}
