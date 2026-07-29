@@ -48,7 +48,7 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
 
     const existing = await db.settings.findFirst({
-      where: { providerId },
+      where: providerId ? { providerId } : {},
     });
 
     const data = {
