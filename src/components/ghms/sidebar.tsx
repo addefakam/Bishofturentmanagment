@@ -436,7 +436,7 @@ function SidebarContent({
   return (
     <div className="flex h-full flex-col">
       {/* ── User profile section ── */}
-      <div className="p-4 pb-3">
+      <div className="px-3 pt-3 pb-2">
         <div
           className={`flex items-center gap-3 ${collapsed ? "flex-col text-center" : ""}`}
         >
@@ -530,11 +530,11 @@ function SidebarContent({
         </div>
       </div>
 
-      <Separator className="mx-3 w-auto" />
+      <Separator className="mx-3" />
 
       {/* ── Navigation links ── */}
       <ScrollArea className="flex-1 px-3 py-3">
-        <nav className="grid gap-1" aria-label="Main navigation">
+        <nav className="flex flex-col gap-1" aria-label="Main navigation">
           {navItems.map((item) => (
             <NavItemButton
               key={item.page}
@@ -588,7 +588,7 @@ function SidebarContent({
         </div>
       )}
 
-      <Separator className="mx-3 w-auto" />
+      <Separator className="mx-3" />
 
       {/* ── Bottom section: collapse toggle + logout ── */}
       <div className="p-3">

@@ -547,7 +547,8 @@ function SuperuserSettings() {
     n.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
 
   return (
-    <div className="space-y-6 max-w-2xl p-4 md:p-6">
+    <div className="flex justify-center p-4 md:p-6">
+      <div className="w-full max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">My Profile</h1>
         <p className="text-sm text-muted-foreground">
@@ -843,6 +844,7 @@ function SuperuserSettings() {
           </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

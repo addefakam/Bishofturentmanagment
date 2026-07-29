@@ -15,7 +15,7 @@ export default function Home() {
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto pl-4 md:pl-6">
         <PageRenderer />
       </main>
     </div>
