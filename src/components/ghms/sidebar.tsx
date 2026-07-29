@@ -530,6 +530,13 @@ function SidebarContent({
         </div>
       </div>
 
+      {/* ── Subscription status for providers ── */}
+      {(user.role === "OPERATOR" || user.role === "STAFF") && (
+        <div className="flex justify-end px-3 pb-1">
+          <SubscriptionStatusCard collapsed={collapsed} />
+        </div>
+      )}
+
       <Separator className="bg-slate-200/60" />
 
       {/* ── Navigation links ── */}
@@ -580,13 +587,6 @@ function SidebarContent({
           )}
         </nav>
       </ScrollArea>
-
-      {/* ── Subscription status for providers ── */}
-      {(user.role === "OPERATOR" || user.role === "STAFF") && (
-        <div className="px-3 py-2">
-          <SubscriptionStatusCard collapsed={collapsed} />
-        </div>
-      )}
 
       <Separator className="bg-slate-200/60" />
 
