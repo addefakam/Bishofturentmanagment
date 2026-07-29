@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, checkWritePermission } from "@/lib/tenant";
+import { getAuthContext, checkWritePermission, AuthError } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,6 +11,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ categories });
   } catch (error) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     console.error("List expense categories error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
@@ -48,6 +51,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ category }, { status: 201 });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     console.error("Create expense category error:", error);
     const message =
       error instanceof Error ? error.message : "Internal server error";

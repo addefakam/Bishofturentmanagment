@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, requirePolice } from "@/lib/tenant";
+import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
 import { logAudit } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
@@ -128,6 +128,9 @@ export async function GET(req: NextRequest) {
       recentActivity: auditLogs,
     });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to fetch intelligence";
     const status = message.includes("Police") ? 403 : 500;
     return NextResponse.json({ error: message }, { status });

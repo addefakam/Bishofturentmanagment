@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, getProviderFilter, checkWritePermission } from "@/lib/tenant";
+import { getAuthContext, getProviderFilter, checkWritePermission, AuthError } from "@/lib/tenant";
 
 const DEFAULT_SETTINGS = {
   guestHouseName: "Guest House",
@@ -31,6 +31,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(settings);
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to fetch settings";
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -75,6 +78,9 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json(settings);
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to save settings";
     const status =
       message.includes("permission") || message.includes("cannot") ? 403 : 500;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, getProviderFilter, checkWritePermission } from "@/lib/tenant";
+import { getAuthContext, getProviderFilter, checkWritePermission, AuthError } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,6 +22,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(notifications);
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to fetch notifications";
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -57,6 +60,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(notification, { status: 201 });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to create notification";
     const status = message.includes("required") ? 400 : message.includes("cannot") ? 403 : 500;
     return NextResponse.json({ error: message }, { status });

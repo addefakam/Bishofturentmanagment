@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, requirePolice } from "@/lib/tenant";
+import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
 import { requirePoliceMinRank } from "@/lib/police-permissions";
 
 export async function GET(req: NextRequest) {
@@ -13,6 +13,9 @@ export async function GET(req: NextRequest) {
     }
     return NextResponse.json(config);
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to fetch alert config";
     const status = message.includes("Police") ? 403 : 500;
     return NextResponse.json({ error: message }, { status });
@@ -33,6 +36,9 @@ export async function PUT(req: NextRequest) {
     }
     return NextResponse.json(config);
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to update alert config";
     return NextResponse.json({ error: message }, { status: 500 });
   }

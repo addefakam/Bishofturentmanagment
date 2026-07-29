@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, requirePolice } from "@/lib/tenant";
+import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
 import { requirePoliceMinRank } from "@/lib/police-permissions";
 
 export async function PUT(
@@ -40,6 +40,9 @@ export async function PUT(
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to update geofence";
     const status = message.includes("Police") ? 403 : 500;
     return NextResponse.json({ error: message }, { status });
@@ -59,6 +62,9 @@ export async function DELETE(
     await db.$executeRawUnsafe(`DELETE FROM "Geofence" WHERE "id" = ?`, id);
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to delete geofence";
     const status = message.includes("Police") ? 403 : 500;
     return NextResponse.json({ error: message }, { status });

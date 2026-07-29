@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext } from "@/lib/tenant";
+import { getAuthContext, AuthError } from "@/lib/tenant";
 
 // PUT /api/owner-accounts/[id] — OPERATOR resets username/password for owner or police accounts
 // The [id] refers to the USER id.
@@ -71,6 +71,9 @@ export async function PUT(
 
     return NextResponse.json(user);
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to update account";
     const status =
       message.includes("not found") ? 404 :

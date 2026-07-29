@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, requirePolice } from "@/lib/tenant";
+import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
 import { logAudit } from "@/lib/audit";
 
 const MONTH_NAMES = [
@@ -436,6 +436,9 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (e: unknown) {
+    if (e instanceof AuthError) {
+      return NextResponse.json({ error: e.message }, { status: e.statusCode });
+    }
     const msg = e instanceof Error ? e.message : "Failed to generate report";
     return NextResponse.json({ error: msg }, { status: 500 });
   }

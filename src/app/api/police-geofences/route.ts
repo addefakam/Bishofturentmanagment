@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, requirePolice } from "@/lib/tenant";
+import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
 import { requirePoliceMinRank } from "@/lib/police-permissions";
 
 export async function GET(req: NextRequest) {
@@ -10,6 +10,9 @@ export async function GET(req: NextRequest) {
     const geofences = await db.geofence.findMany({ orderBy: { createdAt: "desc" } });
     return NextResponse.json(geofences);
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to fetch geofences";
     const status = message.includes("Police") ? 403 : 500;
     return NextResponse.json({ error: message }, { status });
@@ -31,6 +34,9 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(geofence, { status: 201 });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to create geofence";
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -47,6 +53,9 @@ export async function DELETE(req: NextRequest) {
     await db.geofence.delete({ where: { id } });
     return NextResponse.json({ message: "Geofence deleted" });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to delete geofence";
     return NextResponse.json({ error: message }, { status: 500 });
   }

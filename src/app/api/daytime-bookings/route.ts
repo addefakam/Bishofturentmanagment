@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, getProviderFilter, checkWritePermission } from "@/lib/tenant";
+import { getAuthContext, getProviderFilter, checkWritePermission, AuthError } from "@/lib/tenant";
 import { checkSuspectMatch } from "@/lib/suspect-check";
 
 export async function GET(req: NextRequest) {
@@ -24,6 +24,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(bookings);
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to fetch daytime bookings";
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -92,6 +95,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(booking, { status: 201 });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to create daytime booking";
     const status =
       message.includes("required") ? 400 :

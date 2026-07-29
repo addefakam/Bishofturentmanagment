@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, getProviderFilter } from "@/lib/tenant";
+import { getAuthContext, getProviderFilter, AuthError } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,63 +15,71 @@ export async function GET(req: NextRequest) {
     if (from) dateFilter.gte = from;
     if (to) dateFilter.lte = to;
 
-    // Fetch reservations in date range
-    const reservations = await db.reservation.findMany({
-      where: {
-        providerId,
-        ...(from || to ? { checkIn: dateFilter } : {}),
-      },
-      include: {
-        guest: { select: { id: true, name: true, phone: true, email: true, idNumber: true, idType: true, nationality: true, address: true, notes: true, vip: true, createdAt: true } },
-        room: { select: { number: true, name: true, type: true } },
-      },
-      orderBy: { checkIn: "desc" },
-    });
+    // ── Run all 5 independent queries in parallel ──
+    const [
+      reservations,
+      expenses,
+      daytimeBookings,
+      totalRooms,
+      occupiedRooms,
+      activeGuests,
+    ] = await Promise.all([
+      // Reservations in date range
+      db.reservation.findMany({
+        where: {
+          providerId,
+          ...(from || to ? { checkIn: dateFilter } : {}),
+        },
+        include: {
+          guest: { select: { id: true, name: true, phone: true, email: true, idNumber: true, idType: true, nationality: true, address: true, notes: true, vip: true, createdAt: true } },
+          room: { select: { number: true, name: true, type: true } },
+        },
+        orderBy: { checkIn: "desc" },
+      }),
 
-    // Fetch expenses in date range
-    const expenses = await db.expense.findMany({
-      where: {
-        providerId,
-        ...(from || to ? { date: dateFilter } : {}),
-      },
-    });
+      // Expenses in date range
+      db.expense.findMany({
+        where: {
+          providerId,
+          ...(from || to ? { date: dateFilter } : {}),
+        },
+      }),
 
-    // Fetch daytime bookings in date range
-    const daytimeBookings = await db.daytimeBooking.findMany({
-      where: {
-        providerId,
-        ...(from || to ? { date: dateFilter } : {}),
-      },
-    });
+      // Daytime bookings in date range
+      db.daytimeBooking.findMany({
+        where: {
+          providerId,
+          ...(from || to ? { date: dateFilter } : {}),
+        },
+      }),
 
-    // Calculate totals
+      // Room counts for occupancy rate
+      db.room.count({ where: { providerId } }),
+
+      db.room.count({ where: { providerId, status: "OCCUPIED" } }),
+
+      // Active guests (not filtered by date range)
+      db.reservation.findMany({
+        where: {
+          providerId,
+          status: { in: ["ACTIVE", "UPCOMING"] },
+        },
+        include: {
+          guest: { select: { id: true, name: true, phone: true, email: true, idNumber: true, idType: true, nationality: true, address: true, notes: true, vip: true, createdAt: true } },
+          room: { select: { number: true, name: true, type: true } },
+        },
+        orderBy: { checkIn: "desc" },
+      }),
+    ]);
+
+    // Calculate totals (in-memory, no DB needed)
     const reservationRevenue = reservations.reduce((sum, r) => sum + r.paidAmount, 0);
     const daytimeRevenue = daytimeBookings.reduce((sum, b) => sum + b.paidAmount, 0);
     const revenue = reservationRevenue + daytimeRevenue;
     const expensesTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
     const profit = revenue - expensesTotal;
-
-    // Occupancy rate
-    const totalRooms = await db.room.count({ where: { providerId } });
-    const occupiedRooms = await db.room.count({
-      where: { providerId, status: "OCCUPIED" },
-    });
     const occupancyRate = totalRooms > 0 ? (occupiedRooms / totalRooms) * 100 : 0;
 
-
-
-    // Active guests (OCCUPIED + RESERVED) — not filtered by date range
-    const activeGuests = await db.reservation.findMany({
-      where: {
-        providerId,
-        status: { in: ["ACTIVE", "UPCOMING"] },
-      },
-      include: {
-        guest: { select: { id: true, name: true, phone: true, email: true, idNumber: true, idType: true, nationality: true, address: true, notes: true, vip: true, createdAt: true } },
-        room: { select: { number: true, name: true, type: true } },
-      },
-      orderBy: { checkIn: "desc" },
-    });
     // Expense breakdown by category
     const expenseMap = new Map<string, number>();
     for (const e of expenses) {
@@ -110,6 +118,9 @@ export async function GET(req: NextRequest) {
       dailyRevenue,
     });
   } catch (error: unknown) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
     const message = error instanceof Error ? error.message : "Failed to generate report";
     return NextResponse.json({ error: message }, { status: 500 });
   }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, getProviderFilter, checkWritePermission } from "@/lib/tenant";
+import { getAuthContext, getProviderFilter, checkWritePermission, AuthError } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,6 +14,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(services);
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to fetch daytime services";
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -53,6 +56,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(service, { status: 201 });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to create daytime service";
     const status =
       message.includes("required") ? 400 :

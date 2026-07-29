@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext } from "@/lib/tenant";
+import { getAuthContext, AuthError } from "@/lib/tenant";
 import { calcSubscriptionStatus, TRIAL_DAYS, type SubscriptionStatus } from "@/lib/subscription";
 
 export async function GET(req: NextRequest) {
@@ -109,6 +109,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(filtered);
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to fetch subscriptions";
     const status = message.includes("denied") ? 403 : 500;
     return NextResponse.json({ error: message }, { status });

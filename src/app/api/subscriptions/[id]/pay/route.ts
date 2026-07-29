@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext } from "@/lib/tenant";
+import { getAuthContext, AuthError } from "@/lib/tenant";
 import { calcNextEndDate, CYCLE_DAYS, TRIAL_DAYS } from "@/lib/subscription";
 import { logAudit } from "@/lib/audit";
 
@@ -83,6 +83,9 @@ export async function POST(
       payment,
     });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to record payment";
     const status =
       message.includes("not found") ? 404 :

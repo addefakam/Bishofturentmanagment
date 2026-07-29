@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import {
-  getAuthContext,
+import { getAuthContext,
   getProviderFilter,
-  checkWritePermission,
-} from "@/lib/tenant";
+  checkWritePermission, AuthError } from "@/lib/tenant";
 
 export async function PUT(
   req: NextRequest,
@@ -50,6 +48,9 @@ export async function PUT(
 
     return NextResponse.json({ room });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     console.error("Update room status error:", error);
     const message =
       error instanceof Error ? error.message : "Internal server error";

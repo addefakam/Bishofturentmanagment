@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, checkWritePermission } from "@/lib/tenant";
+import { getAuthContext, checkWritePermission, AuthError } from "@/lib/tenant";
 import { hashPassword } from "@/lib/auth-utils";
 
 export async function PUT(
@@ -71,6 +71,9 @@ export async function PUT(
 
     return NextResponse.json(user);
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to update user";
     const status =
       message.includes("not found") ? 404 :
@@ -105,6 +108,9 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to delete user";
     const status =
       message.includes("not found") ? 404 :

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, requirePolice } from "@/lib/tenant";
+import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
 import { logAudit } from "@/lib/audit";
 import { ensureSuspectTables } from "@/lib/suspect-check";
 
@@ -44,6 +44,9 @@ export async function GET(req: NextRequest) {
     logAudit(req, { action: "VIEW_MATCHES", details: `Fetched ${matches.length} matches` });
     return NextResponse.json({ matches, unreadCount });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to fetch suspect matches";
     const status = message.includes("Police") ? 403 : 500;
     return NextResponse.json({ error: message }, { status });
@@ -79,6 +82,9 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json({ error: "Provide ids array or markAllRead" }, { status: 400 });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to update suspect matches";
     const status = message.includes("Police") ? 403 : 500;
     return NextResponse.json({ error: message }, { status });

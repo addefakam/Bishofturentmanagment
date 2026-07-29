@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext } from "@/lib/tenant";
+import { getAuthContext, AuthError } from "@/lib/tenant";
 
 // GET /api/owner-accounts — OPERATOR lists providers with owner accounts + police accounts
 export async function GET(req: NextRequest) {
@@ -54,6 +54,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ providers, policeUsers });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to fetch accounts";
     return NextResponse.json({ error: message }, { status: 500 });
   }

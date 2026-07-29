@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, checkWritePermission } from "@/lib/tenant";
+import { getAuthContext, checkWritePermission, AuthError } from "@/lib/tenant";
 
 export async function DELETE(
   req: NextRequest,
@@ -27,6 +27,9 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     console.error("Delete expense category error:", error);
     const message =
       error instanceof Error ? error.message : "Internal server error";

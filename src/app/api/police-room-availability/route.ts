@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, requirePolice } from "@/lib/tenant";
+import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
@@ -101,6 +101,9 @@ export async function GET(req: NextRequest) {
       providers: providerStats,
     });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to fetch room availability";
     const status = message.includes("Police") ? 403 : 500;
     return NextResponse.json({ error: message }, { status });

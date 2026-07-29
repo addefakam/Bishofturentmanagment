@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, getProviderFilter, checkWritePermission } from "@/lib/tenant";
+import { getAuthContext, getProviderFilter, checkWritePermission, AuthError } from "@/lib/tenant";
 
 export async function PUT(
   req: NextRequest,
@@ -70,6 +70,9 @@ export async function PUT(
 
     return NextResponse.json(reservation);
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to update reservation";
     const status = message.includes("not found") ? 404 : message.includes("permission") || message.includes("cannot") ? 403 : 500;
     return NextResponse.json({ error: message }, { status });
@@ -104,6 +107,9 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to delete reservation";
     const status = message.includes("not found") ? 404 : message.includes("permission") || message.includes("cannot") || message.includes("required") ? 403 : 500;
     return NextResponse.json({ error: message }, { status });

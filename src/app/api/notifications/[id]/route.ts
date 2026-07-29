@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, getProviderFilter } from "@/lib/tenant";
+import { getAuthContext, getProviderFilter, AuthError } from "@/lib/tenant";
 
 export async function PUT(
   req: NextRequest,
@@ -26,6 +26,9 @@ export async function PUT(
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to update notification";
     const status = message.includes("not found") ? 404 : 500;
     return NextResponse.json({ error: message }, { status });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, getProviderFilter } from "@/lib/tenant";
+import { getAuthContext, getProviderFilter, AuthError } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +87,9 @@ export async function GET(req: NextRequest) {
       occupancyRate,
     });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
     console.error("Dashboard error:", error);
     return NextResponse.json(
       { error: "Internal server error" },

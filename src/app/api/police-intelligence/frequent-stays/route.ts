@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, requirePolice } from "@/lib/tenant";
+import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
 import { requirePoliceMinRank } from "@/lib/police-permissions";
 import { logAudit } from "@/lib/audit";
 
@@ -40,6 +40,9 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.json(alerts);
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to fetch frequent stays";
     const status = message.includes("Police") ? 403 : 500;
     return NextResponse.json({ error: message }, { status });
@@ -260,6 +263,9 @@ export async function POST(req: NextRequest) {
       duplicateGroups: groups.size,
     });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to analyze frequent stays";
     const status = message.includes("Police") ? 403 : 500;
     return NextResponse.json({ error: message }, { status });

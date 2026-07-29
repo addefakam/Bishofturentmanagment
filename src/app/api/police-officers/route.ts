@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, requirePolice } from "@/lib/tenant";
+import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
 import {
   requirePoliceMinRank,
   POLICE_RANKS,
@@ -53,6 +53,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(officers);
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to fetch officers";
     const status = message.includes("Access") ? 403 : 500;
     return NextResponse.json({ error: message }, { status });
@@ -172,6 +175,9 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to create officer";
     const status = message.includes("Access") || message.includes("rank") || message.includes("Cannot") ? 403 : 500;
     return NextResponse.json({ error: message }, { status });
@@ -293,6 +299,9 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json(updated);
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to update officer";
     const status = message.includes("Access") || message.includes("rank") || message.includes("Cannot") ? 403 : 500;
     return NextResponse.json({ error: message }, { status });
@@ -381,6 +390,9 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ message: "Officer deleted" });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     const message = error instanceof Error ? error.message : "Failed to delete officer";
     const status = message.includes("Access") || message.includes("rank") || message.includes("Cannot") ? 403 : 500;
     return NextResponse.json({ error: message }, { status });

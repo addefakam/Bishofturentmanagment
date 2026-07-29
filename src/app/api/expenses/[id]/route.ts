@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import {
-  getAuthContext,
+import { getAuthContext,
   getProviderFilter,
-  checkWritePermission,
-} from "@/lib/tenant";
+  checkWritePermission, AuthError } from "@/lib/tenant";
 
 export async function PUT(
   req: NextRequest,
@@ -50,6 +48,9 @@ export async function PUT(
 
     return NextResponse.json({ expense });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     console.error("Update expense error:", error);
     const message =
       error instanceof Error ? error.message : "Internal server error";
@@ -88,6 +89,9 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.statusCode });
+        }
     console.error("Delete expense error:", error);
     const message =
       error instanceof Error ? error.message : "Internal server error";

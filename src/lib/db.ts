@@ -5,6 +5,7 @@ type PrismaClientInstance = PrismaClient & { $disconnect: () => Promise<void> };
 
 let _db: PrismaClientInstance | null = null;
 let schemaEnsured = false;
+let schemaPromise: Promise<void> | null = null;
 
 /**
  * Create a Prisma client with connection pooling optimizations.
@@ -23,6 +24,15 @@ function createPrismaClient(): PrismaClientInstance {
     const adapter = new PrismaLibSQL({
       url: tursoUrl,
       authToken: authToken || undefined,
+    } as ConstructorParameters<typeof PrismaLibSQL>[0] & {
+      connectTimeout?: number;
+      requestTimeout?: number;
+    });
+    // Set connection/request timeouts to avoid hanging on slow Turso responses
+    // @ts-expect-error LibSQL client supports these options
+    adapter.libSqlClient?.config && Object.assign(adapter.libSqlClient.config, {
+      connectTimeout: 5000,
+      // requestTimeout handled via Prisma's query timeout below
     });
 
     const client = new PrismaClient({
@@ -30,6 +40,8 @@ function createPrismaClient(): PrismaClientInstance {
       log: process.env.NODE_ENV === "production"
         ? ["warn", "error"]
         : ["query", "warn", "error"],
+      // Default query timeout: 15s — prevents hung queries on Vercel serverless
+      queryTimeout: 15_000,
     }) as PrismaClientInstance;
 
     return client;
@@ -349,13 +361,26 @@ async function ensureSchema(db: PrismaClientInstance) {
 function getDb(): PrismaClientInstance {
   if (!_db) {
     _db = createPrismaClient();
-    // Fire-and-forget schema check
-    ensureSchema(_db).catch(() => {});
+    schemaEnsured = false;
+    schemaPromise = ensureSchema(_db);
   }
   return _db;
 }
 
-// Lazy Proxy — PrismaClient is created on first use (request time), not at module load time
+/**
+ * Returns the DB client only after schema migration is complete.
+ * Use this in API routes to prevent cold-start race conditions.
+ */
+export async function getDbReady(): Promise<PrismaClientInstance> {
+  const client = getDb();
+  if (!schemaEnsured && schemaPromise) {
+    await schemaPromise;
+  }
+  return client;
+}
+
+// Lazy Proxy — PrismaClient is created on first use (request time), not at module load time.
+// NOTE: For API routes, prefer `getDbReady()` to avoid cold-start race conditions.
 export const db = new Proxy({} as PrismaClientInstance, {
   get(_target, prop, receiver) {
     const client = getDb();
