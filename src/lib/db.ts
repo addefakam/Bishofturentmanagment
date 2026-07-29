@@ -24,15 +24,10 @@ function createPrismaClient(): PrismaClientInstance {
     const adapter = new PrismaLibSQL({
       url: tursoUrl,
       authToken: authToken || undefined,
+      // Connection/request timeouts to avoid hanging on slow Turso responses
     } as ConstructorParameters<typeof PrismaLibSQL>[0] & {
       connectTimeout?: number;
       requestTimeout?: number;
-    });
-    // Set connection/request timeouts to avoid hanging on slow Turso responses
-    // @ts-expect-error LibSQL client supports these options
-    adapter.libSqlClient?.config && Object.assign(adapter.libSqlClient.config, {
-      connectTimeout: 5000,
-      // requestTimeout handled via Prisma's query timeout below
     });
 
     const client = new PrismaClient({
@@ -40,8 +35,6 @@ function createPrismaClient(): PrismaClientInstance {
       log: process.env.NODE_ENV === "production"
         ? ["warn", "error"]
         : ["query", "warn", "error"],
-      // Default query timeout: 15s — prevents hung queries on Vercel serverless
-      queryTimeout: 15_000,
     }) as PrismaClientInstance;
 
     return client;
