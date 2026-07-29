@@ -30,6 +30,7 @@ import {
   ShieldCheck,
   Clock,
   AlertTriangle,
+  UserCircle,
 } from "lucide-react";
 
 import { useAppStore, type CurrentUser } from "@/lib/store";
@@ -129,7 +130,7 @@ const SUPERUSER_NAV_ITEMS: NavItem[] = [
   { page: "owner-accounts", label: "Police Admins", icon: Shield },
   { page: "providers", label: "Guesthouses", icon: Building2 },
   { page: "subscriptions", label: "Subscriptions", icon: CreditCard },
-  { page: "settings", label: "Settings", icon: Settings },
+  { page: "settings", label: "My Profile", icon: UserCircle },
   { page: "notifications", label: "Notifications", icon: Bell },
 ];
 
