@@ -120,10 +120,9 @@ export async function POST(req: NextRequest) {
 
     return response;
   } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    console.error("Login error:", detail);
+    console.error("Login error:", error);
     return NextResponse.json(
-      { error: "Internal server error", detail },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

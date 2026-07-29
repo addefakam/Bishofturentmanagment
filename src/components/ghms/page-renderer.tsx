@@ -112,6 +112,9 @@ const SubscriptionsPage = lazyPage(
 const SubscriptionLockoutPage = lazyPage(
   () => import("@/components/ghms/pages/subscription-lockout-page")
 );
+const PoliceRoomAvailabilityPage = lazyPage(
+  () => import("@/components/ghms/pages/police-room-availability-page")
+);
 
 // ── Page registry: maps page key → lazy component ──
 const PAGE_MAP: Record<string, React.LazyExoticComponent<React.ComponentType>> =
@@ -142,6 +145,7 @@ const PAGE_MAP: Record<string, React.LazyExoticComponent<React.ComponentType>> =
     "joint-operations": JointOperationsPage,
     subscriptions: SubscriptionsPage,
     "subscription-lockout": SubscriptionLockoutPage,
+    "police-room-availability": PoliceRoomAvailabilityPage,
   };
 
 // ── Page Renderer ──

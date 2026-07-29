@@ -304,3 +304,10 @@ export const apiGetSubscriptionPayments = (subscriptionId: string) =>
 
 // Subscription status (provider side)
 export const apiSubscriptionStatus = () => req("/api/subscription/status");
+
+// Police room availability (city-wide)
+export const apiPoliceRoomAvailability = () => req("/api/police-room-availability");
+
+// Police suspend provider (with reason + notification to provider)
+export const apiPoliceSuspendProvider = (data: Record<string, unknown>) =>
+  req("/api/police-suspend-provider", { method: "POST", body: JSON.stringify(data) });

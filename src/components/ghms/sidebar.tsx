@@ -4,6 +4,7 @@ import { useSyncExternalStore } from "react";
 import {
   LayoutDashboard,
   Bed,
+  BedDouble,
   Users,
   CalendarCheck,
   Sun,
@@ -27,9 +28,12 @@ import {
   ScanLine,
   CreditCard,
   ShieldCheck,
+  Clock,
+  AlertTriangle,
 } from "lucide-react";
 
 import { useAppStore, type CurrentUser } from "@/lib/store";
+import { formatDaysRemaining, formatCycle } from "@/lib/subscription";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { POLICE_RANK_PERMISSIONS, RANK_LABELS, RANK_BADGE_CLASSES, type PoliceRank } from "@/lib/police-permissions";
 import { apiLogout } from "@/lib/api";
@@ -76,6 +80,11 @@ const POLICE_NAV_ITEMS: NavItem[] = [
     icon: LayoutDashboard,
   },
   { page: "providers", label: "Providers", icon: Building2 },
+  {
+    page: "police-room-availability",
+    label: "Room Availability",
+    icon: BedDouble,
+  },
   {
     page: "police-guests",
     label: "Guests Search",
@@ -293,6 +302,105 @@ function NavItemButton({
 }
 
 // ── Sidebar content (shared between desktop & mobile) ──
+// ── Subscription status widget for provider sidebar ──
+function SubscriptionStatusCard({ collapsed }: { collapsed: boolean }) {
+  const subscription = useAppStore((s) => s.subscription);
+
+  if (!subscription) return null;
+
+  const isActive = subscription.status === "ACTIVE";
+  const isWarning = subscription.status === "WARNING";
+  const isGrace = subscription.status === "GRACE";
+  const isSuspended = subscription.status === "SUSPENDED";
+
+  // Collapsed mode — icon indicator
+  if (collapsed) {
+    const bgClass = isActive
+      ? "bg-emerald-100"
+      : isSuspended || isGrace
+      ? "bg-rose-100"
+      : "bg-amber-100";
+    const iconClass = isActive
+      ? "text-emerald-600"
+      : isSuspended || isGrace
+      ? "text-rose-600"
+      : "text-amber-600";
+    return (
+      <div className="flex flex-col items-center gap-1 px-2 py-2">
+        <div className={`flex h-8 w-8 items-center justify-center rounded-full ${bgClass}`}>
+          <Clock className={`size-4 ${iconClass}`} />
+        </div>
+      </div>
+    );
+  }
+
+  // Expanded card
+  const containerClass = isActive
+    ? "border-emerald-200 bg-emerald-50"
+    : isSuspended || isGrace
+    ? "border-rose-200 bg-rose-50"
+    : "border-amber-200 bg-amber-50";
+
+  const iconColorClass = isActive
+    ? "text-emerald-600"
+    : isSuspended || isGrace
+    ? "text-rose-600"
+    : "text-amber-600";
+
+  const titleClass = isActive
+    ? "text-emerald-800"
+    : isSuspended || isGrace
+    ? "text-rose-800"
+    : "text-amber-800";
+
+  const subtextClass = isActive
+    ? "text-emerald-700"
+    : isSuspended || isGrace
+    ? "text-rose-700"
+    : "text-amber-700";
+
+  const badgeClass = isActive
+    ? "bg-emerald-200/60 text-emerald-800"
+    : isSuspended || isGrace
+    ? "bg-rose-200/60 text-rose-800"
+    : "bg-amber-200/60 text-amber-800";
+
+  const Icon = isSuspended || isGrace ? AlertTriangle : Clock;
+
+  return (
+    <div className={`rounded-lg border p-3 ${containerClass}`}>
+      <div className="flex items-center gap-2">
+        <Icon className={`h-4 w-4 shrink-0 ${iconColorClass}`} />
+        <p className={`text-xs font-semibold ${titleClass}`}>
+          {isActive
+            ? "Subscription Active"
+            : isSuspended
+            ? "Service Suspended"
+            : isGrace
+            ? "Subscription Expired"
+            : "Expiring Soon"}
+        </p>
+      </div>
+      <div className={`mt-1.5 flex items-center justify-between text-[11px] ${subtextClass}`}>
+        <span>{formatDaysRemaining(subscription.daysRemaining)}</span>
+        <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-semibold ${badgeClass}`}>
+          <Clock className="h-3 w-3" />
+          {Math.abs(subscription.daysRemaining)}d
+        </span>
+      </div>
+      {subscription.price > 0 ? (
+        <div className={`mt-1 text-[11px] ${subtextClass}`}>
+          Due: {subscription.price.toLocaleString()} ETB / {formatCycle(subscription.cycle)}
+        </div>
+      ) : (
+        <div className={`mt-1 text-[11px] ${subtextClass}`}>
+          {formatCycle(subscription.cycle)} cycle — Free trial
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SidebarContent({
   user,
   currentPage,
@@ -308,7 +416,7 @@ function SidebarContent({
   collapsed: boolean;
   onToggleCollapse: () => void;
 }) {
-  const { jointSession, setJointLoginDialogOpen } = useAppStore();
+  const { jointSession, setJointLoginDialogOpen, subscription } = useAppStore();
   const navItems = getNavItems(user);
   const roleDisplay = getRoleDisplay(user.role);
 
@@ -420,6 +528,13 @@ function SidebarContent({
           )}
         </nav>
       </ScrollArea>
+
+      {/* ── Subscription status for providers ── */}
+      {(user.role === "OPERATOR" || user.role === "STAFF") && (
+        <div className="px-3 py-2">
+          <SubscriptionStatusCard collapsed={collapsed} />
+        </div>
+      )}
 
       <Separator className="mx-3 w-auto" />
 

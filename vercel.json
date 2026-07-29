@@ -2,5 +2,117 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "installCommand": "npm install --force",
-  "buildCommand": "npx prisma generate && next build"
+  "buildCommand": "npx prisma generate && next build",
+  "functions": {
+    "src/app/api/**/*.ts": {
+      "maxDuration": 30,
+      "memory": 1024
+    },
+    "src/app/api/police-*/**/*.ts": {
+      "maxDuration": 60,
+      "memory": 1536
+    },
+    "src/app/api/police-report/route.ts": {
+      "maxDuration": 60,
+      "memory": 2048
+    },
+    "src/app/api/police-export/route.ts": {
+      "maxDuration": 60,
+      "memory": 2048
+    },
+    "src/app/api/police-data-export/route.ts": {
+      "maxDuration": 60,
+      "memory": 2048
+    },
+    "src/app/api/geocode/route.ts": {
+      "maxDuration": 30,
+      "memory": 512
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/health",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=10, stale-while-revalidate=20"
+        }
+      ]
+    },
+    {
+      "source": "/api/dashboard",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "private, s-maxage=5, stale-while-revalidate=10"
+        }
+      ]
+    },
+    {
+      "source": "/api/police-dashboard",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "private, s-maxage=10, stale-while-revalidate=20"
+        }
+      ]
+    },
+    {
+      "source": "/api/police-room-availability",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "private, s-maxage=15, stale-while-revalidate=30"
+        }
+      ]
+    },
+    {
+      "source": "/api/police-intelligence",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "private, s-maxage=10, stale-while-revalidate=20"
+        }
+      ]
+    },
+    {
+      "source": "/api/notifications",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "private, s-maxage=5, stale-while-revalidate=10"
+        }
+      ]
+    },
+    {
+      "source": "/api/rooms",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "private, s-maxage=5, stale-while-revalidate=10"
+        }
+      ]
+    },
+    {
+      "source": "/:path*",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    }
+  ]
 }

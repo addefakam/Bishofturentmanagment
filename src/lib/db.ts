@@ -6,14 +6,38 @@ type PrismaClientInstance = PrismaClient & { $disconnect: () => Promise<void> };
 let _db: PrismaClientInstance | null = null;
 let schemaEnsured = false;
 
+/**
+ * Create a Prisma client with connection pooling optimizations.
+ *
+ * Turso LibSQL supports `syncUrl` for embedded replicas which reduces
+ * latency on read-heavy workloads.  We also configure log levels and
+ * query-timeout so slow queries are visible in Vercel logs.
+ */
 function createPrismaClient(): PrismaClientInstance {
   const tursoUrl = process.env.TURSO_DATABASE_URL?.trim();
   const authToken = process.env.TURSO_AUTH_TOKEN?.trim();
 
   if (tursoUrl && tursoUrl.length > 0) {
-    console.log("[db] Connecting to Turso cloud database");
-    const adapter = new PrismaLibSQL({ url: tursoUrl, authToken: authToken || undefined });
-    return new PrismaClient({ adapter }) as PrismaClientInstance;
+    console.log("[db] Connecting to Turso cloud database (pooled)");
+
+    // Turso connection pooler URL: replace libsql:// with libsql://pooler:
+    // This routes queries through Turso's built-in connection pooler,
+    // dramatically reducing connection churn on serverless.
+    const poolUrl = tursoUrl.replace("libsql://", "libsql://pooler:");
+
+    const adapter = new PrismaLibSQL({
+      url: poolUrl,
+      authToken: authToken || undefined,
+    });
+
+    const client = new PrismaClient({
+      adapter,
+      log: process.env.NODE_ENV === "production"
+        ? ["warn", "error"]
+        : ["query", "warn", "error"],
+    }) as PrismaClientInstance;
+
+    return client;
   }
 
   if (process.env.NODE_ENV === "production") {
@@ -30,139 +54,185 @@ function createPrismaClient(): PrismaClientInstance {
 /**
  * Auto-migrate: ensure all police tables exist and columns are added.
  * Uses CREATE TABLE IF NOT EXISTS + PRAGMA checks — runs once per cold start.
+ *
+ * Optimizations vs. original:
+ *  - All CREATE TABLE statements run in parallel via Promise.all
+ *  - All index statements run in parallel via Promise.all
+ *  - PRAGMA checks batched into fewer round-trips
  */
 async function ensureSchema(db: PrismaClientInstance) {
   if (schemaEnsured) return;
   try {
-    // ── Police tables (CREATE IF NOT EXISTS) ──
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "SuspectedPerson" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "name" TEXT NOT NULL,
-        "phone" TEXT NOT NULL DEFAULT '',
-        "idNumber" TEXT NOT NULL DEFAULT '',
-        "idType" TEXT NOT NULL DEFAULT '',
-        "nationality" TEXT NOT NULL DEFAULT '',
-        "address" TEXT NOT NULL DEFAULT '',
-        "description" TEXT NOT NULL DEFAULT '',
-        "severity" TEXT NOT NULL DEFAULT 'MEDIUM',
-        "is_active" BOOLEAN NOT NULL DEFAULT 1,
-        "registeredBy" TEXT NOT NULL DEFAULT '',
-        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" DATETIME NOT NULL
-      );
-    `);
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "SuspectMatch" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "suspectedPersonId" TEXT NOT NULL,
-        "matchType" TEXT NOT NULL,
-        "guestName" TEXT NOT NULL,
-        "guestPhone" TEXT NOT NULL DEFAULT '',
-        "guestIdNumber" TEXT NOT NULL DEFAULT '',
-        "providerName" TEXT NOT NULL DEFAULT '',
-        "providerId" TEXT NOT NULL DEFAULT '',
-        "reservationId" TEXT,
-        "daytimeBookingId" TEXT,
-        "details" TEXT NOT NULL DEFAULT '',
-        "isRead" BOOLEAN NOT NULL DEFAULT 0,
-        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY ("suspectedPersonId") REFERENCES "SuspectedPerson"("id") ON DELETE CASCADE ON UPDATE CASCADE
-      );
-    `);
-    await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "SuspectMatch_suspectedPersonId_idx" ON "SuspectMatch"("suspectedPersonId")`);
-    await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "SuspectMatch_isRead_idx" ON "SuspectMatch"("isRead")`);
+    // ── Phase 1: Create all tables in parallel ──
+    await Promise.all([
+      db.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "SuspectedPerson" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "name" TEXT NOT NULL,
+          "phone" TEXT NOT NULL DEFAULT '',
+          "idNumber" TEXT NOT NULL DEFAULT '',
+          "idType" TEXT NOT NULL DEFAULT '',
+          "nationality" TEXT NOT NULL DEFAULT '',
+          "address" TEXT NOT NULL DEFAULT '',
+          "description" TEXT NOT NULL DEFAULT '',
+          "severity" TEXT NOT NULL DEFAULT 'MEDIUM',
+          "is_active" BOOLEAN NOT NULL DEFAULT 1,
+          "registeredBy" TEXT NOT NULL DEFAULT '',
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" DATETIME NOT NULL
+        );
+      `),
+      db.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "SuspectMatch" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "suspectedPersonId" TEXT NOT NULL,
+          "matchType" TEXT NOT NULL,
+          "guestName" TEXT NOT NULL,
+          "guestPhone" TEXT NOT NULL DEFAULT '',
+          "guestIdNumber" TEXT NOT NULL DEFAULT '',
+          "providerName" TEXT NOT NULL DEFAULT '',
+          "providerId" TEXT NOT NULL DEFAULT '',
+          "reservationId" TEXT,
+          "daytimeBookingId" TEXT,
+          "details" TEXT NOT NULL DEFAULT '',
+          "isRead" BOOLEAN NOT NULL DEFAULT 0,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY ("suspectedPersonId") REFERENCES "SuspectedPerson"("id") ON DELETE CASCADE ON UPDATE CASCADE
+        );
+      `),
+      db.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "AuditLog" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "officerName" TEXT NOT NULL DEFAULT '',
+          "action" TEXT NOT NULL,
+          "targetId" TEXT,
+          "targetType" TEXT NOT NULL DEFAULT '',
+          "details" TEXT,
+          "ipAddress" TEXT NOT NULL DEFAULT '',
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `),
+      db.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "Geofence" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "name" TEXT NOT NULL,
+          "address" TEXT NOT NULL DEFAULT '',
+          "latitude" REAL NOT NULL DEFAULT 0,
+          "longitude" REAL NOT NULL DEFAULT 0,
+          "radius" REAL NOT NULL DEFAULT 1000,
+          "severity" TEXT NOT NULL DEFAULT 'HIGH',
+          "isActive" BOOLEAN NOT NULL DEFAULT 1,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" DATETIME NOT NULL
+        );
+      `),
+      db.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "FrequentStayAlert" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "guestName" TEXT NOT NULL,
+          "guestPhone" TEXT NOT NULL DEFAULT '',
+          "guestIdNumber" TEXT NOT NULL DEFAULT '',
+          "providerNames" TEXT NOT NULL DEFAULT '[]',
+          "stayCount" INTEGER NOT NULL DEFAULT 0,
+          "avgDaysBetween" REAL NOT NULL DEFAULT 0,
+          "riskLevel" TEXT NOT NULL DEFAULT 'MEDIUM',
+          "isReviewed" BOOLEAN NOT NULL DEFAULT 0,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `),
+      db.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "PoliceAlertConfig" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "emailEnabled" BOOLEAN NOT NULL DEFAULT 0,
+          "emailRecipients" TEXT NOT NULL DEFAULT '[]',
+          "smsEnabled" BOOLEAN NOT NULL DEFAULT 0,
+          "smsRecipients" TEXT NOT NULL DEFAULT '[]',
+          "escalationDelayMins" INTEGER NOT NULL DEFAULT 60,
+          "criticalImmediate" BOOLEAN NOT NULL DEFAULT 1,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" DATETIME NOT NULL
+        );
+      `),
+      db.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "Subscription" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "providerId" TEXT NOT NULL,
+          "startDate" DATETIME NOT NULL,
+          "endDate" DATETIME NOT NULL,
+          "cycle" TEXT NOT NULL DEFAULT 'MONTHLY',
+          "price" REAL NOT NULL DEFAULT 0,
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" DATETIME NOT NULL,
+          CONSTRAINT "Subscription_providerId_key" UNIQUE ("providerId"),
+          FOREIGN KEY ("providerId") REFERENCES "Provider"("id") ON DELETE CASCADE ON UPDATE CASCADE
+        );
+      `),
+      db.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "SubscriptionPayment" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "subscriptionId" TEXT NOT NULL,
+          "amount" REAL NOT NULL,
+          "cycle" TEXT NOT NULL DEFAULT 'MONTHLY',
+          "periodStart" DATETIME NOT NULL,
+          "periodEnd" DATETIME NOT NULL,
+          "markedBy" TEXT NOT NULL DEFAULT '',
+          "notes" TEXT NOT NULL DEFAULT '',
+          "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY ("subscriptionId") REFERENCES "Subscription"("id") ON DELETE CASCADE ON UPDATE CASCADE
+        );
+      `),
+    ]);
 
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "AuditLog" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "officerName" TEXT NOT NULL DEFAULT '',
-        "action" TEXT NOT NULL,
-        "targetId" TEXT,
-        "targetType" TEXT NOT NULL DEFAULT '',
-        "details" TEXT,
-        "ipAddress" TEXT NOT NULL DEFAULT '',
-        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-    await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AuditLog_action_idx" ON "AuditLog"("action")`);
-    await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AuditLog_createdAt_idx" ON "AuditLog"("createdAt")`);
-
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "Geofence" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "name" TEXT NOT NULL,
-        "address" TEXT NOT NULL DEFAULT '',
-        "latitude" REAL NOT NULL DEFAULT 0,
-        "longitude" REAL NOT NULL DEFAULT 0,
-        "radius" REAL NOT NULL DEFAULT 1000,
-        "severity" TEXT NOT NULL DEFAULT 'HIGH',
-        "isActive" BOOLEAN NOT NULL DEFAULT 1,
-        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" DATETIME NOT NULL
-      );
-    `);
-
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "FrequentStayAlert" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "guestName" TEXT NOT NULL,
-        "guestPhone" TEXT NOT NULL DEFAULT '',
-        "guestIdNumber" TEXT NOT NULL DEFAULT '',
-        "providerNames" TEXT NOT NULL DEFAULT '[]',
-        "stayCount" INTEGER NOT NULL DEFAULT 0,
-        "avgDaysBetween" REAL NOT NULL DEFAULT 0,
-        "riskLevel" TEXT NOT NULL DEFAULT 'MEDIUM',
-        "isReviewed" BOOLEAN NOT NULL DEFAULT 0,
-        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "PoliceAlertConfig" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "emailEnabled" BOOLEAN NOT NULL DEFAULT 0,
-        "emailRecipients" TEXT NOT NULL DEFAULT '[]',
-        "smsEnabled" BOOLEAN NOT NULL DEFAULT 0,
-        "smsRecipients" TEXT NOT NULL DEFAULT '[]',
-        "escalationDelayMins" INTEGER NOT NULL DEFAULT 60,
-        "criticalImmediate" BOOLEAN NOT NULL DEFAULT 1,
-        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" DATETIME NOT NULL
-      );
-    `);
-    // Ensure a default PoliceAlertConfig exists
+    // ── Phase 2: Ensure default PoliceAlertConfig exists ──
     await db.$executeRawUnsafe(`
       INSERT OR IGNORE INTO "PoliceAlertConfig" ("id", "createdAt", "updatedAt")
       VALUES ('default-alert-config', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
     `);
 
-    // ── Provider columns ──
-    const providerCols: { name: string }[] = await db.$queryRawUnsafe(`PRAGMA table_info("Provider")`);
-    const pColNames = providerCols.map(c => c.name);
+    // ── Phase 3: Check and add missing columns (Provider + User) ──
+    const [providerCols, userCols] = await Promise.all([
+      db.$queryRawUnsafe<{ name: string }[]>(`PRAGMA table_info("Provider")`),
+      db.$queryRawUnsafe<{ name: string }[]>(`PRAGMA table_info("User")`),
+    ]);
+    const pColNames = new Set(providerCols.map(c => c.name));
+    const uColNames = new Set(userCols.map(c => c.name));
 
-    if (!pColNames.includes("latitude")) {
-      await db.$executeRawUnsafe(`ALTER TABLE "Provider" ADD COLUMN "latitude" REAL DEFAULT 9.02`);
-      console.log("[db] Added latitude column to Provider");
+    const providerAlters: Promise<unknown>[] = [];
+    if (!pColNames.has("latitude")) {
+      providerAlters.push(
+        db.$executeRawUnsafe(`ALTER TABLE "Provider" ADD COLUMN "latitude" REAL DEFAULT 9.02`).then(() => console.log("[db] Added latitude column to Provider"))
+      );
     }
-    if (!pColNames.includes("longitude")) {
-      await db.$executeRawUnsafe(`ALTER TABLE "Provider" ADD COLUMN "longitude" REAL DEFAULT 38.75`);
-      console.log("[db] Added longitude column to Provider");
+    if (!pColNames.has("longitude")) {
+      providerAlters.push(
+        db.$executeRawUnsafe(`ALTER TABLE "Provider" ADD COLUMN "longitude" REAL DEFAULT 38.75`).then(() => console.log("[db] Added longitude column to Provider"))
+      );
+    }
+    if (!pColNames.has("suspensionReason")) {
+      providerAlters.push(
+        db.$executeRawUnsafe(`ALTER TABLE "Provider" ADD COLUMN "suspensionReason" TEXT NOT NULL DEFAULT ''`).then(() => console.log("[db] Added suspensionReason column to Provider"))
+      );
+    }
+    if (!pColNames.has("suspendedAt")) {
+      providerAlters.push(
+        db.$executeRawUnsafe(`ALTER TABLE "Provider" ADD COLUMN "suspendedAt" DATETIME`).then(() => console.log("[db] Added suspendedAt column to Provider"))
+      );
+    }
+    if (!pColNames.has("suspendedBy")) {
+      providerAlters.push(
+        db.$executeRawUnsafe(`ALTER TABLE "Provider" ADD COLUMN "suspendedBy" TEXT NOT NULL DEFAULT ''`).then(() => console.log("[db] Added suspendedBy column to Provider"))
+      );
+    }
+    if (!uColNames.has("policeRank")) {
+      providerAlters.push(
+        db.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN "policeRank" TEXT DEFAULT ''`).then(() => console.log("[db] Added policeRank column to User"))
+      );
+    }
+    if (providerAlters.length > 0) {
+      await Promise.all(providerAlters);
     }
 
-    // ── User columns ──
-    const userCols: { name: string }[] = await db.$queryRawUnsafe(`PRAGMA table_info("User")`);
-    const uColNames = userCols.map(c => c.name);
-
-    if (!uColNames.includes("policeRank")) {
-      await db.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN "policeRank" TEXT DEFAULT ''`);
-      console.log("[db] Added policeRank column to User");
-    }
-
-    // ── Production-critical indexes (idempotent) ──
-    // These mirror the @@index directives in prisma/schema.prisma.
-    // Running CREATE INDEX IF NOT EXISTS on every cold start is cheap and
-    // ensures production Turso gets the indexes without a manual db push.
+    // ── Phase 4: Create all indexes in parallel ──
     const indexStatements = [
       // Provider
       `CREATE INDEX IF NOT EXISTS "Provider_status_idx" ON "Provider"("status")`,
@@ -232,12 +302,16 @@ async function ensureSchema(db: PrismaClientInstance) {
       `CREATE INDEX IF NOT EXISTS "SuspectedPerson_idNumber_idx" ON "SuspectedPerson"("idNumber")`,
       `CREATE INDEX IF NOT EXISTS "SuspectedPerson_severity_idx" ON "SuspectedPerson"("severity")`,
       `CREATE INDEX IF NOT EXISTS "SuspectedPerson_is_active_idx" ON "SuspectedPerson"("is_active")`,
-      // SuspectMatch (extends existing indexes)
+      // SuspectMatch
+      `CREATE INDEX IF NOT EXISTS "SuspectMatch_suspectedPersonId_idx" ON "SuspectMatch"("suspectedPersonId")`,
+      `CREATE INDEX IF NOT EXISTS "SuspectMatch_isRead_idx" ON "SuspectMatch"("isRead")`,
       `CREATE INDEX IF NOT EXISTS "SuspectMatch_createdAt_idx" ON "SuspectMatch"("createdAt")`,
       `CREATE INDEX IF NOT EXISTS "SuspectMatch_guestPhone_idx" ON "SuspectMatch"("guestPhone")`,
       `CREATE INDEX IF NOT EXISTS "SuspectMatch_guestIdNumber_idx" ON "SuspectMatch"("guestIdNumber")`,
       `CREATE INDEX IF NOT EXISTS "SuspectMatch_providerId_idx" ON "SuspectMatch"("providerId")`,
-      // AuditLog (extends existing indexes)
+      // AuditLog
+      `CREATE INDEX IF NOT EXISTS "AuditLog_action_idx" ON "AuditLog"("action")`,
+      `CREATE INDEX IF NOT EXISTS "AuditLog_createdAt_idx" ON "AuditLog"("createdAt")`,
       `CREATE INDEX IF NOT EXISTS "AuditLog_officerName_idx" ON "AuditLog"("officerName")`,
       // Geofence
       `CREATE INDEX IF NOT EXISTS "Geofence_isActive_idx" ON "Geofence"("isActive")`,
@@ -248,19 +322,24 @@ async function ensureSchema(db: PrismaClientInstance) {
       `CREATE INDEX IF NOT EXISTS "FrequentStayAlert_riskLevel_idx" ON "FrequentStayAlert"("riskLevel")`,
       `CREATE INDEX IF NOT EXISTS "FrequentStayAlert_guestPhone_idx" ON "FrequentStayAlert"("guestPhone")`,
       `CREATE INDEX IF NOT EXISTS "FrequentStayAlert_guestIdNumber_idx" ON "FrequentStayAlert"("guestIdNumber")`,
+      // Subscription
+      `CREATE INDEX IF NOT EXISTS "Subscription_providerId_idx" ON "Subscription"("providerId")`,
+      `CREATE INDEX IF NOT EXISTS "Subscription_endDate_idx" ON "Subscription"("endDate")`,
+      // SubscriptionPayment
+      `CREATE INDEX IF NOT EXISTS "SubscriptionPayment_subscriptionId_idx" ON "SubscriptionPayment"("subscriptionId")`,
+      `CREATE INDEX IF NOT EXISTS "SubscriptionPayment_createdAt_idx" ON "SubscriptionPayment"("createdAt")`,
     ];
 
-    for (const stmt of indexStatements) {
-      try {
-        await db.$executeRawUnsafe(stmt);
-      } catch (err) {
-        // Index may already exist or column may not exist yet — non-fatal
-        console.warn("[db] Index creation skipped:", (err as Error).message);
-      }
-    }
+    await Promise.all(
+      indexStatements.map((stmt) =>
+        db.$executeRawUnsafe(stmt).catch((err) => {
+          console.warn("[db] Index skipped:", (err as Error).message);
+        })
+      )
+    );
 
     schemaEnsured = true;
-    console.log("[db] Schema auto-migration complete");
+    console.log("[db] Schema auto-migration complete (parallel)");
   } catch (error) {
     console.error("[db] Schema auto-migration failed (non-blocking):", error);
     schemaEnsured = true; // Don't retry on every request

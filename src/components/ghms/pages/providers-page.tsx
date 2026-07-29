@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { usePagination } from "@/hooks/use-pagination";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import { useAppStore } from "@/lib/store";
-import { apiGetProviders, apiUpdateProvider, apiGeocodeAddress, apiGeocodeBatch } from "@/lib/api";
+import { apiGetProviders, apiUpdateProvider, apiGeocodeAddress, apiGeocodeBatch, apiPoliceSuspendProvider } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +56,9 @@ import {
   MapPinned,
   RefreshCw,
   Crosshair,
+  Send,
+  AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -133,6 +136,12 @@ export default function ProvidersPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [confirmAction, setConfirmAction] = useState<{ provider: Provider; action: string } | null>(null);
   const [actioning, setActioning] = useState(false);
+
+  // Suspension dialog (with reason + notification)
+  const [suspendDialog, setSuspendDialog] = useState<Provider | null>(null);
+  const [suspensionReason, setSuspensionReason] = useState("");
+  const [providerMessage, setProviderMessage] = useState("");
+  const [suspending, setSuspending] = useState(false);
 
   const pagination = usePagination({ totalItems: providers.length, initialPageSize: 5, pageSizeOptions: [5, 10, 20, 50] });
   const paginatedProviders = useMemo(() => pagination.paginate(providers), [providers, pagination]);
@@ -254,6 +263,37 @@ export default function ProvidersPage() {
       toast.error(message);
     } finally {
       setActioning(false);
+    }
+  };
+
+  const openSuspend = (provider: Provider) => {
+    setSuspendDialog(provider);
+    setSuspensionReason("");
+    setProviderMessage("");
+  };
+
+  const handleSuspend = async () => {
+    if (!suspendDialog) return;
+    if (!suspensionReason.trim()) {
+      toast.error("Please provide a reason for suspension");
+      return;
+    }
+    try {
+      setSuspending(true);
+      await apiPoliceSuspendProvider({
+        providerId: suspendDialog.id,
+        suspensionReason: suspensionReason.trim(),
+        providerMessage: providerMessage.trim() || undefined,
+      });
+      toast.success(`"${suspendDialog.name}" has been suspended. Notification sent to provider.`);
+      setSuspendDialog(null);
+      setSuspensionReason("");
+      setProviderMessage("");
+      triggerRefresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to suspend provider");
+    } finally {
+      setSuspending(false);
     }
   };
 
@@ -409,7 +449,7 @@ export default function ProvidersPage() {
                       </button>
                     )}
                     {provider.status === "APPROVED" && (
-                      <button className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-orange-600 hover:bg-orange-50" onClick={() => setConfirmAction({ provider, action: "SUSPENDED" })}>
+                      <button className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-orange-600 hover:bg-orange-50" onClick={() => openSuspend(provider)}>
                         <Ban className="h-3.5 w-3.5" /> Suspend
                       </button>
                     )}
@@ -467,7 +507,7 @@ export default function ProvidersPage() {
                             </Button>
                           )}
                           {provider.status === "APPROVED" && (
-                            <Button size="sm" variant="ghost" className="h-8 text-orange-600 hover:bg-orange-50" onClick={() => setConfirmAction({ provider, action: "SUSPENDED" })}>
+                            <Button size="sm" variant="ghost" className="h-8 text-orange-600 hover:bg-orange-50" onClick={() => openSuspend(provider)}>
                               <Ban className="mr-1 h-4 w-4" /> Suspend
                             </Button>
                           )}
@@ -577,6 +617,11 @@ export default function ProvidersPage() {
                     <MapPinned className="mr-1 h-3.5 w-3.5" /> Set Map Location
                   </Button>
                 )}
+                {selectedProvider.status === "APPROVED" && (
+                  <Button size="sm" variant="destructive" className="gap-1.5" onClick={() => { setDetailOpen(false); openSuspend(selectedProvider); }}>
+                    <Ban className="h-3.5 w-3.5" /> Suspend
+                  </Button>
+                )}
                 {selectedProvider.licenseFile && (
                   <a href={selectedProvider.licenseFile} target="_blank" rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs sm:text-sm font-medium text-primary hover:bg-muted">
@@ -590,6 +635,21 @@ export default function ProvidersPage() {
                   <div className="space-y-1.5">
                     <Label className="text-red-600 text-xs">Rejection Reason</Label>
                     <p className="rounded-lg bg-red-50 p-3 text-xs sm:text-sm text-red-800">{selectedProvider.rejectionReason}</p>
+                  </div>
+                </>
+              )}
+              {selectedProvider.status === "SUSPENDED" && (selectedProvider as any).suspensionReason && (
+                <>
+                  <Separator />
+                  <div className="space-y-1.5">
+                    <Label className="text-orange-600 text-xs">Suspension Reason</Label>
+                    <p className="rounded-lg bg-orange-50 p-3 text-xs sm:text-sm text-orange-800">{(selectedProvider as any).suspensionReason}</p>
+                    {(selectedProvider as any).suspendedBy && (
+                      <p className="text-[11px] text-slate-500">Suspended by: {(selectedProvider as any).suspendedBy}</p>
+                    )}
+                    {(selectedProvider as any).suspendedAt && (
+                      <p className="text-[11px] text-slate-500">Suspended on: {formatDate((selectedProvider as any).suspendedAt)}</p>
+                    )}
                   </div>
                 </>
               )}
@@ -773,6 +833,114 @@ export default function ProvidersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Suspend Provider Dialog (with reason + notification) */}
+      <Dialog open={!!suspendDialog} onOpenChange={(open) => { if (!open) setSuspendDialog(null); }}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto mx-4 sm:mx-0 w-[calc(100%-2rem)] sm:w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-700">
+              <Ban className="h-5 w-5" />
+              Suspend Guesthouse
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
+              Suspend this provider and send them a notification with the reason.
+            </DialogDescription>
+          </DialogHeader>
+          {suspendDialog && (
+            <div className="space-y-4">
+              {/* Provider info summary */}
+              <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100">
+                    <Building2 className="h-5 w-5 text-rose-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-slate-900 truncate">{suspendDialog.name}</p>
+                    <p className="text-xs text-slate-500">{suspendDialog.ownerName} &middot; {suspendDialog.phone}</p>
+                    {suspendDialog.address && (
+                      <p className="text-[11px] text-slate-400 truncate">{suspendDialog.address}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Suspension Reason (required) */}
+              <div>
+                <Label className="text-sm font-medium text-slate-700 mb-1.5 block">
+                  Reason for Suspension <span className="text-rose-500">*</span>
+                </Label>
+                <Textarea
+                  value={suspensionReason}
+                  onChange={(e) => setSuspensionReason(e.target.value)}
+                  placeholder="Write the detailed reason for suspending this guesthouse..."
+                  className="min-h-[100px] resize-none"
+                  maxLength={1000}
+                />
+                <p className="mt-1 text-[11px] text-slate-400 text-right">{suspensionReason.length}/1000</p>
+              </div>
+
+              {/* Short Message to Provider */}
+              <div>
+                <Label className="text-sm font-medium text-slate-700 mb-1.5 block">
+                  Message to Provider <span className="text-slate-400 font-normal">(optional)</span>
+                </Label>
+                <Textarea
+                  value={providerMessage}
+                  onChange={(e) => setProviderMessage(e.target.value)}
+                  placeholder="Short message that will be sent to the provider about their suspension..."
+                  className="min-h-[80px] resize-none"
+                  maxLength={500}
+                />
+                <p className="mt-1 text-[11px] text-slate-400 text-right">{providerMessage.length}/500</p>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  If empty, a default notification with the suspension reason will be sent automatically.
+                </p>
+              </div>
+
+              {/* Warning */}
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                  <p className="text-xs text-amber-800">
+                    This action will immediately suspend the guesthouse. The provider will be notified via the notification system.
+                    Suspended providers will be removed from room availability monitoring. Only the Police module can reactivate a suspended guesthouse.
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setSuspendDialog(null)}
+                  disabled={suspending}
+                  className="w-full sm:w-auto"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="gap-1.5 w-full sm:w-auto"
+                  onClick={handleSuspend}
+                  disabled={suspending || !suspensionReason.trim()}
+                >
+                  {suspending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Suspending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4" />
+                      Suspend &amp; Send Notification
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
