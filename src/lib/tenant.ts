@@ -57,7 +57,7 @@ export function getProviderFilter(auth: AuthContext) {
   if (auth.role === "POLICE") {
     return { isPolice: true, providerId: undefined as undefined };
   }
-  return { isPolice: false, providerId: auth.providerId || "" };
+  return { isPolice: false, providerId: auth.providerId || undefined };
 }
 
 export function requirePolice(auth: AuthContext): void {

@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     const { providerId } = getProviderFilter(auth);
 
     const settings = await db.settings.findFirst({
-      where: { providerId },
+      where: providerId ? { providerId } : {},
     });
 
     if (!settings) {
@@ -63,7 +63,7 @@ export async function PUT(req: NextRequest) {
       logo: body.logo ?? DEFAULT_SETTINGS.logo,
       checkInTime: body.checkInTime ?? DEFAULT_SETTINGS.checkInTime,
       checkOutTime: body.checkOutTime ?? DEFAULT_SETTINGS.checkOutTime,
-      providerId,
+      ...(providerId ? { providerId } : {}),
     };
 
     let settings;
