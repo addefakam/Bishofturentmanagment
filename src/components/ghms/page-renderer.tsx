@@ -1,10 +1,12 @@
 "use client";
 
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useCallback } from "react";
 import { Loader2 } from "lucide-react";
 import { useAppStore } from "@/lib/store";
+import { apiSubscriptionStatus } from "@/lib/api";
 import { JointLoginDialog } from "@/components/ghms/joint-login-dialog";
 import JointSessionBanner from "@/components/ghms/joint-session-banner";
+import SubscriptionBanner from "@/components/ghms/subscription-banner";
 
 // ── Loading fallback ──
 function PageLoader() {
@@ -62,7 +64,6 @@ const ResourcesPage = lazyPage(
 const HousekeepingPage = lazyPage(
   () => import("@/components/ghms/pages/housekeeping-page")
 );
-// Users page is now handled by OwnerAccountsPage (unified User Management)
 const ReportsPage = lazyPage(
   () => import("@/components/ghms/pages/reports-page")
 );
@@ -105,6 +106,12 @@ const OwnerAccountsPage = lazyPage(
 const JointOperationsPage = lazyPage(
   () => import("@/components/ghms/pages/joint-operations-page")
 );
+const SubscriptionsPage = lazyPage(
+  () => import("@/components/ghms/pages/subscriptions-page")
+);
+const SubscriptionLockoutPage = lazyPage(
+  () => import("@/components/ghms/pages/subscription-lockout-page")
+);
 
 // ── Page registry: maps page key → lazy component ──
 const PAGE_MAP: Record<string, React.LazyExoticComponent<React.ComponentType>> =
@@ -112,8 +119,8 @@ const PAGE_MAP: Record<string, React.LazyExoticComponent<React.ComponentType>> =
     dashboard: DashboardPage,
     rooms: RoomsPage,
     "guests-reservations": GuestsReservationsPage,
-    guests: GuestsPage,             // keep for direct links / staff permissions
-    reservations: ReservationsPage, // keep for direct links / staff permissions
+    guests: GuestsPage,
+    reservations: ReservationsPage,
     daytime: DaytimePage,
     expenses: ExpensesPage,
     resources: ResourcesPage,
@@ -133,16 +140,59 @@ const PAGE_MAP: Record<string, React.LazyExoticComponent<React.ComponentType>> =
     reviews: ReviewsPage,
     "owner-accounts": OwnerAccountsPage,
     "joint-operations": JointOperationsPage,
+    subscriptions: SubscriptionsPage,
+    "subscription-lockout": SubscriptionLockoutPage,
   };
 
 // ── Page Renderer ──
 export default function PageRenderer() {
   const currentPage = useAppStore((s) => s.currentPage);
+  const currentUser = useAppStore((s) => s.currentUser);
+  const subscription = useAppStore((s) => s.subscription);
+  const setSubscription = useAppStore((s) => s.setSubscription);
+  const setCurrentPage = useAppStore((s) => s.setCurrentPage);
   const jointLoginDialogOpen = useAppStore((s) => s.jointLoginDialogOpen);
   const setJointLoginDialogOpen = useAppStore((s) => s.setJointLoginDialogOpen);
 
-  // If on the login page, don't render anything here — LoginPage handles its own layout
+  // ── Fetch subscription status for OPERATOR/STAFF on mount ──
+  const fetchSubscriptionStatus = useCallback(async () => {
+    if (!currentUser) return;
+    // Only OPERATOR and STAFF need subscription checks
+    if (currentUser.role !== "OPERATOR" && currentUser.role !== "STAFF") return;
+    try {
+      const data = await apiSubscriptionStatus();
+      if (data.exempt) return;
+      setSubscription(data);
+    } catch {
+      // Silently ignore — subscription check is non-critical
+    }
+  }, [currentUser, setSubscription]);
+
+  useEffect(() => {
+    fetchSubscriptionStatus();
+  }, [fetchSubscriptionStatus]);
+
+  // If on the login page, don't render anything
   if (currentPage === "login") return null;
+
+  // ── Subscription lockout: SUSPENDED users see lockout page ──
+  if (
+    subscription &&
+    (subscription.status === "SUSPENDED") &&
+    currentPage !== "subscription-lockout"
+  ) {
+    setCurrentPage("subscription-lockout");
+    return null;
+  }
+
+  // ── Render lockout page for SUSPENDED ──
+  if (currentPage === "subscription-lockout" && subscription) {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <SubscriptionLockoutPage info={subscription} />
+      </Suspense>
+    );
+  }
 
   const PageComponent = PAGE_MAP[currentPage];
 
@@ -152,6 +202,17 @@ export default function PageRenderer() {
 
   return (
     <>
+      {/* Subscription banner for WARNING/GRACE */}
+      {subscription &&
+        (subscription.status === "WARNING" || subscription.status === "GRACE") && (
+          <div className="p-4 pb-0 md:px-6">
+            <SubscriptionBanner
+              status={subscription.status}
+              daysRemaining={subscription.daysRemaining}
+              providerName={subscription.providerName}
+            />
+          </div>
+        )}
       <JointSessionBanner />
       <Suspense fallback={<PageLoader />}>
         <PageComponent />

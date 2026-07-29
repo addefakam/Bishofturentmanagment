@@ -25,6 +25,7 @@ import {
   ShieldAlert,
   UserX,
   ScanLine,
+  CreditCard,
   ShieldCheck,
 } from "lucide-react";
 
@@ -114,10 +115,11 @@ const POLICE_NAV_ITEMS: NavItem[] = [
   },
 ];
 
-// SUPERUSER (admin): police admin management, guesthouse management, settings, notifications (no dashboard)
+// SUPERUSER (admin): police admin management, guesthouse management, subscriptions, settings, notifications (no dashboard)
 const SUPERUSER_NAV_ITEMS: NavItem[] = [
   { page: "owner-accounts", label: "Police Admins", icon: Shield },
   { page: "providers", label: "Guesthouses", icon: Building2 },
+  { page: "subscriptions", label: "Subscriptions", icon: CreditCard },
   { page: "settings", label: "Settings", icon: Settings },
   { page: "notifications", label: "Notifications", icon: Bell },
 ];

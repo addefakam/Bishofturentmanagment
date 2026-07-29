@@ -116,6 +116,7 @@ model Provider {
   housekeepingTasks HousekeepingTask[]
   settings    Settings[]
   notifications Notification[]
+  subscription Subscription?
 
   @@index([status])
   @@index([createdAt])
@@ -538,6 +539,48 @@ model FrequentStayAlert {
   @@index([riskLevel])
   @@index([guestPhone])
   @@index([guestIdNumber])
+}
+
+// ─── Subscription ──────────────────────────────────────────────────────────
+
+enum SubscriptionCycle {
+  MONTHLY
+  QUARTERLY
+  SEMI_ANNUAL
+  YEARLY
+}
+
+model Subscription {
+  id            String              @id @default(cuid())
+  providerId    String              @unique
+  startDate     DateTime            // Current period start
+  endDate       DateTime            // Current period end
+  cycle         SubscriptionCycle  @default(MONTHLY)
+  price         Float               @default(0) // Price per cycle in ETB
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  provider      Provider            @relation(fields: [providerId], references: [id])
+  payments      SubscriptionPayment[]
+
+  @@index([endDate])
+}
+
+model SubscriptionPayment {
+  id              String              @id @default(cuid())
+  subscriptionId String
+  amount          Float
+  cycle           SubscriptionCycle
+  periodStart     DateTime
+  periodEnd       DateTime
+  markedBy        String              // userId of SUPERUSER who marked
+  notes           String              @default("")
+  createdAt       DateTime            @default(now())
+
+  subscription    Subscription       @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+  @@index([createdAt])
 }
 
 model PoliceAlertConfig {

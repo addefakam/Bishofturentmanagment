@@ -291,3 +291,16 @@ export const apiPoliceReport = (month: number, year: number) =>
 // Geocoding
 export const apiGeocodeAddress = (address: string) => req(`/api/geocode?address=${encodeURIComponent(address)}`);
 export const apiGeocodeBatch = () => req("/api/geocode", { method: "POST" });
+
+// ── Subscriptions (SUPERUSER) ──
+export const apiGetSubscriptions = (statusFilter?: string) =>
+  req(`/api/subscriptions${statusFilter ? `?status=${statusFilter}` : ""}`);
+export const apiUpdateSubscription = (id: string, data: Record<string, unknown>) =>
+  req(`/api/subscriptions/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const apiMarkPayment = (id: string, data: Record<string, unknown>) =>
+  req(`/api/subscriptions/${id}/pay`, { method: "POST", body: JSON.stringify(data) });
+export const apiGetSubscriptionPayments = (subscriptionId: string) =>
+  req(`/api/subscriptions/payments?subscriptionId=${subscriptionId}`);
+
+// Subscription status (provider side)
+export const apiSubscriptionStatus = () => req("/api/subscription/status");

@@ -21,6 +21,17 @@ interface PreselectedRoom {
   pricePerNight: number;
 }
 
+export interface SubscriptionInfo {
+  status: "ACTIVE" | "WARNING" | "GRACE" | "SUSPENDED" | "NONE";
+  daysRemaining: number;
+  endDate: string;
+  cycle: string;
+  price: number;
+  providerName: string;
+  ownerName: string;
+  phone: string;
+}
+
 export interface JointSessionInfo {
   active: boolean;
   superuser: { id: string; username: string; name: string } | null;
@@ -43,6 +54,9 @@ interface AppState {
   setJointSession: (info: JointSessionInfo) => void;
   jointLoginDialogOpen: boolean;
   setJointLoginDialogOpen: (open: boolean) => void;
+  // Subscription state
+  subscription: SubscriptionInfo | null;
+  setSubscription: (info: SubscriptionInfo | null) => void;
 }
 
 // ── localStorage helpers (SSR-safe) ──
@@ -126,4 +140,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setJointSession: (info) => set({ jointSession: info }),
   jointLoginDialogOpen: false,
   setJointLoginDialogOpen: (open) => set({ jointLoginDialogOpen: open }),
+  // Subscription
+  subscription: null as SubscriptionInfo | null,
+  setSubscription: (info) => set({ subscription: info }),
 }));
