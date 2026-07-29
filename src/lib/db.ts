@@ -18,15 +18,10 @@ function createPrismaClient(): PrismaClientInstance {
   const authToken = process.env.TURSO_AUTH_TOKEN?.trim();
 
   if (tursoUrl && tursoUrl.length > 0) {
-    console.log("[db] Connecting to Turso cloud database (pooled)");
-
-    // Turso connection pooler URL: replace libsql:// with libsql://pooler:
-    // This routes queries through Turso's built-in connection pooler,
-    // dramatically reducing connection churn on serverless.
-    const poolUrl = tursoUrl.replace("libsql://", "libsql://pooler:");
+    console.log("[db] Connecting to Turso cloud database");
 
     const adapter = new PrismaLibSQL({
-      url: poolUrl,
+      url: tursoUrl,
       authToken: authToken || undefined,
     });
 
