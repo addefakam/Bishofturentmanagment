@@ -530,7 +530,7 @@ function SidebarContent({
         </div>
       </div>
 
-      <Separator className="mx-3" />
+      <Separator className="bg-slate-200/60" />
 
       {/* ── Navigation links ── */}
       <ScrollArea className="flex-1 px-3 py-3">
@@ -547,7 +547,7 @@ function SidebarContent({
           {/* Joint Operations — only shown during active joint session */}
           {jointSession.active && (
             <>
-              <Separator className="my-2" />
+              <Separator className="my-2 bg-slate-200/60" />
               <NavItemButton
                 item={{ page: "joint-operations", label: "Joint Operations", icon: ShieldCheck }}
                 currentPage={currentPage}
@@ -559,7 +559,7 @@ function SidebarContent({
           {/* Start Joint Session button — shown for SUPERUSER/POLICE ADMIN when no joint session */}
           {canStartJoint && !jointSession.active && !collapsed && (
             <>
-              <Separator className="my-2" />
+              <Separator className="my-2 bg-slate-200/60" />
               <button
                 onClick={() => setJointLoginDialogOpen(true)}
                 className="flex w-full items-center gap-3 rounded-lg border border-dashed border-amber-300 bg-amber-50/50 px-3 py-2.5 text-sm font-medium text-amber-700 transition-all hover:bg-amber-50 hover:border-amber-400 hover:text-amber-800 outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
@@ -588,7 +588,7 @@ function SidebarContent({
         </div>
       )}
 
-      <Separator className="mx-3" />
+      <Separator className="bg-slate-200/60" />
 
       {/* ── Bottom section: collapse toggle + logout ── */}
       <div className="p-3">
@@ -695,7 +695,7 @@ export default function Sidebar() {
     >
       {/* ── Logo / Brand ── */}
       <div
-        className={`flex h-16 items-center border-b border-slate-100 px-4 ${collapsed ? "justify-center" : "gap-3"}`}
+        className={`flex h-16 items-center border-b border-slate-200/60 px-4 ${collapsed ? "justify-center" : "gap-3"}`}
       >
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 shadow-sm">
           <Building2 className="size-5 text-white" />
