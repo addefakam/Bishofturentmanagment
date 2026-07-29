@@ -19,7 +19,6 @@ import {
   Search,
   Shield,
   Star,
-  LogOut,
   ChevronLeft,
   Menu,
   UsersRound,
@@ -31,6 +30,8 @@ import {
   Clock,
   AlertTriangle,
   UserCircle,
+  ChevronDown,
+  LogOut,
 } from "lucide-react";
 
 import { useAppStore, type CurrentUser } from "@/lib/store";
@@ -51,6 +52,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // ── Navigation item definition ──
 interface NavItem {
@@ -130,7 +138,6 @@ const SUPERUSER_NAV_ITEMS: NavItem[] = [
   { page: "owner-accounts", label: "Police Admins", icon: Shield },
   { page: "providers", label: "Guesthouses", icon: Building2 },
   { page: "subscriptions", label: "Subscriptions", icon: CreditCard },
-  { page: "settings", label: "My Profile", icon: UserCircle },
   { page: "notifications", label: "Notifications", icon: Bell },
 ];
 
@@ -440,18 +447,62 @@ function SidebarContent({
           </Avatar>
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-1">
-                <p className="truncate text-sm font-semibold text-slate-900">
-                  {user.name}
-                </p>
-                <button
-                  onClick={onLogout}
-                  className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-rose-600 transition-colors"
-                  title="Logout"
-                >
-                  <LogOut className="size-4 shrink-0" />
-                </button>
-              </div>
+              {/* SUPERUSER: Name with dropdown menu (My Profile + Sign Out) */}
+              {user.role === "SUPERUSER" ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex w-full items-center justify-between gap-1 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-slate-50 group">
+                      <p className="truncate text-sm font-semibold text-slate-900 group-hover:text-primary">
+                        {user.name}
+                      </p>
+                      <ChevronDown className="size-3.5 shrink-0 text-slate-400 group-hover:text-primary transition-colors" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-52">
+                    {/* User info header */}
+                    <div className="flex items-center gap-2.5 px-2 py-2.5">
+                      <Avatar className="h-9 w-9 ring-2 ring-primary/20">
+                        <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
+                          {getInitials(user.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-slate-900">{user.name}</p>
+                        <p className="truncate text-[11px] text-slate-400">System Administrator</p>
+                      </div>
+                    </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="flex items-center gap-2.5 cursor-pointer"
+                      onClick={() => onNavigate("settings")}
+                    >
+                      <UserCircle className="size-4 text-slate-500" />
+                      <span>My Profile</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="flex items-center gap-2.5 cursor-pointer text-rose-600 focus:text-rose-600 focus:bg-rose-50"
+                      onClick={() => onLogout()}
+                    >
+                      <LogOut className="size-4" />
+                      <span>Sign Out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <div className="flex items-center justify-between gap-1">
+                  <p className="truncate text-sm font-semibold text-slate-900">
+                    {user.name}
+                  </p>
+                  <button
+                    onClick={onLogout}
+                    className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-rose-600 transition-colors"
+                    title="Logout"
+                  >
+                    <LogOut className="size-4 shrink-0" />
+                  </button>
+                </div>
+              )}
               <div className="mt-0.5 flex items-center gap-2">
                 <Badge
                   variant="outline"
@@ -552,14 +603,16 @@ function SidebarContent({
           </button>
         )}
 
-        {/* Logout */}
-        <button
-          onClick={onLogout}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <LogOut className="size-[18px]" />
-          {!collapsed && <span>Logout</span>}
-        </button>
+        {/* Logout — hidden for SUPERUSER (moved to name dropdown) */}
+        {user.role !== "SUPERUSER" && (
+          <button
+            onClick={onLogout}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <LogOut className="size-[18px]" />
+            {!collapsed && <span>Logout</span>}
+          </button>
+        )}
       </div>
     </div>
   );
