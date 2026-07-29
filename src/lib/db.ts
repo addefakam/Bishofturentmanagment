@@ -227,7 +227,7 @@ async function ensureSchema(db: PrismaClientInstance) {
       await Promise.all(providerAlters);
     }
 
-    // ── Phase 4: Create all indexes in parallel ──
+    // ── Phase 4: Create indexes in smaller batches to avoid overwhelming Turso ──
     const indexStatements = [
       // Provider
       `CREATE INDEX IF NOT EXISTS "Provider_status_idx" ON "Provider"("status")`,
@@ -325,13 +325,18 @@ async function ensureSchema(db: PrismaClientInstance) {
       `CREATE INDEX IF NOT EXISTS "SubscriptionPayment_createdAt_idx" ON "SubscriptionPayment"("createdAt")`,
     ];
 
-    await Promise.all(
-      indexStatements.map((stmt) =>
-        db.$executeRawUnsafe(stmt).catch((err) => {
-          console.warn("[db] Index skipped:", (err as Error).message);
-        })
-      )
-    );
+    // Batch indexes into groups of 10 to limit concurrent Turso connections
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < indexStatements.length; i += BATCH_SIZE) {
+      const batch = indexStatements.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map((stmt) =>
+          db.$executeRawUnsafe(stmt).catch((err) => {
+            console.warn("[db] Index skipped:", (err as Error).message);
+          })
+        )
+      );
+    }
 
     schemaEnsured = true;
     console.log("[db] Schema auto-migration complete (parallel)");
