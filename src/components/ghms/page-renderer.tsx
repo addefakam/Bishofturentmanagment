@@ -159,11 +159,14 @@ export default function PageRenderer() {
   const setJointLoginDialogOpen = useAppStore((s) => s.setJointLoginDialogOpen);
 
   // ── Fetch subscription status for OPERATOR/STAFF (non-dashboard pages) ──
+  // Dashboard already includes subscription data, so skip the extra API call there.
   const fetchSubscriptionStatus = useCallback(async () => {
     if (!currentUser) return;
     if (currentUser.role !== "OPERATOR" && currentUser.role !== "STAFF") return;
-    // Skip if already loaded by dashboard
+    // Skip if already loaded (e.g. by dashboard response)
     if (useAppStore.getState().subscription) return;
+    // Skip on dashboard — it fetches subscription data itself
+    if (currentPage === "dashboard") return;
     try {
       const data = await apiSubscriptionStatus();
       if (data.exempt) return;
@@ -171,7 +174,7 @@ export default function PageRenderer() {
     } catch {
       // Non-critical
     }
-  }, [currentUser, setSubscription]);
+  }, [currentUser, setSubscription, currentPage]);
 
   useEffect(() => {
     fetchSubscriptionStatus();

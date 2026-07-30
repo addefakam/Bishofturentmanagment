@@ -12,7 +12,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ exempt: true });
     }
 
-    // OPERATOR and STAFF roles — use their providerId
     if (!auth.providerId) {
       return NextResponse.json(
         { error: "No provider associated with this account" },
@@ -20,77 +19,58 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Find subscription by providerId
-    let subscription = await db.subscription.findFirst({
-      where: { providerId: auth.providerId },
-    });
-
-    // If no subscription exists, check if provider is APPROVED and auto-create trial
-    if (!subscription) {
-      const provider = await db.provider.findFirst({
+    // Fetch subscription + provider info IN PARALLEL (was 2-4 sequential queries)
+    const [subscription, provider] = await Promise.all([
+      db.subscription.findFirst({ where: { providerId: auth.providerId } }),
+      db.provider.findFirst({
         where: { id: auth.providerId },
-      });
+        select: { name: true, ownerName: true, phone: true, status: true },
+      }),
+    ]);
 
-      if (provider && provider.status === "APPROVED") {
-        const now = new Date();
-        const trialEnd = new Date(now);
-        trialEnd.setDate(trialEnd.getDate() + TRIAL_DAYS);
-
-        // Use findFirst + create (no upsert for Turso)
-        const existing = await db.subscription.findFirst({
-          where: { providerId: auth.providerId },
+    // Auto-create trial for APPROVED providers without subscription
+    let finalSub = subscription;
+    if (!subscription && provider?.status === "APPROVED") {
+      const now = new Date();
+      const trialEnd = new Date(now);
+      trialEnd.setDate(trialEnd.getDate() + TRIAL_DAYS);
+      try {
+        finalSub = await db.subscription.create({
+          data: { providerId: auth.providerId, startDate: now, endDate: trialEnd, cycle: "MONTHLY", price: 0 },
         });
-
-        if (!existing) {
-          subscription = await db.subscription.create({
-            data: {
-              providerId: auth.providerId,
-              startDate: now,
-              endDate: trialEnd,
-              cycle: "MONTHLY",
-              price: 0,
-            },
-          });
-        } else {
-          subscription = existing;
-        }
+      } catch {
+        // Race condition — another request created it
+        finalSub = await db.subscription.findFirst({ where: { providerId: auth.providerId } });
       }
     }
 
-    if (!subscription) {
+    if (!finalSub) {
       return NextResponse.json(
         { error: "No subscription found" },
         { status: 404 }
       );
     }
 
-    // Fetch provider info for the response
-    const provider = await db.provider.findFirst({
-      where: { id: auth.providerId },
-      select: { name: true, ownerName: true, phone: true },
-    });
-
-    // Calculate status dynamically
-    const { status, daysRemaining } = calcSubscriptionStatus(subscription.endDate);
+    const { status, daysRemaining } = calcSubscriptionStatus(finalSub.endDate);
 
     return NextResponse.json({
       status,
       daysRemaining,
-      endDate: subscription.endDate.toISOString(),
-      cycle: subscription.cycle,
-      price: subscription.price,
+      endDate: finalSub.endDate.toISOString(),
+      cycle: finalSub.cycle,
+      price: finalSub.price,
       providerName: provider?.name || "",
       ownerName: provider?.ownerName || "",
       phone: provider?.phone || "",
     });
   } catch (error: unknown) {
-        if (error instanceof AuthError) {
-          return NextResponse.json({ error: error.message }, { status: error.statusCode });
-        }
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
     const message = error instanceof Error ? error.message : "Failed to fetch subscription status";
-    const status =
+    const code =
       message.includes("No provider") ? 400 :
       message.includes("not found") || message.includes("No subscription") ? 404 : 500;
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json({ error: message }, { status: code });
   }
 }

@@ -26,9 +26,8 @@ export async function GET(req: NextRequest) {
       todayCheckouts,
       revenueResult,
       activityLogs,
-      // Subscription (for OPERATOR/STAFF only)
-      subscription,
-      providerInfo,
+      // Subscription + provider (combined for OPERATOR/STAFF, null otherwise)
+      subResult,
     ] = await Promise.all([
       // 1. Room counts by status
       db.room.groupBy({ by: ["status"], where, _count: { status: true } }),
@@ -55,39 +54,31 @@ export async function GET(req: NextRequest) {
         take: 15,
       }),
 
-      // 7. Subscription (OPERATOR/STAFF only)
+      // 7+8. Subscription + Provider info (OPERATOR/STAFF only)
+      // Both fetched in parallel — no sequential .then() chains
       (auth.role !== "SUPERUSER" && auth.role !== "POLICE" && auth.providerId)
-        ? db.subscription.findFirst({ where: { providerId: auth.providerId } })
-          .then(async (sub) => {
-            if (sub) return sub;
-            // Auto-create trial for APPROVED providers without subscription
-            const prov = await db.provider.findFirst({
-              where: { id: auth.providerId },
-              select: { status: true },
-            });
-            if (prov?.status === "APPROVED") {
+        ? (async () => {
+            const [sub, prov] = await Promise.all([
+              db.subscription.findFirst({ where: { providerId: auth.providerId } }),
+              db.provider.findFirst({
+                where: { id: auth.providerId },
+                select: { name: true, ownerName: true, phone: true, status: true },
+              }),
+            ]);
+            let finalSub = sub;
+            if (!sub && prov?.status === "APPROVED") {
               const trialEnd = new Date();
               trialEnd.setDate(trialEnd.getDate() + TRIAL_DAYS);
-              return db.subscription.create({
-                data: {
-                  providerId: auth.providerId,
-                  startDate: new Date(),
-                  endDate: trialEnd,
-                  cycle: "MONTHLY",
-                  price: 0,
-                },
-              });
+              try {
+                finalSub = await db.subscription.create({
+                  data: { providerId: auth.providerId, startDate: new Date(), endDate: trialEnd, cycle: "MONTHLY", price: 0 },
+                });
+              } catch {
+                finalSub = await db.subscription.findFirst({ where: { providerId: auth.providerId } });
+              }
             }
-            return null;
-          })
-        : Promise.resolve(null),
-
-      // 8. Provider info for subscription response
-      (auth.role !== "SUPERUSER" && auth.role !== "POLICE" && auth.providerId)
-        ? db.provider.findFirst({
-            where: { id: auth.providerId },
-            select: { name: true, ownerName: true, phone: true },
-          })
+            return { subscription: finalSub, provider: prov };
+          })()
         : Promise.resolve(null),
     ]);
 
@@ -104,6 +95,8 @@ export async function GET(req: NextRequest) {
 
     // Build subscription response
     let subscriptionData = null as Record<string, unknown> | null;
+    const subscription = subResult?.subscription;
+    const providerInfo = subResult?.provider;
     if (subscription && providerInfo) {
       const { status, daysRemaining } = calcSubscriptionStatus(subscription.endDate);
       subscriptionData = {
