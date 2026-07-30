@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthContext, getProviderFilter, checkWritePermission, AuthError } from "@/lib/tenant";
+import { runAnomalyDetection } from "@/lib/anomaly-engine";
 
 export async function POST(
   req: NextRequest,
@@ -45,6 +46,15 @@ export async function POST(
       where: { id: reservation.roomId },
       data: { status: "OCCUPIED" },
     });
+
+    // Background: run anomaly detection on check-in (fire-and-forget)
+    runAnomalyDetection({
+      guestName: updated.guest.name,
+      guestPhone: updated.guest.phone,
+      providerId,
+      reservationId: id,
+      trigger: "CHECKIN",
+    }).catch(() => {});
 
     return NextResponse.json(updated);
   } catch (error: unknown) {

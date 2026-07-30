@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthContext, getProviderFilter, checkWritePermission } from "@/lib/tenant";
 import { checkSuspectMatch } from "@/lib/suspect-check";
+import { runAnomalyDetection } from "@/lib/anomaly-engine";
 
 export async function GET(req: NextRequest) {
   try {
@@ -148,6 +149,15 @@ export async function POST(req: NextRequest) {
         roomName: reservation.room.name,
         totalCost,
       },
+    }).catch(() => {});
+
+    // Background: run anomaly detection (fire-and-forget)
+    runAnomalyDetection({
+      guestName: reservation.guest.name,
+      guestPhone: reservation.guest.phone,
+      providerId,
+      reservationId: reservation.id,
+      trigger: "RESERVATION",
     }).catch(() => {});
 
     return NextResponse.json(reservation, { status: 201 });

@@ -584,13 +584,14 @@ model SubscriptionPayment {
 }
 
 model PoliceAlertConfig {
-  id                   String   @id @default(cuid())
-  emailEnabled         Boolean  @default(false)
-  emailRecipients      String   @default("[]") // JSON array of email addresses
-  smsEnabled           Boolean  @default(false)
-  smsRecipients        String   @default("[]") // JSON array of phone numbers
-  escalationDelayMins  Int      @default(60) // minutes before escalating HIGH severity
-  criticalImmediate    Boolean  @default(true) // CRITICAL alerts are immediate
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  id                       String   @id @default(cuid())
+  emailEnabled             Boolean  @default(false)
+  emailRecipients          String   @default("[]") // JSON array of email addresses
+  smsEnabled               Boolean  @default(false)
+  smsRecipients            String   @default("[]") // JSON array of phone numbers
+  escalationDelayMins      Int      @default(60) // minutes before escalating HIGH severity
+  criticalImmediate        Boolean  @default(true) // CRITICAL alerts are immediate
+  anomalyDetectionEnabled  Boolean  @default(false) // Smart Anomaly Detection ON/OFF toggle
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 }

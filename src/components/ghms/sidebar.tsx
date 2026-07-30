@@ -32,6 +32,7 @@ import {
   UserCircle,
   ChevronDown,
   LogOut,
+  BrainCircuit,
 } from "lucide-react";
 
 import { useAppStore, type CurrentUser } from "@/lib/store";
@@ -119,6 +120,11 @@ const POLICE_NAV_ITEMS: NavItem[] = [
     page: "police-security",
     label: "Security",
     icon: Shield,
+  },
+  {
+    page: "anomaly-detection",
+    label: "Anomaly Detection",
+    icon: BrainCircuit,
   },
   {
     page: "owner-accounts",

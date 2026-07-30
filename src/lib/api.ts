@@ -305,6 +305,15 @@ export const apiGetSubscriptionPayments = (subscriptionId: string) =>
 // Subscription status (provider side)
 export const apiSubscriptionStatus = () => req("/api/subscription/status");
 
+// Anomalies (Smart Detection)
+export const apiGetAnomalies = (q?: string) => req(`/api/anomalies${q ? `?${q}` : ""}`);
+export const apiReviewAnomalies = (ids: string[]) =>
+  req("/api/anomalies", { method: "POST", body: JSON.stringify({ action: "review", ids }) });
+export const apiTriggerAnomalyScan = () =>
+  req("/api/anomalies", { method: "POST", body: JSON.stringify({ action: "scan" }) });
+export const apiToggleAnomalyDetection = (enabled: boolean) =>
+  req("/api/anomalies", { method: "POST", body: JSON.stringify({ action: "toggle", enabled }) });
+
 // Police room availability (city-wide)
 export const apiPoliceRoomAvailability = () => req("/api/police-room-availability");
 

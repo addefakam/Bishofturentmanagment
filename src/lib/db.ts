@@ -6,6 +6,7 @@ type PrismaClientInstance = PrismaClient & { $disconnect: () => Promise<void> };
 let _db: PrismaClientInstance | null = null;
 let schemaReady = false;
 let schemaPromise: Promise<void> | null = null;
+let _anomalyToggleMigrated = false;
 
 function createPrismaClient(): PrismaClientInstance {
   const tursoUrl = process.env.TURSO_DATABASE_URL?.trim();
@@ -92,6 +93,7 @@ const CREATE_TABLES_SQL = [
     "emailEnabled" BOOLEAN NOT NULL DEFAULT 0, "emailRecipients" TEXT NOT NULL DEFAULT '[]',
     "smsEnabled" BOOLEAN NOT NULL DEFAULT 0, "smsRecipients" TEXT NOT NULL DEFAULT '[]',
     "escalationDelayMins" INTEGER NOT NULL DEFAULT 60, "criticalImmediate" BOOLEAN NOT NULL DEFAULT 1,
+    "anomalyDetectionEnabled" BOOLEAN NOT NULL DEFAULT 0,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" DATETIME NOT NULL
   );`,
   `CREATE TABLE IF NOT EXISTS "Subscription" (
@@ -219,6 +221,14 @@ async function ensureSchema(db: PrismaClientInstance) {
     if (!pSet.has("suspendedAt"))    alters.push(db.$executeRawUnsafe(`ALTER TABLE "Provider" ADD COLUMN "suspendedAt" DATETIME`));
     if (!pSet.has("suspendedBy"))    alters.push(db.$executeRawUnsafe(`ALTER TABLE "Provider" ADD COLUMN "suspendedBy" TEXT NOT NULL DEFAULT ''`));
     if (!uSet.has("policeRank"))     alters.push(db.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN "policeRank" TEXT DEFAULT ''`));
+
+    // Phase 3b: Add anomalyDetectionEnabled to PoliceAlertConfig
+    const pacCols = await db.$queryRawUnsafe<{ name: string }[]>(`PRAGMA table_info("PoliceAlertConfig")`);
+    const pacSet = new Set(pacCols.map(c => c.name));
+    if (!pacSet.has("anomalyDetectionEnabled")) {
+      alters.push(db.$executeRawUnsafe(`ALTER TABLE "PoliceAlertConfig" ADD COLUMN "anomalyDetectionEnabled" BOOLEAN NOT NULL DEFAULT 0`));
+    }
+
     if (alters.length > 0) await Promise.all(alters);
 
     // Phase 4: Create indexes (only on fresh DB)
@@ -236,6 +246,31 @@ async function ensureSchema(db: PrismaClientInstance) {
   } catch (error) {
     console.error("[db] Schema auto-migration failed (non-blocking):", error);
     schemaReady = true; // Don't retry on every request
+  }
+}
+
+/**
+ * Lightweight migration for new columns added after the fast-path checkpoint.
+ * Runs once per cold start, only if the column doesn't exist yet.
+ * Uses PRAGMA table_info (single query) to check, then ALTER TABLE if needed.
+ */
+export async function ensureAnomalyToggleColumn(client: PrismaClientInstance): Promise<void> {
+  if (_anomalyToggleMigrated) return;
+  try {
+    const cols = await client.$queryRawUnsafe<{ name: string }[]>(
+      `PRAGMA table_info("PoliceAlertConfig")`
+    );
+    const has = cols.some(c => c.name === "anomalyDetectionEnabled");
+    if (!has) {
+      await client.$executeRawUnsafe(
+        `ALTER TABLE "PoliceAlertConfig" ADD COLUMN "anomalyDetectionEnabled" BOOLEAN NOT NULL DEFAULT 0`
+      );
+      console.log("[db] Added anomalyDetectionEnabled column to PoliceAlertConfig");
+    }
+    _anomalyToggleMigrated = true;
+  } catch (e) {
+    console.warn("[db] anomalyToggle migration skipped (non-blocking):", e);
+    _anomalyToggleMigrated = true; // Don't retry
   }
 }
 
