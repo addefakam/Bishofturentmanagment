@@ -655,18 +655,18 @@ function SidebarContent({
       <ScrollArea className="flex-1 px-3 py-3">
         <nav className="flex flex-col gap-1" aria-label="Main navigation">
           {navItems.map((item) => (
-            <React.Fragment key={item.page}>
-              <NavItemButton
-                item={item}
-                currentPage={currentPage}
-                onClick={() => onNavigate(item.page)}
-              />
-              {/* Show inline toggle right below the Anomaly Detection nav item */}
-              {item.page === "anomaly-detection" && user.role === "POLICE" && (
-                <AnomalyToggle collapsed={collapsed} />
-              )}
-            </React.Fragment>
+            <NavItemButton
+              key={item.page}
+              item={item}
+              currentPage={currentPage}
+              onClick={() => onNavigate(item.page)}
+            />
           ))}
+
+          {/* Anomaly Detection Toggle — below all nav items (near Notifications) */}
+          {user.role === "POLICE" && (
+            <AnomalyToggle collapsed={collapsed} />
+          )}
 
           {/* Joint Operations — only shown during active joint session */}
           {jointSession.active && (
