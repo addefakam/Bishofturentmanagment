@@ -265,7 +265,7 @@ export default function AnomaliesPage() {
         </div>
       )}
 
-      {/* Filters + Actions */
+      {/* Filters + Actions */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex flex-1 gap-2">
           <Select value={selectedType} onValueChange={setSelectedType}>
@@ -322,7 +322,7 @@ export default function AnomaliesPage() {
         </div>
       )}
 
-      {/* Scan Result Banner */
+      {/* Scan Result Banner */}
       {scanResult && (
         <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 mb-2">
           <CheckCircle2 className="h-4 w-4 text-emerald-600" />
@@ -330,7 +330,7 @@ export default function AnomaliesPage() {
         </div>
       )}
 
-      {/* Anomalies Table */
+      {/* Anomalies Table */}
       {loading ? (
         <div className="space-y-4">
           <Skeleton className="h-40 w-full rounded-xl" />
@@ -428,7 +428,7 @@ export default function AnomaliesPage() {
         </Card>
       )}
 
-      {/* Pagination */
+      {/* Pagination */}
       {anomalies.length > 0 && (
         <PaginationControls
           currentPage={pagination.currentPage}
@@ -438,7 +438,7 @@ export default function AnomaliesPage() {
         />
       )}
 
-      {/* Info Section */
+      {/* Info Section */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -481,7 +481,7 @@ export default function AnomaliesPage() {
         </CardContent>
       </Card>
 
-      {/* Review Dialog */
+      {/* Review Dialog */}
       <Dialog open={reviewMode} onOpenChange={(open) => { if (!open) setReviewMode(false); setSelectedIds(new Set()); }}>
         <DialogContent className="sm max-w-md">
           <DialogHeader>
