@@ -227,7 +227,7 @@ export default function AnomaliesPage() {
         </div>
       </div>
 
-      {/* Stats Cards */
+      {/* Stats Cards */}
       {stats && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <Card className="border-l-4 border-l-sky-200">

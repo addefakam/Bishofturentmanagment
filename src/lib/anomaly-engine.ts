@@ -148,6 +148,7 @@ async function ensureAnomalyTable() {
         "isReviewed" BOOLEAN NOT NULL DEFAULT 0,
         "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
+    `);
     await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AnomalyRecord_type_idx" ON "AnomalyRecord"("type")`);
     await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AnomalyRecord_severity_idx" ON "AnomalyRecord"("severity")`);
     await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AnomalyRecord_isReviewed_idx" ON "AnomalyRecord"("isReviewed")`);
