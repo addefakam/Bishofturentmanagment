@@ -294,12 +294,14 @@ export default function AnomaliesPage() {
         </div>
         <div className="flex items-end gap-2">
           {reviewMode ? (
-            <Button variant="outline" size="sm" onClick={() => setReviewMode(false)}>
-              Cancel
-            </Button>
-            <Button variant="default" size="sm" onClick={handleReview}>
-              Mark Reviewed ({selectedIds.size})
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={() => setReviewMode(false)}>
+                Cancel
+              </Button>
+              <Button variant="default" size="sm" onClick={handleReview}>
+                Mark Reviewed ({selectedIds.size})
+              </Button>
+            </>
           ) : (
             <Button
               variant="outline"
