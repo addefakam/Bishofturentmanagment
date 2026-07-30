@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAppStore } from "@/lib/store";
-import { apiGetAnomalies, apiReviewAnomalies, apiTriggerAnomalyScan, apiToggleAnomalyDetection } from "@/lib/api";
+import { apiGetAnomalies, apiReviewAnomalies, apiTriggerAnomalyScan } from "@/lib/api";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -117,25 +117,8 @@ export default function AnomaliesPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [detectionEnabled, setDetectionEnabled] = useState<boolean>(false);
-  const [toggling, setToggling] = useState(false);
-
-  const currentUser = useAppStore(s => s.currentUser);
-  const isAdmin = currentUser?.role === "POLICE" && currentUser?.policeRank === "ADMIN";
 
   const pagination = usePagination({ totalItems: stats?.total || 0 });
-
-  const handleToggle = async () => {
-    try {
-      setToggling(true);
-      const result = await apiToggleAnomalyDetection(!detectionEnabled);
-      setDetectionEnabled(result.enabled);
-      toast.success(result.message);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to toggle detection");
-    } finally {
-      setToggling(false);
-    }
-  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -212,32 +195,15 @@ export default function AnomaliesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {/* ON/OFF Toggle Switch */}
-          <button
-            onClick={handleToggle}
-            disabled={toggling || !isAdmin}
-            className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
-              detectionEnabled
-                ? "bg-violet-600 shadow-inner"
-                : "bg-gray-300"
-            }`}
-            title={!isAdmin ? "Only ADMIN can toggle detection" : detectionEnabled ? "Click to disable automatic detection" : "Click to enable automatic detection"}
-          >
-            <span
-              className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-md transition-transform duration-200 ${
-                detectionEnabled ? "translate-x-7" : "translate-x-1"
-              }`}
-            />
-          </button>
-          <span className={`text-xs font-medium whitespace-nowrap ${detectionEnabled ? "text-violet-700" : "text-gray-500"}`}>
-            {toggling ? (
-              <Loader2 className="h-3 w-3 animate-spin inline" />
-            ) : detectionEnabled ? (
-              <><ToggleRight className="h-3 w-3 inline mr-1" />Active</>
-            ) : (
-              <><ToggleLeft className="h-3 w-3 inline mr-1" />Inactive</>
-            )}
-          </span>
+          {detectionEnabled ? (
+            <Badge className="bg-violet-100 text-violet-700 border-violet-200 text-xs font-medium px-2.5 py-1">
+              <ToggleRight className="h-3 w-3 mr-1" />Active
+            </Badge>
+          ) : (
+            <Badge className="bg-gray-100 text-gray-500 border-gray-200 text-xs font-medium px-2.5 py-1">
+              <ToggleLeft className="h-3 w-3 mr-1" />Inactive
+            </Badge>
+          )}
           {unreviewedCount > 0 && (
             <Badge className="bg-red-500 text-white text-xs font-bold px-2.5 py-1">
               {unreviewedCount} unreviewed
@@ -351,8 +317,7 @@ export default function AnomaliesPage() {
         <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
           <ToggleLeft className="h-4 w-4 text-amber-600 shrink-0" />
           <p className="text-sm text-amber-800">
-            <strong>Automatic detection is OFF.</strong> Reservation creation and check-in will not trigger anomaly analysis.
-            {isAdmin ? " Toggle the switch above to enable it." : " Ask your ADMIN to enable it."}
+            <strong>Automatic detection is OFF.</strong> Reservation creation and check-in will not trigger anomaly analysis. Toggle it from the sidebar to enable.
           </p>
         </div>
       )}

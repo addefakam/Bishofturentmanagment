@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useSyncExternalStore } from "react";
+import React, { useSyncExternalStore, useState, useEffect, useCallback } from "react";
 import {
   LayoutDashboard,
   Bed,
@@ -33,13 +33,16 @@ import {
   ChevronDown,
   LogOut,
   BrainCircuit,
+  ToggleLeft,
+  ToggleRight,
+  Loader2,
 } from "lucide-react";
 
 import { useAppStore, type CurrentUser } from "@/lib/store";
 import { formatDaysRemaining, formatCycle } from "@/lib/subscription";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { POLICE_RANK_PERMISSIONS, RANK_LABELS, RANK_BADGE_CLASSES, type PoliceRank } from "@/lib/police-permissions";
-import { apiLogout } from "@/lib/api";
+import { apiLogout, apiToggleAnomalyDetection, apiGetAnomalies } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -315,6 +318,89 @@ function NavItemButton({
   );
 }
 
+// ── Anomaly Detection Toggle Widget (sidebar inline) ──
+function AnomalyToggle({ collapsed }: { collapsed: boolean }) {
+  const currentUser = useAppStore((s) => s.currentUser);
+  const isAdmin = currentUser?.role === "POLICE" && currentUser?.policeRank === "ADMIN";
+  const [enabled, setEnabled] = useState(false);
+  const [toggling, setToggling] = useState(false);
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const data = await apiGetAnomalies("pageSize=1");
+      if (data.enabled !== undefined) setEnabled(data.enabled);
+    } catch { /* non-critical */ }
+  }, []);
+
+  useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
+
+  const handleToggle = async () => {
+    if (!isAdmin || toggling) return;
+    try {
+      setToggling(true);
+      const result = await apiToggleAnomalyDetection(!enabled);
+      setEnabled(result.enabled);
+    } catch { /* non-critical */ }
+    finally { setToggling(false); }
+  };
+
+  // Collapsed: small indicator dot
+  if (collapsed) {
+    return (
+      <div className="flex justify-center py-1" title={enabled ? "Anomaly Detection: Active" : "Anomaly Detection: Inactive"}>
+        <button
+          onClick={handleToggle}
+          disabled={!isAdmin}
+          className={`h-3 w-3 rounded-full transition-colors ${
+            enabled ? "bg-violet-500 shadow-sm shadow-violet-200" : "bg-slate-300"
+          } ${isAdmin ? "cursor-pointer hover:ring-2 hover:ring-violet-300" : "cursor-not-allowed"}`}
+        />
+      </div>
+    );
+  }
+
+  // Expanded: inline toggle row
+  return (
+    <button
+      onClick={handleToggle}
+      disabled={!isAdmin || toggling}
+      className={`group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors outline-none ${
+        isAdmin
+          ? enabled
+            ? "text-violet-700 hover:bg-violet-50"
+            : "text-slate-500 hover:bg-slate-100"
+          : "text-slate-400 cursor-not-allowed"
+      }`}
+      title={!isAdmin ? "Only ADMIN can toggle detection" : enabled ? "Click to disable" : "Click to enable"}
+    >
+      {toggling ? (
+        <Loader2 className="size-3.5 animate-spin shrink-0" />
+      ) : enabled ? (
+        <ToggleRight className="size-3.5 shrink-0 text-violet-500" />
+      ) : (
+        <ToggleLeft className="size-3.5 shrink-0" />
+      )}
+      <span className="truncate">
+        {enabled ? "Detection Active" : "Detection Inactive"}
+      </span>
+      {/* Mini toggle switch */}
+      <span
+        className={`ml-auto inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 ${
+          enabled ? "bg-violet-500" : "bg-slate-300"
+        }`}
+      >
+        <span
+          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+            enabled ? "translate-x-4" : "translate-x-0.5"
+          }`}
+        />
+      </span>
+    </button>
+  );
+}
+
 // ── Sidebar content (shared between desktop & mobile) ──
 // ── Subscription status widget for provider sidebar ──
 function SubscriptionStatusCard({ collapsed }: { collapsed: boolean }) {
@@ -542,12 +628,17 @@ function SidebarContent({
       <ScrollArea className="flex-1 px-3 py-3">
         <nav className="flex flex-col gap-1" aria-label="Main navigation">
           {navItems.map((item) => (
-            <NavItemButton
-              key={item.page}
-              item={item}
-              currentPage={currentPage}
-              onClick={() => onNavigate(item.page)}
-            />
+            <React.Fragment key={item.page}>
+              <NavItemButton
+                item={item}
+                currentPage={currentPage}
+                onClick={() => onNavigate(item.page)}
+              />
+              {/* Show inline toggle right below the Anomaly Detection nav item */}
+              {item.page === "anomaly-detection" && user.role === "POLICE" && (
+                <AnomalyToggle collapsed={collapsed} />
+              )}
+            </React.Fragment>
           ))}
 
           {/* Joint Operations — only shown during active joint session */}
