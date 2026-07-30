@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAppStore } from "@/lib/store";
-import { apiDashboard, apiGetActivity } from "@/lib/api";
+import { apiDashboard } from "@/lib/api";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -77,12 +77,13 @@ export default function DashboardPage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [dashboardData, activityData] = await Promise.all([
-        apiDashboard(),
-        apiGetActivity(),
-      ]);
+      const dashboardData = await apiDashboard();
       setData(dashboardData);
-      setActivity(activityData.slice(0, 15));
+      setActivity((dashboardData as any).activity?.slice(0, 15) || []);
+      // Set subscription if included in response
+      if ((dashboardData as any).subscription && !(dashboardData as any).subscription.exempt) {
+        useAppStore.getState().setSubscription((dashboardData as any).subscription);
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to load dashboard";
       toast.error(message);

@@ -158,17 +158,18 @@ export default function PageRenderer() {
   const jointLoginDialogOpen = useAppStore((s) => s.jointLoginDialogOpen);
   const setJointLoginDialogOpen = useAppStore((s) => s.setJointLoginDialogOpen);
 
-  // ── Fetch subscription status for OPERATOR/STAFF on mount ──
+  // ── Fetch subscription status for OPERATOR/STAFF (non-dashboard pages) ──
   const fetchSubscriptionStatus = useCallback(async () => {
     if (!currentUser) return;
-    // Only OPERATOR and STAFF need subscription checks
     if (currentUser.role !== "OPERATOR" && currentUser.role !== "STAFF") return;
+    // Skip if already loaded by dashboard
+    if (useAppStore.getState().subscription) return;
     try {
       const data = await apiSubscriptionStatus();
       if (data.exempt) return;
       setSubscription(data);
     } catch {
-      // Silently ignore — subscription check is non-critical
+      // Non-critical
     }
   }, [currentUser, setSubscription]);
 
