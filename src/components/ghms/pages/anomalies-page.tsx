@@ -375,7 +375,7 @@ export default function AnomaliesPage() {
                       >
                         <TableCell className="py-3">
                           <div className="flex items-center gap-2">
-                            {reviewMode && (
+                            {reviewMode ? (
                               <button
                                 onClick={() => toggleSelect(a.id)}
                                 className="text-slate-400 hover:text-slate-600"
