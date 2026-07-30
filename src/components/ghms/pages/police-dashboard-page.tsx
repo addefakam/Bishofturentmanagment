@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { apiGetAnomalies, apiToggleAnomalyDetection } from "@/lib/api";
 import {
   Building2,
   CheckCircle2,
@@ -27,6 +28,9 @@ import {
   TrendingUp,
   AlertCircle,
   ShieldAlert,
+  ToggleLeft,
+  ToggleRight,
+  Loader2,
 } from "lucide-react";
 
 interface DashboardData {
@@ -83,10 +87,36 @@ function formatDate(dateStr: string) {
 }
 
 export default function PoliceDashboardPage() {
-  const { refreshKey } = useAppStore();
+  const { refreshKey, currentUser } = useAppStore();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [anomalyEnabled, setAnomalyEnabled] = useState(false);
+  const [anomalyToggling, setAnomalyToggling] = useState(false);
+
+  const isAdmin = currentUser?.role === "POLICE" && currentUser?.policeRank === "ADMIN";
+
+  // Fetch anomaly toggle status
+  const fetchAnomalyStatus = useCallback(async () => {
+    try {
+      const data = await apiGetAnomalies("pageSize=1");
+      if (data.enabled !== undefined) setAnomalyEnabled(data.enabled);
+    } catch { /* non-critical */ }
+  }, []);
+
+  const handleAnomalyToggle = async () => {
+    if (!isAdmin || anomalyToggling) return;
+    try {
+      setAnomalyToggling(true);
+      const result = await apiToggleAnomalyDetection(!anomalyEnabled);
+      setAnomalyEnabled(result.enabled);
+    } catch { /* non-critical */ }
+    finally { setAnomalyToggling(false); }
+  };
+
+  useEffect(() => {
+    fetchAnomalyStatus();
+  }, [fetchAnomalyStatus]);
 
   const providerPagination = usePagination({ totalItems: dashboard?.providers?.length || 0, initialPageSize: 5, pageSizeOptions: [5, 10, 20, 50] });
   const paginatedProviders = useMemo(() => providerPagination.paginate(dashboard?.providers || []), [dashboard?.providers, providerPagination]);
@@ -169,6 +199,59 @@ export default function PoliceDashboardPage() {
 
   return (
     <div className="space-y-4 p-3 sm:p-4 md:p-6">
+      {/* Top bar: title + anomaly toggle */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Police Dashboard</h1>
+          <p className="text-xs sm:text-sm text-gray-500">Overview of all registered guesthouses</p>
+        </div>
+        {/* Anomaly Detection Toggle — ADMIN only */}
+        <div className="shrink-0">
+          <button
+            onClick={handleAnomalyToggle}
+            disabled={!isAdmin || anomalyToggling}
+            className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 transition-all duration-200 ${
+              anomalyEnabled
+                ? "border-violet-200 bg-gradient-to-r from-violet-50 to-fuchsia-50 shadow-sm"
+                : "border-slate-200 bg-slate-50 hover:bg-slate-100"
+            } ${!isAdmin ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
+            title={!isAdmin ? "Only ADMIN can toggle" : anomalyEnabled ? "Click to disable detection" : "Click to enable detection"}
+          >
+            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
+              anomalyEnabled ? "bg-violet-500 text-white" : "bg-slate-200 text-slate-400"
+            }`}>
+              {anomalyToggling ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : anomalyEnabled ? (
+                <ToggleRight className="size-4" />
+              ) : (
+                <ToggleLeft className="size-4" />
+              )}
+            </div>
+            <div className="hidden sm:block text-left">
+              <p className={`text-xs font-bold leading-tight ${anomalyEnabled ? "text-violet-800" : "text-slate-600"}`}>
+                Smart Detection
+              </p>
+              <p className={`text-[10px] leading-tight mt-0.5 ${anomalyEnabled ? "text-violet-600" : "text-slate-400"}`}>
+                {anomalyEnabled ? "Active" : "Inactive"}
+              </p>
+            </div>
+            {/* Toggle switch */}
+            <span
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 ${
+                anomalyEnabled ? "bg-violet-500" : "bg-slate-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform duration-300 ${
+                  anomalyEnabled ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </span>
+          </button>
+        </div>
+      </div>
+
       {/* KPI Cards — 2 cols on mobile, 3 on tablet, 6 on desktop */}
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-7">
         {loading
