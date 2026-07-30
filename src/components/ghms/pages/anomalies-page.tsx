@@ -6,8 +6,8 @@ import { apiGetAnomalies, apiReviewAnomalies, apiTriggerAnomalyScan } from "@/li
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@components/ui/button";
-import { Skeleton } from "@components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
