@@ -318,7 +318,7 @@ function NavItemButton({
   );
 }
 
-// ── Anomaly Detection Toggle Widget (sidebar inline) ──
+// ── Anomaly Detection Toggle Widget (sidebar) ──
 function AnomalyToggle({ collapsed }: { collapsed: boolean }) {
   const currentUser = useAppStore((s) => s.currentUser);
   const isAdmin = currentUser?.role === "POLICE" && currentUser?.policeRank === "ADMIN";
@@ -346,58 +346,85 @@ function AnomalyToggle({ collapsed }: { collapsed: boolean }) {
     finally { setToggling(false); }
   };
 
-  // Collapsed: small indicator dot
+  // Collapsed: prominent colored bar indicator
   if (collapsed) {
     return (
-      <div className="flex justify-center py-1" title={enabled ? "Anomaly Detection: Active" : "Anomaly Detection: Inactive"}>
+      <div className="flex justify-center py-1.5 px-1">
         <button
           onClick={handleToggle}
           disabled={!isAdmin}
-          className={`h-3 w-3 rounded-full transition-colors ${
-            enabled ? "bg-violet-500 shadow-sm shadow-violet-200" : "bg-slate-300"
-          } ${isAdmin ? "cursor-pointer hover:ring-2 hover:ring-violet-300" : "cursor-not-allowed"}`}
-        />
+          title={enabled ? "Anomaly Detection: ON — click to disable" : "Anomaly Detection: OFF — click to enable"}
+          className={`relative h-7 w-7 rounded-lg flex items-center justify-center transition-all duration-200 ${
+            enabled
+              ? "bg-violet-100 text-violet-600 shadow-sm shadow-violet-100 hover:bg-violet-200"
+              : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+          } ${isAdmin ? "cursor-pointer" : "cursor-not-allowed opacity-50"}`}
+        >
+          {toggling ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : enabled ? (
+            <ToggleRight className="size-4" />
+          ) : (
+            <ToggleLeft className="size-4" />
+          )}
+        </button>
       </div>
     );
   }
 
-  // Expanded: inline toggle row
+  // Expanded: prominent card-style toggle widget
   return (
-    <button
-      onClick={handleToggle}
-      disabled={!isAdmin || toggling}
-      className={`group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors outline-none ${
-        isAdmin
-          ? enabled
-            ? "text-violet-700 hover:bg-violet-50"
-            : "text-slate-500 hover:bg-slate-100"
-          : "text-slate-400 cursor-not-allowed"
+    <div
+      className={`my-1 rounded-xl border p-3 transition-all duration-200 ${
+        enabled
+          ? "border-violet-200 bg-gradient-to-r from-violet-50 to-fuchsia-50 shadow-sm"
+          : "border-slate-200 bg-slate-50"
       }`}
-      title={!isAdmin ? "Only ADMIN can toggle detection" : enabled ? "Click to disable" : "Click to enable"}
     >
-      {toggling ? (
-        <Loader2 className="size-3.5 animate-spin shrink-0" />
-      ) : enabled ? (
-        <ToggleRight className="size-3.5 shrink-0 text-violet-500" />
-      ) : (
-        <ToggleLeft className="size-3.5 shrink-0" />
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
+              enabled ? "bg-violet-500 text-white shadow-sm shadow-violet-200" : "bg-slate-200 text-slate-400"
+            }`}
+          >
+            {toggling ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : enabled ? (
+              <ToggleRight className="size-4" />
+            ) : (
+              <ToggleLeft className="size-4" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className={`text-xs font-bold leading-tight ${enabled ? "text-violet-800" : "text-slate-600"}`}>
+              Smart Detection
+            </p>
+            <p className={`text-[10px] leading-tight mt-0.5 ${enabled ? "text-violet-600" : "text-slate-400"}`}>
+              {enabled ? "Active — auto-scanning" : "Inactive — no scan"}
+            </p>
+          </div>
+        </div>
+        {/* Toggle switch */}
+        <button
+          onClick={handleToggle}
+          disabled={!isAdmin || toggling}
+          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1 ${
+            enabled ? "bg-violet-500" : "bg-slate-300"
+          } ${!isAdmin ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+          title={!isAdmin ? "Only ADMIN can toggle" : enabled ? "Click to disable" : "Click to enable"}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform duration-300 ${
+              enabled ? "translate-x-6" : "translate-x-1"
+            }`}
+          />
+        </button>
+      </div>
+      {!isAdmin && (
+        <p className="mt-2 text-[10px] text-slate-400 italic">Only ADMIN can toggle this setting</p>
       )}
-      <span className="truncate">
-        {enabled ? "Detection Active" : "Detection Inactive"}
-      </span>
-      {/* Mini toggle switch */}
-      <span
-        className={`ml-auto inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 ${
-          enabled ? "bg-violet-500" : "bg-slate-300"
-        }`}
-      >
-        <span
-          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
-            enabled ? "translate-x-4" : "translate-x-0.5"
-          }`}
-        />
-      </span>
-    </button>
+    </div>
   );
 }
 
