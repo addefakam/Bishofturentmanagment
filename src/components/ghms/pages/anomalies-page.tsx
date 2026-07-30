@@ -345,7 +345,7 @@ export default function AnomaliesPage() {
           <p className="text-sm font-medium">No anomalies detected</p>
           <p className="text-xs text-gray-400 mt-1">
             Anomalies are automatically detected when reservations are created or guests check in.
-            {""}You can also run a manual system scan."}
+            {" "}You can also run a manual system scan.
           </p>
         </div>
       ) : (
@@ -485,7 +485,7 @@ export default function AnomaliesPage() {
 
       {/* Review Dialog */}
       <Dialog open={reviewMode} onOpenChange={(open) => { if (!open) setReviewMode(false); setSelectedIds(new Set()); }}>
-        <DialogContent className="sm max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Review Anomalies</DialogTitle>
             <DialogDescription>
@@ -494,12 +494,10 @@ export default function AnomaliesPage() {
           </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <DialogFooter>
               <Button variant="outline" onClick={() => setReviewMode(false)}>Cancel</Button>
               <Button onClick={handleReview} disabled={selectedIds.size === 0}>
                 Confirm ({selectedIds.size})
               </Button>
-            </DialogFooter>
           </DialogFooter>
         </DialogContent>
       </Dialog>
