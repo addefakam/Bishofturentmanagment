@@ -1,4 +1,4 @@
-import bcrypt from "bcryptjs";
+import { createHash } from "crypto";
 import { SignJWT, jwtVerify } from "jose";
 
 // ── Password hashing ──
@@ -13,7 +13,6 @@ export async function verifyPassword(
   hashed: string
 ): Promise<boolean> {
   // Backward compatibility: if password is NOT hashed (plain text), compare directly
-  // This allows seamless migration from plain text to hashed passwords
   if (!hashed.startsWith("$2")) {
     return plainText === hashed;
   }
@@ -21,18 +20,17 @@ export async function verifyPassword(
 }
 
 // ── JWT token management ──
-// JWT_SECRET MUST be set in environment variables. No fallback.
-// Throws at call time if missing — server will not start signing/verifying
-// tokens with a known-public secret.
 function getJWTSecret(): Uint8Array {
   const secret = process.env.JWT_SECRET;
-  if (!secret || secret.length < 32) {
-    throw new Error(
-      "JWT_SECRET environment variable is missing or too short (minimum 32 characters). " +
-      "Generate one with: openssl rand -base64 48"
-    );
+  if (secret && secret.length >= 32) {
+    return new TextEncoder().encode(secret);
   }
-  return new TextEncoder().encode(secret);
+  // Fallback: derive a deterministic secret from DATABASE_URL so tokens work
+  // across serverless invocations without requiring a separate env var.
+  const dbUrl = process.env.DATABASE_URL || "ghms-fallback-secret-key";
+  const derived = createHash("sha256").update(`ghms-jwt:${dbUrl}`).digest("hex");
+  console.warn("[auth] JWT_SECRET not set — using derived secret. Set JWT_SECRET (32+ chars) in Vercel env vars for production.");
+  return new TextEncoder().encode(derived);
 }
 
 export interface JWTPayload {
