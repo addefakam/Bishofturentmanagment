@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureDatabase } from "@/lib/init-db";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { verifyPassword, createToken, type JWTPayload } from "@/lib/auth-utils";
@@ -14,6 +15,8 @@ import { verifyPassword, createToken, type JWTPayload } from "@/lib/auth-utils";
  */
 export async function POST(req: NextRequest) {
   try {
+    await ensureDatabase();
+
     // ── 1. Verify primary session exists ──
     const primaryToken = req.cookies.get("ghms_token")?.value;
     if (!primaryToken) {

@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureDatabase } from "@/lib/init-db";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { hashPassword, verifyPassword, createToken, type JWTPayload } from "@/lib/auth-utils";
 
 export async function POST(req: NextRequest) {
   try {
+    // Ensure database tables exist before any Prisma operation
+    await ensureDatabase();
+
     const body = await req.json();
     const { username, password } = body;
 
