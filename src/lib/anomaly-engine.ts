@@ -11,12 +11,12 @@
  *  - NO_SHOW_PATTERN: Guest with 3+ cancellations or no-shows
  *  - CASH_ANOMALY: Large cash payments (above threshold)
  *  - CROSS_PROVIDER_ID: Same person using different ID numbers
- *  - OCCUPANCY_SPIKE: Sudden booking spike at a provider
  *  - SHORT_STAY_PATTERN: Repeated very short stays (1 night) across providers
  *  - FAKE_ID_PATTERN: Multiple guests sharing the same ID number
  */
 
-import { db, ensureAnomalyToggleColumn, getDbReady } from "./db";
+import { db } from "./db";
+import { sql } from "@prisma/client/runtime/library";
 
 // ── Anomaly Detection Toggle (in-memory cache) ──
 let _cachedEnabled: boolean | null = null;
@@ -34,8 +34,6 @@ export async function isAnomalyDetectionEnabled(): Promise<boolean> {
     return _cachedEnabled;
   }
   try {
-    const client = await getDbReady();
-    await ensureAnomalyToggleColumn(client);
     const config = await db.policeAlertConfig.findFirst({
       select: { anomalyDetectionEnabled: true },
     });
@@ -66,7 +64,6 @@ export type AnomalyType =
   | "NO_SHOW_PATTERN"
   | "CASH_ANOMALY"
   | "CROSS_PROVIDER_ID"
-  | "OCCUPANCY_SPIKE"
   | "SHORT_STAY_PATTERN"
   | "FAKE_ID_PATTERN";
 
@@ -76,14 +73,14 @@ export interface AnomalyRecord {
   id: string;
   type: AnomalyType;
   severity: AnomalySeverity;
-  riskScore: number;       // 0-100
+  riskScore: number;
   guestName: string;
   guestPhone: string;
   guestIdNumber: string;
   providerId: string;
   providerName: string;
   description: string;
-  metadata: string;         // JSON
+  metadata: string;
   isReviewed: boolean;
   createdAt: string;
 }
@@ -106,7 +103,6 @@ const RISK_WEIGHTS: Record<AnomalyType, number> = {
   NO_SHOW_PATTERN: 15,
   CASH_ANOMALY: 25,
   CROSS_PROVIDER_ID: 40,
-  OCCUPANCY_SPIKE: 20,
   SHORT_STAY_PATTERN: 25,
   FAKE_ID_PATTERN: 45,
 };
@@ -130,69 +126,32 @@ async function getProviderName(providerId: string): Promise<string> {
   return p?.name || "";
 }
 
-async function ensureAnomalyTable() {
-  try {
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "AnomalyRecord" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "type" TEXT NOT NULL,
-        "severity" TEXT NOT NULL DEFAULT 'MEDIUM',
-        "riskScore" INTEGER NOT NULL DEFAULT 0,
-        "guestName" TEXT NOT NULL DEFAULT '',
-        "guestPhone" TEXT NOT NULL DEFAULT '',
-        "guestIdNumber" TEXT NOT NULL DEFAULT '',
-        "providerId" TEXT NOT NULL DEFAULT '',
-        "providerName" TEXT NOT NULL DEFAULT '',
-        "description" TEXT NOT NULL DEFAULT '',
-        "metadata" TEXT NOT NULL DEFAULT '{}',
-        "isReviewed" BOOLEAN NOT NULL DEFAULT 0,
-        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-    await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AnomalyRecord_type_idx" ON "AnomalyRecord"("type")`);
-    await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AnomalyRecord_severity_idx" ON "AnomalyRecord"("severity")`);
-    await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AnomalyRecord_isReviewed_idx" ON "AnomalyRecord"("isReviewed")`);
-    await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AnomalyRecord_riskScore_idx" ON "AnomalyRecord"("riskScore")`);
-    await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AnomalyRecord_providerId_idx" ON "AnomalyRecord"("providerId")`);
-    await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AnomalyRecord_guestPhone_idx" ON "AnomalyRecord"("guestPhone")`);
-    await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "AnomalyRecord_createdAt_idx" ON "AnomalyRecord"("createdAt")`);
-  } catch (e) {
-    console.error("[anomaly] Failed to ensure table:", e);
-  }
-}
-
 // ── Duplicate Check (prevent flood of identical anomalies) ──
 async function isDuplicate(type: AnomalyType, guestPhone: string, providerId: string, withinHours: number = 24): Promise<boolean> {
   const cutoff = new Date(Date.now() - withinHours * 3600_000).toISOString();
-  const count = await db.$queryRawUnsafe<{ c: number }[]>(
-    `SELECT COUNT(*) as c FROM "AnomalyRecord"
-     WHERE "type" = ? AND "guestPhone" = ? AND "providerId" = ? AND "createdAt" >= ?`,
-    type, guestPhone || "", providerId || "", cutoff
+  const count = await db.$queryRaw<{ c: bigint }[]>(
+    sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord"
+     WHERE "type" = ${type} AND "guestPhone" = ${guestPhone || ""} AND "providerId" = ${providerId || ""} AND "createdAt" >= ${cutoff}::timestamptz`
   );
-  return (count[0]?.c || 0) > 0;
+  return (count[0]?.c || 0n) > 0n;
 }
 
 // ── Individual Detectors ──
 
-/**
- * 1. IDENTITY_MISMATCH: Same phone number associated with different names
- *    or different ID numbers across different providers.
- */
 async function detectIdentityMismatch(ctx: DetectContext): Promise<AnomalyRecord | null> {
   if (!ctx.guestPhone || ctx.guestPhone.length < 4) return null;
   const phone = ctx.guestPhone.trim();
 
   if (await isDuplicate("IDENTITY_MISMATCH", phone, ctx.providerId, 48)) return null;
 
-  const rows = await db.$queryRawUnsafe<{
+  const rows = await db.$queryRaw<{
     name: string; idNumber: string; providerId: string; providerName: string;
   }[]>(
-    `SELECT g."name", g."idNumber", g."providerId", p."name" as "providerName"
+    sql`SELECT g."name", g."idNumber", g."providerId", p."name" as "providerName"
      FROM "Guest" g JOIN "Provider" p ON p."id" = g."providerId"
-     WHERE LOWER(TRIM(g."phone")) = LOWER(?)
-     AND g."providerId" != ?
-     LIMIT 20`,
-    phone, ctx.providerId
+     WHERE LOWER(TRIM(g."phone")) = LOWER(${phone})
+     AND g."providerId" != ${ctx.providerId}
+     LIMIT 20`
   );
 
   if (rows.length === 0) return null;
@@ -201,7 +160,6 @@ async function detectIdentityMismatch(ctx: DetectContext): Promise<AnomalyRecord
   const uniqueIds = new Set(rows.map(r => r.idNumber.trim()).filter(id => id.length > 0));
   const providers = [...new Set(rows.map(r => r.providerName))];
 
-  // Only flag if there are different names OR different IDs
   if (uniqueNames.size < 2 && uniqueIds.size < 2) return null;
 
   const baseScore = RISK_WEIGHTS.IDENTITY_MISMATCH;
@@ -225,10 +183,6 @@ async function detectIdentityMismatch(ctx: DetectContext): Promise<AnomalyRecord
   };
 }
 
-/**
- * 2. RAPID_MULTI_PROVIDER: Guest made bookings at 2+ providers
- *    within the last 48 hours.
- */
 async function detectRapidMultiProvider(ctx: DetectContext): Promise<AnomalyRecord | null> {
   if (!ctx.guestPhone || ctx.guestPhone.length < 4) return null;
   const phone = ctx.guestPhone.trim();
@@ -237,16 +191,15 @@ async function detectRapidMultiProvider(ctx: DetectContext): Promise<AnomalyReco
 
   const cutoff48h = new Date(Date.now() - 48 * 3600_000).toISOString().split("T")[0];
 
-  const rows = await db.$queryRawUnsafe<{
+  const rows = await db.$queryRaw<{
     providerId: string; providerName: string; checkIn: string; status: string;
   }[]>(
-    `SELECT r."providerId", p."name" as "providerName", r."checkIn", r."status"
+    sql`SELECT r."providerId", p."name" as "providerName", r."checkIn", r."status"
      FROM "Reservation" r JOIN "Guest" g ON r."guestId" = g."id"
      JOIN "Provider" p ON p."id" = r."providerId"
-     WHERE LOWER(TRIM(g."phone")) = LOWER(?)
-     AND r."checkIn" >= ? AND r."status" != 'CANCELLED'
-     ORDER BY r."checkIn" DESC`,
-    phone, cutoff48h
+     WHERE LOWER(TRIM(g."phone")) = LOWER(${phone})
+     AND r."checkIn" >= ${cutoff48h} AND r."status" != 'CANCELLED'
+     ORDER BY r."checkIn" DESC`
   );
 
   const uniqueProviders = new Set(rows.map(r => r.providerId));
@@ -272,22 +225,20 @@ async function detectRapidMultiProvider(ctx: DetectContext): Promise<AnomalyReco
   };
 }
 
-/**
- * 3. NO_SHOW_PATTERN: Guest has 3+ cancelled or no-show reservations.
- */
 async function detectNoShowPattern(ctx: DetectContext): Promise<AnomalyRecord | null> {
   if (!ctx.guestPhone || ctx.guestPhone.length < 4) return null;
   const phone = ctx.guestPhone.trim();
 
-  if (await isDuplicate("NO_SHOW_PATTERN", phone, ctx.providerId, 168)) return null; // 7 days
+  if (await isDuplicate("NO_SHOW_PATTERN", phone, ctx.providerId, 168)) return null;
 
-  const rows = await db.$queryRawUnsafe<{ count: number }[]>(
-    `SELECT COUNT(*) as count
+  const today = new Date().toISOString().split("T")[0];
+
+  const rows = await db.$queryRaw<{ count: bigint }[]>(
+    sql`SELECT COUNT(*)::bigint as count
      FROM "Reservation" r JOIN "Guest" g ON r."guestId" = g."id"
-     WHERE LOWER(TRIM(g."phone")) = LOWER(?)
+     WHERE LOWER(TRIM(g."phone")) = LOWER(${phone})
      AND r."status" IN ('CANCELLED', 'UPCOMING')
-     AND r."checkIn" < date('now')`,
-    phone
+     AND r."checkIn" < ${today}::date`
   );
 
   const noShowCount = Number(rows[0]?.count || 0);
@@ -312,14 +263,10 @@ async function detectNoShowPattern(ctx: DetectContext): Promise<AnomalyRecord | 
   };
 }
 
-/**
- * 4. CASH_ANOMALY: Large cash payments (above 5000 ETB or 3x average).
- */
 async function detectCashAnomaly(ctx: DetectContext): Promise<AnomalyRecord | null> {
   if (ctx.trigger !== "RESERVATION" && ctx.trigger !== "CHECKIN") return null;
   if (!ctx.reservationId) return null;
 
-  // Get payment for this reservation
   const payments = await db.payment.findMany({
     where: { reservationId: ctx.reservationId, method: "CASH" },
   });
@@ -327,10 +274,8 @@ async function detectCashAnomaly(ctx: DetectContext): Promise<AnomalyRecord | nu
 
   const totalCash = payments.reduce((sum, p) => sum + p.amount, 0);
 
-  // Get average payment for this provider
-  const avgRows = await db.$queryRawUnsafe<{ avg: number | null }[]>(
-    `SELECT AVG("amount") as avg FROM "Payment" WHERE "providerId" = ? AND "method" = 'CASH'`,
-    ctx.providerId
+  const avgRows = await db.$queryRaw<{ avg: number | null }[]>(
+    sql`SELECT AVG("amount") as avg FROM "Payment" WHERE "providerId" = ${ctx.providerId} AND "method" = 'CASH'`
   );
   const avgCash = Number(avgRows[0]?.avg || 0);
 
@@ -361,24 +306,19 @@ async function detectCashAnomaly(ctx: DetectContext): Promise<AnomalyRecord | nu
   };
 }
 
-/**
- * 5. CROSS_PROVIDER_ID: Same ID number used at multiple providers
- *    with different names (potential identity fraud).
- */
 async function detectCrossProviderId(ctx: DetectContext): Promise<AnomalyRecord | null> {
   if (!ctx.guestIdNumber || ctx.guestIdNumber.length < 2) return null;
   const idNum = ctx.guestIdNumber.trim();
 
   if (await isDuplicate("CROSS_PROVIDER_ID", ctx.guestPhone || "", ctx.providerId, 168)) return null;
 
-  const rows = await db.$queryRawUnsafe<{
+  const rows = await db.$queryRaw<{
     name: string; phone: string; providerId: string; providerName: string;
   }[]>(
-    `SELECT g."name", g."phone", g."providerId", p."name" as "providerName"
+    sql`SELECT g."name", g."phone", g."providerId", p."name" as "providerName"
      FROM "Guest" g JOIN "Provider" p ON p."id" = g."providerId"
-     WHERE LOWER(TRIM(g."idNumber")) = LOWER(?)
-     AND g."providerId" != ?`,
-    idNum, ctx.providerId
+     WHERE LOWER(TRIM(g."idNumber")) = LOWER(${idNum})
+     AND g."providerId" != ${ctx.providerId}`
   );
 
   if (rows.length === 0) return null;
@@ -387,7 +327,6 @@ async function detectCrossProviderId(ctx: DetectContext): Promise<AnomalyRecord 
   const uniquePhones = new Set(rows.map(r => r.phone.trim()).filter(p => p.length > 0));
   const providers = [...new Set(rows.map(r => r.providerName))];
 
-  // Only flag if names differ (same ID, different person = fraud)
   if (uniqueNames.size < 2) return null;
 
   const score = Math.min(100, RISK_WEIGHTS.CROSS_PROVIDER_ID + (uniqueNames.size - 2) * 15);
@@ -409,10 +348,6 @@ async function detectCrossProviderId(ctx: DetectContext): Promise<AnomalyRecord 
   };
 }
 
-/**
- * 6. SHORT_STAY_PATTERN: Multiple 1-night stays across different providers
- *    within 30 days (common in illicit activity).
- */
 async function detectShortStayPattern(ctx: DetectContext): Promise<AnomalyRecord | null> {
   if (!ctx.guestPhone || ctx.guestPhone.length < 4) return null;
   const phone = ctx.guestPhone.trim();
@@ -421,16 +356,15 @@ async function detectShortStayPattern(ctx: DetectContext): Promise<AnomalyRecord
 
   const cutoff30d = new Date(Date.now() - 30 * 86400_000).toISOString().split("T")[0];
 
-  const rows = await db.$queryRawUnsafe<{
+  const rows = await db.$queryRaw<{
     providerId: string; providerName: string; checkIn: string; nights: number;
   }[]>(
-    `SELECT r."providerId", p."name" as "providerName", r."checkIn", r."nights"
+    sql`SELECT r."providerId", p."name" as "providerName", r."checkIn", r."nights"
      FROM "Reservation" r JOIN "Guest" g ON r."guestId" = g."id"
      JOIN "Provider" p ON p."id" = r."providerId"
-     WHERE LOWER(TRIM(g."phone")) = LOWER(?)
-     AND r."checkIn" >= ? AND r."nights" <= 1 AND r."status" != 'CANCELLED'
-     ORDER BY r."checkIn" DESC`,
-    phone, cutoff30d
+     WHERE LOWER(TRIM(g."phone")) = LOWER(${phone})
+     AND r."checkIn" >= ${cutoff30d} AND r."nights" <= 1 AND r."status" != 'CANCELLED'
+     ORDER BY r."checkIn" DESC`
   );
 
   const shortStays = rows.filter(r => r.nights <= 1);
@@ -457,28 +391,23 @@ async function detectShortStayPattern(ctx: DetectContext): Promise<AnomalyRecord
   };
 }
 
-/**
- * 7. FAKE_ID_PATTERN: Multiple guests registered with the same ID number
- *    (indicates shared/fake IDs).
- */
 async function detectFakeIdPattern(ctx: DetectContext): Promise<AnomalyRecord | null> {
   if (!ctx.guestIdNumber || ctx.guestIdNumber.length < 2) return null;
   const idNum = ctx.guestIdNumber.trim();
 
   if (await isDuplicate("FAKE_ID_PATTERN", ctx.guestPhone || "", ctx.providerId, 168)) return null;
 
-  const rows = await db.$queryRawUnsafe<{
+  const rows = await db.$queryRaw<{
     name: string; phone: string; providerId: string; providerName: string;
   }[]>(
-    `SELECT g."name", g."phone", g."providerId", p."name" as "providerName"
+    sql`SELECT g."name", g."phone", g."providerId", p."name" as "providerName"
      FROM "Guest" g JOIN "Provider" p ON p."id" = g."providerId"
-     WHERE LOWER(TRIM(g."idNumber")) = LOWER(?)
+     WHERE LOWER(TRIM(g."idNumber")) = LOWER(${idNum})
      AND g."id" != COALESCE((
        SELECT g2."id" FROM "Guest" g2
-       WHERE LOWER(TRIM(g2."idNumber")) = LOWER(?) AND g2."providerId" = ?
+       WHERE LOWER(TRIM(g2."idNumber")) = LOWER(${idNum}) AND g2."providerId" = ${ctx.providerId}
        LIMIT 1
-     ), '')`,
-    idNum, idNum, ctx.providerId
+     ), '')`
   );
 
   if (rows.length === 0) return null;
@@ -505,29 +434,27 @@ async function detectFakeIdPattern(ctx: DetectContext): Promise<AnomalyRecord | 
   };
 }
 
+// ── Save anomaly to DB ──
+async function saveAnomaly(anomaly: AnomalyRecord): Promise<void> {
+  await db.$executeRaw(
+    sql`INSERT INTO "AnomalyRecord" ("id", "type", "severity", "riskScore", "guestName", "guestPhone", "guestIdNumber", "providerId", "providerName", "description", "metadata", "isReviewed", "createdAt")
+     VALUES (${anomaly.id}, ${anomaly.type}, ${anomaly.severity}, ${anomaly.riskScore}, ${anomaly.guestName}, ${anomaly.guestPhone}, ${anomaly.guestIdNumber}, ${anomaly.providerId}, ${anomaly.providerName}, ${anomaly.description}, ${anomaly.metadata}, false, ${anomaly.createdAt}::timestamptz)`
+  );
+}
+
 // ── Main Detection Orchestrator ──
 
-/**
- * Run all anomaly detectors for a given context.
- * Fire-and-forget: never throws, never blocks the caller.
- */
 export async function runAnomalyDetection(ctx: DetectContext): Promise<void> {
   try {
-    // ── TOGGLE CHECK: skip entirely when disabled (zero overhead) ──
-    // Manual scans (trigger: "MANUAL") bypass the toggle — they are explicit user action.
     if (ctx.trigger !== "MANUAL") {
       const enabled = await isAnomalyDetectionEnabled();
       if (!enabled) return;
     }
 
-    await ensureAnomalyTable();
-
-    // Resolve provider name if missing
     if (!ctx.providerName && ctx.providerId) {
       ctx.providerName = await getProviderName(ctx.providerId);
     }
 
-    // Run all detectors in parallel
     const results = await Promise.all([
       detectIdentityMismatch(ctx),
       detectRapidMultiProvider(ctx),
@@ -538,22 +465,12 @@ export async function runAnomalyDetection(ctx: DetectContext): Promise<void> {
       detectFakeIdPattern(ctx),
     ]);
 
-    // Filter out nulls (no anomaly found) and save
     const anomalies = results.filter((r): r is AnomalyRecord => r !== null);
-
     if (anomalies.length === 0) return;
 
-    // Save all anomalies
     for (const anomaly of anomalies) {
       try {
-        await db.$executeRawUnsafe(
-          `INSERT INTO "AnomalyRecord" ("id", "type", "severity", "riskScore", "guestName", "guestPhone", "guestIdNumber", "providerId", "providerName", "description", "metadata", "isReviewed", "createdAt")
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
-          anomaly.id, anomaly.type, anomaly.severity, anomaly.riskScore,
-          anomaly.guestName, anomaly.guestPhone, anomaly.guestIdNumber,
-          anomaly.providerId, anomaly.providerName, anomaly.description,
-          anomaly.metadata, anomaly.createdAt
-        );
+        await saveAnomaly(anomaly);
       } catch (e) {
         console.error("[anomaly] Failed to save:", e);
       }
@@ -561,7 +478,6 @@ export async function runAnomalyDetection(ctx: DetectContext): Promise<void> {
 
     console.log(`[anomaly] ${anomalies.length} anomaly(ies) detected for ${ctx.guestPhone || ctx.guestName || "unknown"} [${ctx.trigger}]`);
 
-    // Auto-create notifications for HIGH/CRITICAL anomalies
     const critical = anomalies.filter(a => a.severity === "HIGH" || a.severity === "CRITICAL");
     for (const a of critical) {
       try {
@@ -578,32 +494,24 @@ export async function runAnomalyDetection(ctx: DetectContext): Promise<void> {
       }
     }
   } catch (error) {
-    // NEVER throw — anomaly detection is background-only
     console.error("[anomaly] Detection run failed:", error);
   }
 }
 
-/**
- * Run system-wide anomaly scan (triggered manually by police).
- * Checks ALL guests across ALL providers.
- */
 export async function runSystemWideScan(): Promise<{ scanned: number; anomalies: number }> {
-  await ensureAnomalyTable();
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 86400_000);
 
-  // Get all unique phone numbers with recent activity (last 90 days)
-  const guests = await db.$queryRawUnsafe<{
+  const guests = await db.$queryRaw<{
     id: string; name: string; phone: string; idNumber: string; providerId: string;
   }[]>(
-    `SELECT g."id", g."name", g."phone", g."idNumber", g."providerId"
+    sql`SELECT g."id", g."name", g."phone", g."idNumber", g."providerId"
      FROM "Guest" g
-     WHERE g."createdAt" >= datetime('now', '-90 days')
+     WHERE g."createdAt" >= ${ninetyDaysAgo}::timestamptz
        AND (g."phone" IS NOT NULL AND g."phone" != '')
      ORDER BY g."createdAt" DESC
      LIMIT 2000`
   );
 
-  let anomalyCount = 0;
-  // Process in batches to avoid overwhelming the connection
   const BATCH = 20;
   for (let i = 0; i < guests.length; i += BATCH) {
     const batch = guests.slice(i, i + BATCH);
@@ -619,37 +527,40 @@ export async function runSystemWideScan(): Promise<{ scanned: number; anomalies:
         }).then(() => {})
       )
     );
-    anomalyCount += batch.length; // Approximate
   }
 
-  // Get actual new anomaly count
-  const recentAnomalies = await db.$queryRawUnsafe<{ c: number }[]>(
-    `SELECT COUNT(*) as c FROM "AnomalyRecord" WHERE "createdAt" >= datetime('now', '-5 minutes')`
+  const fiveMinAgo = new Date(Date.now() - 5 * 60_000);
+  const recentAnomalies = await db.$queryRaw<{ c: bigint }[]>(
+    sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord" WHERE "createdAt" >= ${fiveMinAgo}::timestamptz`
   );
 
   return { scanned: guests.length, anomalies: Number(recentAnomalies[0]?.c || 0) };
 }
 
-/**
- * Get anomaly statistics for a provider or system-wide.
- */
 export async function getAnomalyStats(providerId?: string) {
-  await ensureAnomalyTable();
-
-  const where = providerId ? `WHERE "providerId" = '${providerId}'` : "";
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400_000).toISOString();
 
+  const baseWhere = providerId
+    ? sql`WHERE "providerId" = ${providerId}`
+    : sql``;
+
   const [total, unreviewed, bySeverity, byType, recent] = await Promise.all([
-    db.$queryRawUnsafe<{ c: number }[]>(`SELECT COUNT(*) as c FROM "AnomalyRecord" ${where}`),
-    db.$queryRawUnsafe<{ c: number }[]>(`SELECT COUNT(*) as c FROM "AnomalyRecord" ${where ? where + " AND" : "WHERE"} "isReviewed" = 0`),
-    db.$queryRawUnsafe<{ severity: string; count: number }[]>(
-      `SELECT "severity", COUNT(*) as count FROM "AnomalyRecord" ${where} GROUP BY "severity"`
+    db.$queryRaw<{ c: bigint }[]>(
+      sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord" ${baseWhere}`
     ),
-    db.$queryRawUnsafe<{ type: string; count: number }[]>(
-      `SELECT "type", COUNT(*) as count FROM "AnomalyRecord" ${where} GROUP BY "type" ORDER BY count DESC`
+    db.$queryRaw<{ c: bigint }[]>(
+      providerId
+        ? sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord" WHERE "providerId" = ${providerId} AND "isReviewed" = false`
+        : sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord" WHERE "isReviewed" = false`
     ),
-    db.$queryRawUnsafe<{ c: number }[]>(
-      `SELECT COUNT(*) as c FROM "AnomalyRecord" WHERE "createdAt" >= ?`, thirtyDaysAgo
+    db.$queryRaw<{ severity: string; count: bigint }[]>(
+      sql`SELECT "severity", COUNT(*)::bigint as count FROM "AnomalyRecord" ${baseWhere} GROUP BY "severity"`
+    ),
+    db.$queryRaw<{ type: string; count: bigint }[]>(
+      sql`SELECT "type", COUNT(*)::bigint as count FROM "AnomalyRecord" ${baseWhere} GROUP BY "type" ORDER BY count DESC`
+    ),
+    db.$queryRaw<{ c: bigint }[]>(
+      sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord" WHERE "createdAt" >= ${thirtyDaysAgo}::timestamptz`
     ),
   ]);
 

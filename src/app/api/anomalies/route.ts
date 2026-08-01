@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, ensureAnomalyToggleColumn, getDbReady } from "@/lib/db";
+import { db } from "@/lib/db";
 import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
 import { requirePoliceMinRank } from "@/lib/police-permissions";
 import { logAudit } from "@/lib/audit";
 import { runSystemWideScan, getAnomalyStats, isAnomalyDetectionEnabled, invalidateAnomalyToggleCache } from "@/lib/anomaly-engine";
+import { sql } from "@prisma/client/runtime/library";
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,37 +18,22 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
     const pageSize = Math.min(100, Math.max(10, parseInt(searchParams.get("pageSize") || "50", 10)));
 
-    // Build WHERE clauses for raw SQL
-    const conditions: string[] = [];
-    const params: unknown[] = [];
-
-    if (type) { conditions.push(`"type" = ?`); params.push(type); }
-    if (severity) { conditions.push(`"severity" = ?`); params.push(severity); }
-    if (reviewed !== null) { conditions.push(`"isReviewed" = ?`); params.push(reviewed === "true" ? 1 : 0); }
-
-    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
     const offset = (page - 1) * pageSize;
 
-    // Ensure table exists
-    await db.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "AnomalyRecord" (
-        "id" TEXT NOT NULL PRIMARY KEY, "type" TEXT NOT NULL, "severity" TEXT NOT NULL DEFAULT 'MEDIUM',
-        "riskScore" INTEGER NOT NULL DEFAULT 0, "guestName" TEXT NOT NULL DEFAULT '',
-        "guestPhone" TEXT NOT NULL DEFAULT '', "guestIdNumber" TEXT NOT NULL DEFAULT '',
-        "providerId" TEXT NOT NULL DEFAULT '', "providerName" TEXT NOT NULL DEFAULT '',
-        "description" TEXT NOT NULL DEFAULT '', "metadata" TEXT NOT NULL DEFAULT '{}',
-        "isReviewed" BOOLEAN NOT NULL DEFAULT 0, "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Fetch paginated anomalies + total count + stats + enabled status in parallel
     const [anomalies, countResult, stats, enabled] = await Promise.all([
-      db.$queryRawUnsafe<Record<string, unknown>[]>(
-        `SELECT * FROM "AnomalyRecord" ${where} ORDER BY "riskScore" DESC, "createdAt" DESC LIMIT ? OFFSET ?`,
-        ...params, pageSize, offset
+      db.$queryRaw<Record<string, unknown>[]>(
+        sql`SELECT * FROM "AnomalyRecord"
+          WHERE (${type} = '' OR "type" = ${type})
+            AND (${severity} = '' OR "severity" = ${severity})
+            AND (${reviewed === null}::boolean OR "isReviewed" = ${reviewed === "true"}::boolean)
+          ORDER BY "riskScore" DESC, "createdAt" DESC
+          LIMIT ${pageSize} OFFSET ${offset}`
       ),
-      db.$queryRawUnsafe<{ c: number }[]>(
-        `SELECT COUNT(*) as c FROM "AnomalyRecord" ${where}`, ...params
+      db.$queryRaw<{ c: bigint }[]>(
+        sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord"
+          WHERE (${type} = '' OR "type" = ${type})
+            AND (${severity} = '' OR "severity" = ${severity})
+            AND (${reviewed === null}::boolean OR "isReviewed" = ${reviewed === "true"}::boolean)`
       ),
       getAnomalyStats(),
       isAnomalyDetectionEnabled(),
@@ -71,13 +57,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/**
- * POST /api/anomalies
- * Actions:
- *  - { action: "scan" }           — run system-wide scan (DETECTIVE+ only)
- *  - { action: "review", ids }     — mark anomalies as reviewed
- *  - { action: "toggle", enabled } — turn anomaly detection ON/OFF (ADMIN only)
- */
 export async function POST(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);
@@ -87,16 +66,10 @@ export async function POST(req: NextRequest) {
     const { action } = body;
 
     if (action === "toggle") {
-      // Only ADMIN can toggle anomaly detection
       requirePoliceMinRank(auth, "ADMIN");
 
       const enabled: boolean = body.enabled ?? false;
 
-      // Ensure column exists on existing DBs
-      const client = await getDbReady();
-      await ensureAnomalyToggleColumn(client);
-
-      // Update the singleton config
       let config = await db.policeAlertConfig.findFirst();
       if (!config) {
         config = await db.policeAlertConfig.create({ data: { anomalyDetectionEnabled: enabled } });
@@ -107,7 +80,6 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Invalidate in-memory cache so next call picks up new value
       invalidateAnomalyToggleCache();
 
       logAudit(req, { action: "ANOMALY_TOGGLE", details: `Anomaly detection ${enabled ? "ENABLED" : "DISABLED"}` });
@@ -115,28 +87,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "review") {
-      // Mark anomalies as reviewed
       const ids: string[] = body.ids || [];
       if (ids.length === 0) {
         return NextResponse.json({ error: "ids array is required" }, { status: 400 });
       }
 
-      await db.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS "AnomalyRecord" (
-          "id" TEXT NOT NULL PRIMARY KEY, "type" TEXT NOT NULL, "severity" TEXT NOT NULL DEFAULT 'MEDIUM',
-          "riskScore" INTEGER NOT NULL DEFAULT 0, "guestName" TEXT NOT NULL DEFAULT '',
-          "guestPhone" TEXT NOT NULL DEFAULT '', "guestIdNumber" TEXT NOT NULL DEFAULT '',
-          "providerId" TEXT NOT NULL DEFAULT '', "providerName" TEXT NOT NULL DEFAULT '',
-          "description" TEXT NOT NULL DEFAULT '', "metadata" TEXT NOT NULL DEFAULT '{}',
-          "isReviewed" BOOLEAN NOT NULL DEFAULT 0, "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-
-      const placeholders = ids.map(() => "?").join(",");
-      await db.$executeRawUnsafe(
-        `UPDATE "AnomalyRecord" SET "isReviewed" = 1 WHERE "id" IN (${placeholders})`,
-        ...ids
-      );
+      if (ids.length > 0) {
+        const idList = sql.join(ids.map(id => sql`${id}`), sql`, `);
+        await db.$executeRaw(
+          sql`UPDATE "AnomalyRecord" SET "isReviewed" = true WHERE "id" IN (${idList})`
+        );
+      }
 
       logAudit(req, { action: "ANOMALY_REVIEW", details: `Reviewed ${ids.length} anomalies` });
       return NextResponse.json({ reviewed: ids.length });
