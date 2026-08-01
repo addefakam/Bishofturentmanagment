@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 import { SignJWT, jwtVerify } from "jose";
+import bcrypt from "bcryptjs";
 
 // ── Password hashing ──
 const SALT_ROUNDS = 12;
