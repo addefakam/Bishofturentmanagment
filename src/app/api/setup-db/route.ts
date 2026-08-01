@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { execSync } from "child_process";
 import path from "path";
+import bcrypt from "bcryptjs";
+import { PrismaClient } from "@prisma/client";
 
 export const maxDuration = 60; // Allow up to 60s for schema push
 
@@ -30,7 +32,6 @@ export async function POST(req: NextRequest) {
     const projectRoot = path.resolve(process.cwd(), "..");
     console.log("[setup-db] Running prisma db push...");
     console.log("[setup-db] CWD:", process.cwd());
-    console.log("[setup-db] DATABASE_URL prefix:", process.env.DATABASE_URL.substring(0, 30) + "...");
 
     const output = execSync(
       `npx prisma db push --accept-data-loss 2>&1`,
@@ -42,7 +43,6 @@ export async function POST(req: NextRequest) {
         stdio: ["pipe", "pipe", "pipe"],
       }
     );
-
     console.log("[setup-db] prisma db push output:", output);
 
     // Generate Prisma client
@@ -56,21 +56,59 @@ export async function POST(req: NextRequest) {
     });
     console.log("[setup-db] prisma generate output:", genOutput);
 
+    // ── Create default SUPERUSER if none exists ──
+    const prisma = new PrismaClient();
+    const superUsername = "admin";
+    const superPassword = "Admin@2024";
+
+    const existing = await prisma.user.findUnique({
+      where: { username: superUsername },
+    });
+
+    let credentials: { username: string; password: string } | null = null;
+
+    if (!existing) {
+      const hashedPassword = await bcrypt.hash(superPassword, 12);
+      await prisma.user.create({
+        data: {
+          username: superUsername,
+          password: hashedPassword,
+          name: "System Administrator",
+          role: "SUPERUSER",
+          permissions: "[]",
+          policeRank: "",
+        },
+      });
+      credentials = { username: superUsername, password: superPassword };
+      console.log("[setup-db] Default SUPERUSER created.");
+    } else {
+      console.log("[setup-db] SUPERUSER already exists, skipping creation.");
+    }
+
+    // Ensure default PoliceAlertConfig exists
+    await prisma.policeAlertConfig.upsert({
+      where: { id: "default-alert-config" },
+      update: {},
+      create: { id: "default-alert-config" },
+    });
+
+    await prisma.$disconnect();
+
     return NextResponse.json({
       success: true,
-      message: "Database schema pushed and Prisma client generated successfully.",
-      pushOutput: output,
-      generateOutput: genOutput,
+      message: credentials
+        ? "Database ready + SUPERUSER created."
+        : "Database ready. SUPERUSER already exists.",
+      superuser: credentials, // { username, password } — only returned on first run
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("[setup-db] Error:", message);
-    // execSync includes stdout in the error message
     return NextResponse.json(
       {
         success: false,
         error: message,
-        hint: "Make sure DATABASE_URL is set correctly in Vercel environment variables.",
+        hint: "Make sure DATABASE_URL and JWT_SECRET are set in Vercel environment variables.",
       },
       { status: 500 }
     );
