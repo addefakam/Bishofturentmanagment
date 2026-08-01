@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
-  serverExternalPackages: ["@prisma/client", "@prisma/adapter-libsql"],
+  serverExternalPackages: ["@prisma/client", "@prisma/adapter-libsql", "pg", "bcryptjs"],
   turbopack: {
     root: __dirname,
   },

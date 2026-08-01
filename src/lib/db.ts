@@ -1,10 +1,8 @@
 import { PrismaClient } from "@prisma/client";
 
-type PrismaClientInstance = PrismaClient & { $disconnect: () => Promise<void> };
+let _db: PrismaClient | null = null;
 
-let _db: PrismaClientInstance | null = null;
-
-function createPrismaClient(): PrismaClientInstance {
+function createPrismaClient(): PrismaClient {
   if (!process.env.DATABASE_URL) {
     throw new Error(
       "[db] DATABASE_URL is not set. " +
@@ -17,10 +15,14 @@ function createPrismaClient(): PrismaClientInstance {
       process.env.NODE_ENV === "production"
         ? ["warn", "error"]
         : ["warn", "error"],
-  }) as PrismaClientInstance;
+  });
 }
 
-function getDb(): PrismaClientInstance {
+/**
+ * Singleton PrismaClient instance.
+ * Call `ensureDatabase()` BEFORE using this in any API route.
+ */
+export function getDb(): PrismaClient {
   if (!_db) {
     _db = createPrismaClient();
   }
@@ -28,16 +30,14 @@ function getDb(): PrismaClientInstance {
 }
 
 /**
- * Lazy Proxy for the Prisma client.
+ * Convenience re-export — but remember to call ensureDatabase() first!
  */
-export const db = new Proxy({} as PrismaClientInstance, {
-  get(_target, prop, receiver) {
+export const db = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
     const client = getDb();
-    const value = Reflect.get(client, prop, receiver);
+    const value = (client as Record<string, unknown>)[prop as string];
     if (typeof value === "function") {
-      return (...args: unknown[]) => {
-        return (value as (...a: unknown[]) => Promise<unknown>).apply(client, args);
-      };
+      return value.bind(client);
     }
     return value;
   },

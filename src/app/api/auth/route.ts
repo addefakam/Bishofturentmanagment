@@ -114,7 +114,8 @@ export async function POST(req: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error("Login error:", error);
+    console.error("[auth] Login error:", error);
+    console.error("[auth] Error stack:", error instanceof Error ? error.stack : 'no stack');
     const message = error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json(
       { error: message },
