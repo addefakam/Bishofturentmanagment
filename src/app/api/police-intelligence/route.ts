@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { sql } from "@prisma/client/runtime/library";
 import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
 import { logAudit } from "@/lib/audit";
 
@@ -87,21 +88,18 @@ export async function GET(req: NextRequest) {
     // instead of loading all records into memory.
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    const sixMonthsAgoStr = sixMonthsAgo.toISOString();
 
-    const reservationCounts = await db.$queryRawUnsafe<{month: string; count: bigint}[]>(
-      `SELECT strftime('%Y-%m', "createdAt") as month, COUNT(*) as count
+    const reservationCounts = await db.$queryRaw<{month: string; count: bigint}[]>(
+      sql`SELECT TO_CHAR("createdAt", 'YYYY-MM') as month, COUNT(*) as count
        FROM "Reservation"
-       WHERE "createdAt" >= ?
-       GROUP BY strftime('%Y-%m', "createdAt")`,
-      sixMonthsAgoStr
+       WHERE "createdAt" >= ${sixMonthsAgo.toISOString()}
+       GROUP BY TO_CHAR("createdAt", 'YYYY-MM')`
     );
-    const suspectMatchCounts = await db.$queryRawUnsafe<{month: string; count: bigint}[]>(
-      `SELECT strftime('%Y-%m', "createdAt") as month, COUNT(*) as count
+    const suspectMatchCounts = await db.$queryRaw<{month: string; count: bigint}[]>(
+      sql`SELECT TO_CHAR("createdAt", 'YYYY-MM') as month, COUNT(*) as count
        FROM "SuspectMatch"
-       WHERE "createdAt" >= ?
-       GROUP BY strftime('%Y-%m', "createdAt")`,
-      sixMonthsAgoStr
+       WHERE "createdAt" >= ${sixMonthsAgo.toISOString()}
+       GROUP BY TO_CHAR("createdAt", 'YYYY-MM')`
     );
 
     // Build last 6 months data

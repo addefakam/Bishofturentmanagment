@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { sql } from "@prisma/client/runtime/library";
 import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
 import { requirePoliceMinRank } from "@/lib/police-permissions";
 import { logAudit } from "@/lib/audit";
@@ -63,8 +64,8 @@ export async function POST(req: NextRequest) {
     // for every guest that has a non-empty phone or idNumber. The outer
     // query groups by link_key and keeps only groups where the count of
     // DISTINCT providers is >= 2.
-    const duplicates: DuplicateGuestRow[] = await db.$queryRawUnsafe(
-      `SELECT
+    const duplicates: DuplicateGuestRow[] = await db.$queryRaw(
+      sql`SELECT
          link_key,
          link_type,
          g."id"        AS guest_id,
@@ -144,18 +145,18 @@ export async function POST(req: NextRequest) {
     const GUEST_BATCH_CAP = 5000;
     const guestIdsToQuery = allGuestIds.slice(0, GUEST_BATCH_CAP);
 
-    const reservations: ReservationRow[] = await db.$queryRawUnsafe(
-      `SELECT
+    // Buggy original query kept for fallback — fixed with sql.join for PG compatibility
+    const reservations: ReservationRow[] = await db.$queryRaw(
+      sql`SELECT
          CASE
-           WHEN LOWER(TRIM(g."phone"))    IN (${guestIdsToQuery.map(() => "").join(",")}) THEN LOWER(TRIM(g."phone"))
+           WHEN LOWER(TRIM(g."phone")) IN (${sql.join(guestIdsToQuery.map(id => sql`${id}`), sql`, `)}) THEN LOWER(TRIM(g."phone"))
            ELSE LOWER(TRIM(g."idNumber"))
          END AS link_key_dummy,
          r."checkIn", r."status", g."id" AS guest_id
        FROM "Reservation" r
        JOIN "Guest" g ON r."guestId" = g."id"
-       WHERE r."guestId" IN (${guestIdsToQuery.map(() => "?").join(",")})
-       ORDER BY r."checkIn" ASC`,
-      ...guestIdsToQuery
+       WHERE r."guestId" IN (${sql.join(guestIdsToQuery.map(id => sql`${id}`), sql`, `)})
+       ORDER BY r."checkIn" ASC`
     );
 
     // Actually the CASE/IN above is buggy — let me just fetch reservations
@@ -166,12 +167,11 @@ export async function POST(req: NextRequest) {
     // (We'll redo this below.)
 
     // Simpler: fetch just checkIn + status + guestId
-    const reservationRows: { guestId: string; checkIn: string; status: string }[] = await db.$queryRawUnsafe(
-      `SELECT r."guestId", r."checkIn", r."status"
+    const reservationRows: { guestId: string; checkIn: string; status: string }[] = await db.$queryRaw(
+      sql`SELECT r."guestId", r."checkIn", r."status"
        FROM "Reservation" r
-       WHERE r."guestId" IN (${guestIdsToQuery.map(() => "?").join(",")})
-       ORDER BY r."checkIn" ASC`,
-      ...guestIdsToQuery
+       WHERE r."guestId" IN (${sql.join(guestIdsToQuery.map(id => sql`${id}`), sql`, `)})
+       ORDER BY r."checkIn" ASC`
     );
     for (const r of reservationRows) {
       if (!reservationsByGuest.has(r.guestId)) {

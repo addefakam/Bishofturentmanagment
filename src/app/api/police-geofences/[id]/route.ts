@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sql } from "@prisma/client/runtime/library";
 import { db } from "@/lib/db";
 import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
 import { requirePoliceMinRank } from "@/lib/police-permissions";
@@ -16,26 +17,23 @@ export async function PUT(
     const { name, latitude, longitude, radius, severity, description, isActive } = body;
 
     const updates: string[] = [];
-    const values: unknown[] = [];
 
-    if (name !== undefined) { updates.push(`"name" = ?`); values.push(name); }
-    if (latitude !== undefined) { updates.push(`"latitude" = ?`); values.push(latitude); }
-    if (longitude !== undefined) { updates.push(`"longitude" = ?`); values.push(longitude); }
-    if (radius !== undefined) { updates.push(`"radius" = ?`); values.push(radius); }
-    if (severity !== undefined) { updates.push(`"severity" = ?`); values.push(severity); }
-    if (description !== undefined) { updates.push(`"description" = ?`); values.push(description); }
-    if (isActive !== undefined) { updates.push(`"isActive" = ?`); values.push(isActive ? 1 : 0); }
+    if (name !== undefined) { updates.push(`"name" = ${name}`); }
+    if (latitude !== undefined) { updates.push(`"latitude" = ${latitude}`); }
+    if (longitude !== undefined) { updates.push(`"longitude" = ${longitude}`); }
+    if (radius !== undefined) { updates.push(`"radius" = ${radius}`); }
+    if (severity !== undefined) { updates.push(`"severity" = ${severity}`); }
+    if (description !== undefined) { updates.push(`"description" = ${description}`); }
+    if (isActive !== undefined) { updates.push(`"isActive" = ${isActive ? true : false}`); }
 
     if (updates.length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
     }
 
     updates.push(`"updatedAt" = CURRENT_TIMESTAMP`);
-    values.push(id);
 
-    await db.$executeRawUnsafe(
-      `UPDATE "Geofence" SET ${updates.join(", ")} WHERE "id" = ?`,
-      ...values
+    await db.$executeRaw(
+      sql`UPDATE "Geofence" SET ${sql.raw(updates.join(", "))} WHERE "id" = ${id}`
     );
 
     return NextResponse.json({ success: true });
@@ -59,7 +57,7 @@ export async function DELETE(
     requirePoliceMinRank(auth, "ADMIN");
     const { id } = await params;
 
-    await db.$executeRawUnsafe(`DELETE FROM "Geofence" WHERE "id" = ?`, id);
+    await db.$executeRaw(sql`DELETE FROM "Geofence" WHERE "id" = ${id}`);
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
         if (error instanceof AuthError) {

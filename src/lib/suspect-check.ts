@@ -1,11 +1,12 @@
 import { db } from "./db";
+import { sql } from "@prisma/client/runtime/library";
 import { dispatchAlertForMatch } from "./alert-dispatcher";
 
 let tablesEnsured = false;
 
 /**
  * Ensure the SuspectMatch and SuspectedPerson tables exist.
- * Runs once per cold start. Uses raw SQL for Turso compatibility.
+ * Runs once per cold start. Uses raw SQL for PostgreSQL compatibility.
  */
 async function ensureTables() {
   if (tablesEnsured) return;
@@ -15,7 +16,7 @@ async function ensureTables() {
   } catch {
     // Table doesn't exist — create them
     console.log("[suspect-check] Creating SuspectedPerson and SuspectMatch tables...");
-    await db.$executeRawUnsafe(`
+    await db.$executeRaw(sql`
       CREATE TABLE IF NOT EXISTS "SuspectedPerson" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "name" TEXT NOT NULL,
@@ -26,13 +27,13 @@ async function ensureTables() {
         "address" TEXT NOT NULL DEFAULT '',
         "description" TEXT NOT NULL DEFAULT '',
         "severity" TEXT NOT NULL DEFAULT 'MEDIUM',
-        "is_active" BOOLEAN NOT NULL DEFAULT 1,
+        "is_active" BOOLEAN NOT NULL DEFAULT true,
         "registeredBy" TEXT NOT NULL DEFAULT '',
-        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" DATETIME NOT NULL
+        "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP NOT NULL
       );
     `);
-    await db.$executeRawUnsafe(`
+    await db.$executeRaw(sql`
       CREATE TABLE IF NOT EXISTS "SuspectMatch" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "suspectedPersonId" TEXT NOT NULL,
@@ -45,15 +46,15 @@ async function ensureTables() {
         "reservationId" TEXT,
         "daytimeBookingId" TEXT,
         "details" TEXT NOT NULL DEFAULT '',
-        "isRead" BOOLEAN NOT NULL DEFAULT 0,
-        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "isRead" BOOLEAN NOT NULL DEFAULT false,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY ("suspectedPersonId") REFERENCES "SuspectedPerson"("id") ON DELETE CASCADE ON UPDATE CASCADE
       );
     `);
-    await db.$executeRawUnsafe(`
+    await db.$executeRaw(sql`
       CREATE INDEX IF NOT EXISTS "SuspectMatch_suspectedPersonId_idx" ON "SuspectMatch"("suspectedPersonId");
     `);
-    await db.$executeRawUnsafe(`
+    await db.$executeRaw(sql`
       CREATE INDEX IF NOT EXISTS "SuspectMatch_isRead_idx" ON "SuspectMatch"("isRead");
     `);
     tablesEnsured = true;

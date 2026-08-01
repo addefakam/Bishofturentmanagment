@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { sql } from "@prisma/client/runtime/library";
 import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
 import { logAudit } from "@/lib/audit";
 
@@ -176,13 +177,12 @@ export async function GET(req: NextRequest) {
           let skip = 0;
           const take = 500;
           while (true) {
-            const rows = await db.$queryRawUnsafe<{name: string; severity: string; guestName: string; guestPhone: string; providerName: string; matchType: string; createdAt: Date}[]>(
-              `SELECT sp."name", sp."severity", sm."guestName", sm."guestPhone", sm."providerName", sm."matchType", sm."createdAt"
+            const rows = await db.$queryRaw<{name: string; severity: string; guestName: string; guestPhone: string; providerName: string; matchType: string; createdAt: Date}[]>(
+              sql`SELECT sp."name", sp."severity", sm."guestName", sm."guestPhone", sm."providerName", sm."matchType", sm."createdAt"
                FROM "SuspectMatch" sm
                LEFT JOIN "SuspectedPerson" sp ON sm."suspectedPersonId" = sp."id"
                ORDER BY sm."createdAt" DESC
-               LIMIT ? OFFSET ?`,
-              take, skip
+               LIMIT ${take} OFFSET ${skip}`
             );
             if (rows.length === 0) break;
             for (const r of rows) {
@@ -224,8 +224,8 @@ export async function GET(req: NextRequest) {
     // JSON streaming
     const filename = `police-export-${entity}-${stamp}.json`;
     const generator = (async function* (): AsyncGenerator<string> {
-      yield "{\"_metadata\":{\"exportedAt\":\"" + new Date().toISOString() + "\",\"exportedBy\":\"" + auth.role + "\",\"entity\":\"" + entity + "\"},";
-      yield "\"data\":{";
+      yield `{"_metadata":{"exportedAt":"` + new Date().toISOString() + `","exportedBy":"` + auth.role + `","entity":"` + entity + `"},`;
+      yield `"data":{`;
 
       const sections: string[] = [];
       if (entity === "all" || entity === "guests") sections.push("guests");
@@ -284,13 +284,12 @@ export async function GET(req: NextRequest) {
           const take = 500;
           let first = true;
           while (skip < MAX_ROWS_PER_ENTITY) {
-            const rows = await db.$queryRawUnsafe<Record<string, unknown>[]>(
-              `SELECT sm.*, sp."name" as "suspectName", sp."severity" as "suspectSeverity"
+            const rows = await db.$queryRaw<Record<string, unknown>[]>(
+              sql`SELECT sm.*, sp."name" as "suspectName", sp."severity" as "suspectSeverity"
                FROM "SuspectMatch" sm
                LEFT JOIN "SuspectedPerson" sp ON sm."suspectedPersonId" = sp."id"
                ORDER BY sm."createdAt" DESC
-               LIMIT ? OFFSET ?`,
-              take, skip
+               LIMIT ${take} OFFSET ${skip}`
             );
             if (rows.length === 0) break;
             for (const r of rows) {
