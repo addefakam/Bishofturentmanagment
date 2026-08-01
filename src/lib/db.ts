@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 type PrismaClientInstance = PrismaClient & { $disconnect: () => Promise<void> };
 
 let _db: PrismaClientInstance | null = null;
-let _initialized = false;
+let _initPromise: Promise<void> | null = null;
 
 // ── Full PostgreSQL DDL ──
 const SCHEMA_SQL = `
@@ -293,8 +293,7 @@ CREATE TABLE IF NOT EXISTS "PoliceAlertConfig" (
 );
 `;
 
-// Foreign keys & indexes (safe to re-run)
-const FK_SQL = `
+const POST_INIT_SQL = `
 DO $$ BEGIN ALTER TABLE "User" ADD CONSTRAINT "User_providerId_fkey" FOREIGN KEY ("providerId") REFERENCES "Provider"("id"); EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN ALTER TABLE "Room" ADD CONSTRAINT "Room_providerId_fkey" FOREIGN KEY ("providerId") REFERENCES "Provider"("id"); EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN ALTER TABLE "Guest" ADD CONSTRAINT "Guest_providerId_fkey" FOREIGN KEY ("providerId") REFERENCES "Provider"("id"); EXCEPTION WHEN duplicate_object THEN null; END $$;
@@ -318,9 +317,6 @@ DO $$ BEGIN ALTER TABLE "Settings" ADD CONSTRAINT "Settings_providerId_fkey" FOR
 DO $$ BEGIN ALTER TABLE "SuspectMatch" ADD CONSTRAINT "SuspectMatch_suspectedPersonId_fkey" FOREIGN KEY ("suspectedPersonId") REFERENCES "SuspectedPerson"("id"); EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN ALTER TABLE "Subscription" ADD CONSTRAINT "Subscription_providerId_fkey" FOREIGN KEY ("providerId") REFERENCES "Provider"("id"); EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN ALTER TABLE "SubscriptionPayment" ADD CONSTRAINT "SubscriptionPayment_subscriptionId_fkey" FOREIGN KEY ("subscriptionId") REFERENCES "Subscription"("id") ON DELETE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
-`;
-
-const INDEX_SQL = `
 CREATE INDEX IF NOT EXISTS "Provider_status_idx" ON "Provider"("status");
 CREATE INDEX IF NOT EXISTS "Provider_createdAt_idx" ON "Provider"("createdAt");
 CREATE INDEX IF NOT EXISTS "User_providerId_idx" ON "User"("providerId");
@@ -394,53 +390,52 @@ CREATE INDEX IF NOT EXISTS "SubscriptionPayment_subscriptionId_idx" ON "Subscrip
 CREATE INDEX IF NOT EXISTS "SubscriptionPayment_createdAt_idx" ON "SubscriptionPayment"("createdAt");
 `;
 
-async function autoInitDatabase(client: PrismaClientInstance) {
-  if (_initialized) return;
-  _initialized = true;
+async function ensureDatabase(client: PrismaClientInstance): Promise<void> {
+  // 1. Check if User table exists
+  const rows: Array<{ exists: boolean }> = await client.$queryRawUnsafe(
+    `SELECT EXISTS (
+      SELECT FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'User'
+    ) as exists`
+  );
 
-  try {
-    // Quick check: does the User table exist?
-    await client.$queryRawUnsafe(
-      `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='User' LIMIT 1`
-    );
-    console.log("[db] Tables already exist, skipping auto-init.");
-  } catch {
-    console.log("[db] Tables not found. Running auto-init...");
+  if (rows[0]?.exists) {
+    return; // Tables already exist
   }
 
-  try {
-    await client.$executeRawUnsafe(SCHEMA_SQL);
-    await client.$executeRawUnsafe(FK_SQL);
-    await client.$executeRawUnsafe(INDEX_SQL);
-    console.log("[db] Auto-init complete: tables created.");
+  console.log("[db] User table missing. Creating all tables...");
 
-    // Seed default SUPERUSER
-    const existing = await client.user.findUnique({ where: { username: "admin" } });
-    if (!existing) {
-      const hashed = await bcrypt.hash("Admin@2024", 12);
-      await client.user.create({
-        data: {
-          username: "admin",
-          password: hashed,
-          name: "System Administrator",
-          role: "SUPERUSER",
-          permissions: "[]",
-          policeRank: "",
-        },
-      });
-      console.log("[db] Default SUPERUSER 'admin' created.");
-    }
+  // 2. Create enums + tables
+  await client.$executeRawUnsafe(SCHEMA_SQL);
 
-    // Seed default PoliceAlertConfig
-    await client.policeAlertConfig.upsert({
-      where: { id: "default-alert-config" },
-      update: {},
-      create: { id: "default-alert-config" },
+  // 3. Add foreign keys + indexes
+  await client.$executeRawUnsafe(POST_INIT_SQL);
+
+  console.log("[db] All tables created.");
+
+  // 4. Seed SUPERUSER
+  const existing = await client.user.findUnique({ where: { username: "admin" } });
+  if (!existing) {
+    const hashed = await bcrypt.hash("Admin@2024", 12);
+    await client.user.create({
+      data: {
+        username: "admin",
+        password: hashed,
+        name: "System Administrator",
+        role: "SUPERUSER",
+        permissions: "[]",
+        policeRank: "",
+      },
     });
-  } catch (err) {
-    console.error("[db] Auto-init error:", err);
-    // Don't throw — the original query will fail with its own error if tables truly don't exist
+    console.log("[db] SUPERUSER 'admin' created.");
   }
+
+  // 5. Seed PoliceAlertConfig
+  await client.policeAlertConfig.upsert({
+    where: { id: "default-alert-config" },
+    update: {},
+    create: { id: "default-alert-config" },
+  });
 }
 
 function createPrismaClient(): PrismaClientInstance {
@@ -451,17 +446,12 @@ function createPrismaClient(): PrismaClientInstance {
     );
   }
 
-  const client = new PrismaClient({
+  return new PrismaClient({
     log:
       process.env.NODE_ENV === "production"
         ? ["warn", "error"]
         : ["warn", "error"],
   }) as PrismaClientInstance;
-
-  // Auto-init tables on first connection
-  autoInitDatabase(client);
-
-  return client;
 }
 
 function getDb(): PrismaClientInstance {
@@ -471,9 +461,15 @@ function getDb(): PrismaClientInstance {
   return _db;
 }
 
+function getInitPromise(client: PrismaClientInstance): Promise<void> {
+  if (!_initPromise) {
+    _initPromise = ensureDatabase(client);
+  }
+  return _initPromise;
+}
+
 /**
- * Lazy Proxy for the Prisma client.
- * Auto-creates all tables on first use.
+ * Lazy Proxy — every Prisma call awaits auto-init first.
  */
 export const db = new Proxy({} as PrismaClientInstance, {
   get(_target, prop, receiver) {
@@ -481,12 +477,16 @@ export const db = new Proxy({} as PrismaClientInstance, {
     const value = Reflect.get(client, prop, receiver);
     if (typeof value === "function") {
       return (...args: unknown[]) => {
-        return (value as (...a: unknown[]) => Promise<unknown>).apply(
-          client,
-          args
+        // Block until tables are ready, then run the actual Prisma call
+        return getInitPromise(client).then(() =>
+          (value as (...a: unknown[]) => Promise<unknown>).apply(client, args)
         );
       };
     }
-    return value;
+    // For non-function properties, ensure init first
+    return (async () => {
+      await getInitPromise(client);
+      return value;
+    })();
   },
 });
