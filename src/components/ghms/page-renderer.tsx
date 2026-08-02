@@ -133,6 +133,9 @@ const SuperDataReportsPage = lazyPage(
 const SuperUserManagementPage = lazyPage(
   () => import("@/components/ghms/pages/super-user-management-page")
 );
+const SuperGuesthouseUsersPage = lazyPage(
+  () => import("@/components/ghms/pages/super-guesthouse-users-page")
+);
 const SuperProfilePage = lazyPage(
   () => import("@/components/ghms/pages/super-profile-page")
 );
@@ -173,6 +176,7 @@ const PAGE_MAP: Record<string, React.LazyExoticComponent<React.ComponentType>> =
     "super-audit-logs": SuperAuditLogsPage,
     "super-data-reports": SuperDataReportsPage,
     "super-user-management": SuperUserManagementPage,
+    "super-guesthouse-users": SuperGuesthouseUsersPage,
     "super-profile": SuperProfilePage,
   };
 
