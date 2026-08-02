@@ -42,6 +42,7 @@ import {
   Globe,
   Hotel,
   Wrench,
+  DoorOpen,
 } from "lucide-react";
 
 import { useAppStore, type CurrentUser } from "@/lib/store";
@@ -81,13 +82,11 @@ interface NavItem {
 // ── All available navigation items ──
 const ALL_NAV_ITEMS: NavItem[] = [
   { page: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { page: "rooms", label: "Rooms", icon: Bed },
-  { page: "daytime", label: "Daytime", icon: Sun },
+  { page: "accommodation", label: "Accommodation", icon: DoorOpen },
   { page: "operations", label: "Operations", icon: Wrench },
   { page: "users", label: "Account Management", icon: UserCog },
   { page: "reports", label: "Reports", icon: BarChart3 },
   { page: "settings", label: "Settings", icon: Settings },
-  { page: "notifications", label: "Notifications", icon: Bell, badge: "new" },
 ];
 
 const POLICE_NAV_ITEMS: NavItem[] = [
@@ -138,12 +137,6 @@ const POLICE_NAV_ITEMS: NavItem[] = [
     label: "Manage Officers",
     icon: UserCog,
   },
-  {
-    page: "notifications",
-    label: "Notifications",
-    icon: Bell,
-    badge: "new",
-  },
 ];
 
 // SUPERUSER (admin): admin dashboard, user management, guesthouses, subscriptions, system config, audit logs, data & reports, notifications
@@ -154,7 +147,6 @@ const SUPERUSER_NAV_ITEMS: NavItem[] = [
   { page: "super-system-config", label: "System Configuration", icon: Settings },
   { page: "super-audit-logs", label: "Audit Logs", icon: ClipboardList },
   { page: "super-data-reports", label: "Data & Reports", icon: BarChart3 },
-  { page: "notifications", label: "Notifications", icon: Bell, badge: "new" },
 ];
 
 const OPERATOR_EXCLUDED = new Set<string>(["owner-accounts"]);
@@ -163,8 +155,8 @@ const OPERATOR_EXCLUDED = new Set<string>(["owner-accounts"]);
 // Supports both legacy keys (rooms, daytime) and new keys (rooms_view, daytime_view)
 const PERMISSION_PAGE_MAP: Record<string, NavItem> = {
   // New keys with _view suffix
-  rooms_view: { page: "rooms", label: "Rooms", icon: Bed },
-  daytime_view: { page: "daytime", label: "Daytime", icon: Sun },
+  rooms_view: { page: "accommodation", label: "Accommodation", icon: DoorOpen },
+  daytime_view: { page: "accommodation", label: "Accommodation", icon: DoorOpen },
   housekeeping_view: {
     page: "operations",
     label: "Operations",
@@ -179,8 +171,8 @@ const PERMISSION_PAGE_MAP: Record<string, NavItem> = {
   },
   settings_view: { page: "settings", label: "Settings", icon: Settings },
   // Legacy keys without _view suffix (backward compat)
-  rooms: { page: "rooms", label: "Rooms", icon: Bed },
-  daytime: { page: "daytime", label: "Daytime", icon: Sun },
+  rooms: { page: "accommodation", label: "Accommodation", icon: DoorOpen },
+  daytime: { page: "accommodation", label: "Accommodation", icon: DoorOpen },
   housekeeping: {
     page: "operations",
     label: "Operations",
@@ -221,10 +213,12 @@ function getNavItems(user: CurrentUser): NavItem[] {
         label: "Dashboard",
         icon: LayoutDashboard,
       });
-      // Add items based on permissions
+      // Add items based on permissions (deduplicate by page key)
+      const seen = new Set<string>();
       for (const perm of user.permissions) {
         const mapped = PERMISSION_PAGE_MAP[perm];
-        if (mapped) {
+        if (mapped && !seen.has(mapped.page)) {
+          seen.add(mapped.page);
           items.push(mapped);
         }
       }
