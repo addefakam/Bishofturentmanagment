@@ -467,8 +467,6 @@ function SidebarContent({
                     <ChevronDown className="size-3.5 shrink-0 text-slate-400 group-hover:text-primary transition-colors" />
                   </button>
                 </DropdownMenuTrigger>
-                  </button>
-                </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-52">
                   {/* User info header */}
                   <div className="flex items-center gap-2.5 px-2 py-2.5">
