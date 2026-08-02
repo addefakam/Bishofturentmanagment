@@ -10,12 +10,30 @@ function createPrismaClient(): PrismaClient {
     );
   }
 
-  return new PrismaClient({
+  const client = new PrismaClient({
     log:
       process.env.NODE_ENV === "production"
         ? ["warn", "error"]
         : ["warn", "error"],
   });
+
+  // Global safeguard: policeRank is non-nullable in schema — never allow null
+  client.$use(async (params, next) => {
+    if (
+      (params.model === "User") &&
+      (params.action === "create" || params.action === "update" || params.action === "upsert") &&
+      params.args?.data &&
+      typeof params.args.data === "object"
+    ) {
+      const data = params.args.data as Record<string, unknown>;
+      if ("policeRank" in data && (data.policeRank === null || data.policeRank === undefined)) {
+        data.policeRank = "";
+      }
+    }
+    return next(params);
+  });
+
+  return client;
 }
 
 /**

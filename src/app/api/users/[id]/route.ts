@@ -47,7 +47,7 @@ export async function PUT(
         ? body.permissions
         : JSON.stringify(body.permissions);
     }
-    if (body.policeRank !== undefined) updateData.policeRank = body.policeRank;
+    if (body.policeRank !== undefined) updateData.policeRank = body.policeRank || "";
     if (body.providerId !== undefined) updateData.providerId = body.providerId;
 
     const user = await db.user.update({
