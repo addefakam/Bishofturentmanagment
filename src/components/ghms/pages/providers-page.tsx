@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { usePagination } from "@/hooks/use-pagination";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import { useAppStore } from "@/lib/store";
-import { apiGetProviders, apiUpdateProvider, apiGeocodeAddress, apiGeocodeBatch, apiPoliceSuspendProvider } from "@/lib/api";
+import { apiGetProviders, apiUpdateProvider, apiGeocodeAddress, apiGeocodeBatch, apiPoliceSuspendProvider, apiSuperCreateProvider } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +59,8 @@ import {
   Send,
   AlertTriangle,
   Loader2,
+  UserPlus,
+  KeyRound,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -110,6 +112,38 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+const GUESTHOUSE_TYPES = [
+  { value: "GUEST_HOUSE", label: "Guest House" },
+  { value: "HOTEL", label: "Hotel" },
+  { value: "HOSTEL", label: "Hostel" },
+  { value: "LODGE", label: "Lodge" },
+  { value: "RESORT", label: "Resort" },
+];
+
+interface RegisterForm {
+  name: string;
+  ownerName: string;
+  phone: string;
+  email: string;
+  address: string;
+  type: string;
+  licenseNo: string;
+  username: string;
+  password: string;
+}
+
+const emptyRegisterForm: RegisterForm = {
+  name: "",
+  ownerName: "",
+  phone: "",
+  email: "",
+  address: "",
+  type: "GUEST_HOUSE",
+  licenseNo: "",
+  username: "",
+  password: "",
+};
+
 export default function ProvidersPage() {
   const { refreshKey, triggerRefresh, currentUser } = useAppStore();
   const isSuperuser = currentUser?.role === "SUPERUSER";
@@ -117,6 +151,11 @@ export default function ProvidersPage() {
   const [loading, setLoading] = useState(true);
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+
+  // Registration form
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [registerForm, setRegisterForm] = useState<RegisterForm>(emptyRegisterForm);
+  const [registering, setRegistering] = useState(false);
 
   // Coordinate editing
   const [coordProvider, setCoordProvider] = useState<Provider | null>(null);
@@ -272,6 +311,35 @@ export default function ProvidersPage() {
     setProviderMessage("");
   };
 
+  const handleRegister = async () => {
+    if (!registerForm.name.trim() || !registerForm.ownerName.trim() || !registerForm.phone.trim()) {
+      toast.error("Guesthouse name, owner name, and phone are required");
+      return;
+    }
+    if (!registerForm.username.trim() || !registerForm.password.trim()) {
+      toast.error("Operator username and password are required");
+      return;
+    }
+    if (registerForm.password.trim().length < 4) {
+      toast.error("Password must be at least 4 characters");
+      return;
+    }
+    try {
+      setRegistering(true);
+      await apiSuperCreateProvider({
+        ...registerForm,
+      });
+      toast.success(`"${registerForm.name}" registered and approved successfully`);
+      setRegisterOpen(false);
+      setRegisterForm(emptyRegisterForm);
+      triggerRefresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to register guesthouse");
+    } finally {
+      setRegistering(false);
+    }
+  };
+
   const handleSuspend = async () => {
     if (!suspendDialog) return;
     if (!suspensionReason.trim()) {
@@ -370,11 +438,16 @@ export default function ProvidersPage() {
           </h2>
           <p className="text-xs sm:text-sm text-muted-foreground">
             {isSuperuser
-              ? "View registered guesthouses and suspend any that violate policy. Approval / rejection of pending registrations is handled by the Police module."
+              ? "Register new guesthouses and manage existing ones."
               : "Manage registrations, licensing, and map locations"}
           </p>
         </div>
         <div className="flex gap-2">
+          {isSuperuser && (
+            <Button size="sm" className="gap-1.5" onClick={() => setRegisterOpen(true)}>
+              <UserPlus className="h-3.5 w-3.5" /> Register Guesthouse
+            </Button>
+          )}
           {!isSuperuser && (
             <Button variant="outline" size="sm" onClick={() => setBatchOpen(true)} disabled={geocodingAll}>
               <Globe className={`mr-1 h-3.5 w-3.5 ${geocodingAll ? "animate-spin" : ""}`} />
@@ -438,12 +511,12 @@ export default function ProvidersPage() {
                         <MapPinned className="h-3.5 w-3.5" /> Set Location
                       </button>
                     )}
-                    {!isSuperuser && provider.status !== "APPROVED" && (
+                    {provider.status !== "APPROVED" && provider.status !== "SUSPENDED" && (
                       <button className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50" onClick={() => setConfirmAction({ provider, action: "APPROVED" })}>
                         <CheckCircle2 className="h-3.5 w-3.5" /> Approve
                       </button>
                     )}
-                    {!isSuperuser && provider.status !== "REJECTED" && (
+                    {provider.status !== "REJECTED" && provider.status !== "APPROVED" && (
                       <button className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50" onClick={() => openReject(provider)}>
                         <XCircle className="h-3.5 w-3.5" /> Reject
                       </button>
@@ -491,17 +564,12 @@ export default function ProvidersPage() {
                       <TableCell><StatusBadge status={provider.status} /></TableCell>
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
-                          {!isSuperuser && (
-                            <Button size="sm" variant="ghost" className="h-8 text-blue-600 hover:bg-blue-50" onClick={() => openCoordPicker(provider)}>
-                              <MapPinned className="mr-1 h-3.5 w-3.5" /> Location
-                            </Button>
-                          )}
-                          {!isSuperuser && provider.status !== "APPROVED" && (
+                          {provider.status !== "APPROVED" && provider.status !== "SUSPENDED" && (
                             <Button size="sm" variant="ghost" className="h-8 text-emerald-600 hover:bg-emerald-50" onClick={() => setConfirmAction({ provider, action: "APPROVED" })}>
                               <CheckCircle2 className="mr-1 h-4 w-4" /> Approve
                             </Button>
                           )}
-                          {!isSuperuser && provider.status !== "REJECTED" && (
+                          {provider.status !== "REJECTED" && provider.status !== "APPROVED" && (
                             <Button size="sm" variant="ghost" className="h-8 text-red-600 hover:bg-red-50" onClick={() => openReject(provider)}>
                               <XCircle className="mr-1 h-4 w-4" /> Reject
                             </Button>
@@ -833,6 +901,181 @@ export default function ProvidersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Register Guesthouse Dialog (SUPERUSER) */}
+      <Dialog open={registerOpen} onOpenChange={setRegisterOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto mx-4 sm:mx-0 w-[calc(100%-2rem)] sm:w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Building2 className="h-5 w-5" /> Register New Guesthouse
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
+              Add a new guesthouse. It will be automatically approved and an operator account will be created.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-2">
+            {/* Guesthouse Info Section */}
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Guesthouse Information</p>
+              <Separator />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid gap-1.5 sm:col-span-2">
+                <Label className="text-sm">Guesthouse Name <span className="text-rose-500">*</span></Label>
+                <Input
+                  value={registerForm.name}
+                  onChange={(e) => setRegisterForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="e.g. Sunshine Guest House"
+                  className="bg-slate-50"
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="text-sm">Owner Name <span className="text-rose-500">*</span></Label>
+                <Input
+                  value={registerForm.ownerName}
+                  onChange={(e) => setRegisterForm((f) => ({ ...f, ownerName: e.target.value }))}
+                  placeholder="Full name of the owner"
+                  className="bg-slate-50"
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="text-sm">Phone <span className="text-rose-500">*</span></Label>
+                <Input
+                  value={registerForm.phone}
+                  onChange={(e) => setRegisterForm((f) => ({ ...f, phone: e.target.value }))}
+                  placeholder="+251..."
+                  className="bg-slate-50"
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="text-sm">Email <span className="text-slate-400 font-normal">(optional)</span></Label>
+                <Input
+                  type="email"
+                  value={registerForm.email}
+                  onChange={(e) => setRegisterForm((f) => ({ ...f, email: e.target.value }))}
+                  placeholder="owner@email.com"
+                  className="bg-slate-50"
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="text-sm">Type</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {GUESTHOUSE_TYPES.map((t) => (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => setRegisterForm((f) => ({ ...f, type: t.value }))}
+                      className={`rounded-lg border-2 px-3 py-1.5 text-xs font-medium transition-all ${
+                        registerForm.type === t.value
+                          ? "border-primary bg-primary/5 text-primary"
+                          : "border-slate-200 text-slate-500 hover:border-slate-300"
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid gap-1.5 sm:col-span-2">
+                <Label className="text-sm">Address <span className="text-slate-400 font-normal">(optional)</span></Label>
+                <Input
+                  value={registerForm.address}
+                  onChange={(e) => setRegisterForm((f) => ({ ...f, address: e.target.value }))}
+                  placeholder="Street, city, sub-city"
+                  className="bg-slate-50"
+                />
+              </div>
+              <div className="grid gap-1.5 sm:col-span-2">
+                <Label className="text-sm">License No <span className="text-slate-400 font-normal">(optional)</span></Label>
+                <Input
+                  value={registerForm.licenseNo}
+                  onChange={(e) => setRegisterForm((f) => ({ ...f, licenseNo: e.target.value }))}
+                  placeholder="Business license number"
+                  className="bg-slate-50"
+                />
+              </div>
+            </div>
+
+            {/* Operator Account Section */}
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Operator Login Account</p>
+              <p className="text-[11px] text-slate-400">An operator account will be created with access to manage this guesthouse.</p>
+              <Separator />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label className="text-sm flex items-center gap-1.5">
+                  <User className="h-3.5 w-3.5 text-slate-400" />
+                  Username <span className="text-rose-500">*</span>
+                </Label>
+                <Input
+                  value={registerForm.username}
+                  onChange={(e) => setRegisterForm((f) => ({ ...f, username: e.target.value }))}
+                  placeholder="operator_username"
+                  className="bg-slate-50"
+                  autoComplete="off"
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="text-sm flex items-center gap-1.5">
+                  <KeyRound className="h-3.5 w-3.5 text-slate-400" />
+                  Password <span className="text-rose-500">*</span>
+                </Label>
+                <Input
+                  type="password"
+                  value={registerForm.password}
+                  onChange={(e) => setRegisterForm((f) => ({ ...f, password: e.target.value }))}
+                  placeholder="Min 4 characters"
+                  className="bg-slate-50"
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+
+            {/* Info banner */}
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+                <p className="text-xs text-emerald-800">
+                  This guesthouse will be <strong>automatically approved</strong> since you are registering it as System Admin. The operator can log in immediately after registration.
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => { setRegisterOpen(false); setRegisterForm(emptyRegisterForm); }}
+                disabled={registering}
+                className="w-full sm:w-auto"
+              >
+                Cancel
+              </Button>
+              <Button
+                className="gap-1.5 w-full sm:w-auto"
+                onClick={handleRegister}
+                disabled={registering}
+              >
+                {registering ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Registering...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="h-4 w-4" />
+                    Register &amp; Approve
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Suspend Provider Dialog (with reason + notification) */}
       <Dialog open={!!suspendDialog} onOpenChange={(open) => { if (!open) setSuspendDialog(null); }}>

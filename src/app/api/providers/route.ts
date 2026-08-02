@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ensureDatabase } from "@/lib/init-db";
 import { db } from "@/lib/db";
-import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
+import { getAuthContext, AuthError } from "@/lib/tenant";
 import { hashPassword } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
@@ -34,7 +34,82 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    // PUBLIC endpoint - no auth required
+    await ensureDatabase();
+
+    const contentType = req.headers.get("content-type") || "";
+
+    // ── JSON body: SUPERUSER creating a guesthouse (auto-approved) ──
+    if (contentType.includes("application/json")) {
+      const auth = await getAuthContext(req);
+      if (auth.role !== "SUPERUSER") {
+        return NextResponse.json({ error: "Only superuser can create guesthouses directly" }, { status: 403 });
+      }
+
+      const body = await req.json();
+      const { name, ownerName, phone, email, address, type, licenseNo, username, password } = body;
+
+      if (!name?.trim() || !ownerName?.trim() || !phone?.trim()) {
+        return NextResponse.json(
+          { error: "Guesthouse name, owner name, and phone are required" },
+          { status: 400 }
+        );
+      }
+      if (!username?.trim() || !password?.trim()) {
+        return NextResponse.json(
+          { error: "Operator username and password are required" },
+          { status: 400 }
+        );
+      }
+
+      const existingUser = await db.user.findUnique({
+        where: { username: username.trim() },
+      });
+      if (existingUser) {
+        return NextResponse.json(
+          { error: "Username is already taken" },
+          { status: 409 }
+        );
+      }
+
+      const provider = await db.$transaction(async (tx) => {
+        const p = await tx.provider.create({
+          data: {
+            name: name.trim(),
+            ownerName: ownerName.trim(),
+            phone: phone.trim(),
+            email: email?.trim() || "",
+            address: address?.trim() || "",
+            type: type || "GUEST_HOUSE",
+            licenseNo: licenseNo?.trim() || "",
+            licenseFile: "",
+            status: "APPROVED",
+            approvedBy: auth.userId || auth.username || "superuser",
+            approvedAt: new Date(),
+          },
+        });
+
+        const hashedPassword = await hashPassword(password.trim());
+
+        await tx.user.create({
+          data: {
+            username: username.trim(),
+            password: hashedPassword,
+            role: "OPERATOR",
+            name: ownerName.trim(),
+            email: email?.trim() || null,
+            phone: phone.trim(),
+            providerId: p.id,
+            isActive: true,
+          },
+        });
+
+        return p;
+      });
+
+      return NextResponse.json(provider, { status: 201 });
+    }
+
+    // ── FormData body: Public registration (PENDING approval) ──
     const formData = await req.formData();
 
     const name = formData.get("name") as string;
@@ -69,7 +144,6 @@ export async function POST(req: NextRequest) {
 
     let licenseFileData = "";
     if (licenseFile) {
-      // Convert file to base64 data URI for serverless-compatible storage
       const bytes = await licenseFile.arrayBuffer();
       const buffer = Buffer.from(bytes);
       const base64 = buffer.toString("base64");
@@ -94,7 +168,6 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Hash password before storing
       const hashedPassword = await hashPassword(password);
 
       await tx.user.create({
@@ -116,7 +189,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: error.message }, { status: error.statusCode });
         }
     const message = error instanceof Error ? error.message : "Failed to register provider";
-    const status = message.includes("required") ? 400 : 500;
+    const status = message.includes("required") || message.includes("taken") ? 400 : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }

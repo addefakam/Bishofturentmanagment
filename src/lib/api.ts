@@ -356,3 +356,7 @@ export const apiSuperUpdateProfile = (id: string, data: Record<string, unknown>)
 // ── Superuser: list providers for dropdown ──
 export const apiSuperGetProviders = () =>
   req("/api/providers");
+
+// ── Superuser: create guesthouse (auto-approved) ──
+export const apiSuperCreateProvider = (data: Record<string, unknown>) =>
+  req("/api/providers", { method: "POST", body: JSON.stringify(data) });
