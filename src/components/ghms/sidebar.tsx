@@ -41,6 +41,7 @@ import {
   Activity,
   Globe,
   Hotel,
+  Wrench,
 } from "lucide-react";
 
 import { useAppStore, type CurrentUser } from "@/lib/store";
@@ -82,9 +83,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { page: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { page: "rooms", label: "Rooms", icon: Bed },
   { page: "daytime", label: "Daytime", icon: Sun },
-  { page: "expenses", label: "Expenses", icon: Receipt },
-  { page: "resources", label: "Resources", icon: Package },
-  { page: "housekeeping", label: "Housekeeping", icon: Sparkles },
+  { page: "operations", label: "Operations", icon: Wrench },
   { page: "users", label: "Account Management", icon: UserCog },
   { page: "reports", label: "Reports", icon: BarChart3 },
   { page: "settings", label: "Settings", icon: Settings },
@@ -167,9 +166,9 @@ const PERMISSION_PAGE_MAP: Record<string, NavItem> = {
   rooms_view: { page: "rooms", label: "Rooms", icon: Bed },
   daytime_view: { page: "daytime", label: "Daytime", icon: Sun },
   housekeeping_view: {
-    page: "housekeeping",
-    label: "Housekeeping",
-    icon: Sparkles,
+    page: "operations",
+    label: "Operations",
+    icon: Wrench,
   },
   reports_view: { page: "reports", label: "Reports", icon: BarChart3 },
   reviews_view: { page: "reviews", label: "Reviews", icon: Star },
@@ -183,9 +182,9 @@ const PERMISSION_PAGE_MAP: Record<string, NavItem> = {
   rooms: { page: "rooms", label: "Rooms", icon: Bed },
   daytime: { page: "daytime", label: "Daytime", icon: Sun },
   housekeeping: {
-    page: "housekeeping",
-    label: "Housekeeping",
-    icon: Sparkles,
+    page: "operations",
+    label: "Operations",
+    icon: Wrench,
   },
   reports: { page: "reports", label: "Reports", icon: BarChart3 },
   reviews: { page: "reviews", label: "Reviews", icon: Star },
