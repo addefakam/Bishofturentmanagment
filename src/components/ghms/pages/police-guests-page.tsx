@@ -43,6 +43,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { AddressDisplay } from "@/components/shared/address-fields";
 
 interface Guest {
   id: string;
@@ -52,6 +53,12 @@ interface Guest {
   idNumber: string;
   idType: string;
   nationality: string;
+  region: string;
+  zone: string;
+  woreda: string;
+  kebele: string;
+  houseNumber: string;
+  streetName: string;
   address: string;
   notes: string;
   vip: boolean;
@@ -368,12 +375,23 @@ export default function PoliceGuestsPage() {
                     </div>
                   </div>
                 )}
-                {selectedGuest.address && (
+                {(selectedGuest.region || selectedGuest.address) && (
                   <div className="flex items-start gap-2.5">
                     <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                     <div>
                       <p className="text-[10px] text-muted-foreground">Address</p>
-                      <p className="font-medium">{selectedGuest.address}</p>
+                      {selectedGuest.region ? (
+                        <AddressDisplay
+                          region={selectedGuest.region}
+                          zone={selectedGuest.zone}
+                          woreda={selectedGuest.woreda}
+                          kebele={selectedGuest.kebele}
+                          houseNumber={selectedGuest.houseNumber}
+                          streetName={selectedGuest.streetName}
+                        />
+                      ) : (
+                        <p className="font-medium">{selectedGuest.address || "—"}</p>
+                      )}
                     </div>
                   </div>
                 )}

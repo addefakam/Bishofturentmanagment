@@ -75,6 +75,7 @@ import {
   FileText,
   Users,
 } from "lucide-react";
+import AddressFields, { getEmptyAddress, AddressDisplay } from "@/components/shared/address-fields";
 import { usePagination } from "@/hooks/use-pagination";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 
@@ -86,6 +87,12 @@ interface Guest {
   idNumber: string;
   idType: string;
   nationality: string;
+  region: string;
+  zone: string;
+  woreda: string;
+  kebele: string;
+  houseNumber: string;
+  streetName: string;
   address: string;
   notes: string;
   vip: boolean;
@@ -103,7 +110,12 @@ const emptyForm = {
   idNumber: "",
   idType: "National ID",
   nationality: "",
-  address: "",
+  region: "",
+  zone: "",
+  woreda: "",
+  kebele: "",
+  houseNumber: "",
+  streetName: "",
   notes: "",
   vip: false,
 };
@@ -379,7 +391,18 @@ export default function GuestsPage() {
                           <MapPin className="mt-0.5 h-4 w-4 text-gray-400 shrink-0" />
                           <div>
                             <p className="text-xs text-gray-500">Address</p>
-                            <p className="text-sm text-gray-900">{guest.address || "—"}</p>
+                            {guest.region ? (
+                              <AddressDisplay
+                                region={guest.region}
+                                zone={guest.zone}
+                                woreda={guest.woreda}
+                                kebele={guest.kebele}
+                                houseNumber={guest.houseNumber}
+                                streetName={guest.streetName}
+                              />
+                            ) : (
+                              <p className="text-sm text-gray-900">{guest.address || "—"}</p>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -644,12 +667,17 @@ export default function GuestsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="guest-address">Address</Label>
-              <Input
-                id="guest-address"
-                placeholder="Full address"
-                value={form.address}
-                onChange={(e) => setForm({ ...form, address: e.target.value })}
+              <Label>Guest Address</Label>
+              <AddressFields
+                value={{
+                  region: form.region,
+                  zone: form.zone,
+                  woreda: form.woreda,
+                  kebele: form.kebele,
+                  houseNumber: form.houseNumber,
+                  streetName: form.streetName,
+                }}
+                onChange={(addr) => setForm({ ...form, ...addr })}
               />
             </div>
 

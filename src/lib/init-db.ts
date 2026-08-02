@@ -85,6 +85,12 @@ CREATE TABLE IF NOT EXISTS "Guest" (
   "idNumber" TEXT NOT NULL DEFAULT '',
   "idType" TEXT NOT NULL DEFAULT '',
   "nationality" TEXT NOT NULL DEFAULT '',
+  "region" TEXT NOT NULL DEFAULT '',
+  "zone" TEXT NOT NULL DEFAULT '',
+  "woreda" TEXT NOT NULL DEFAULT '',
+  "kebele" TEXT NOT NULL DEFAULT '',
+  "houseNumber" TEXT NOT NULL DEFAULT '',
+  "streetName" TEXT NOT NULL DEFAULT '',
   "address" TEXT NOT NULL DEFAULT '',
   "notes" TEXT NOT NULL DEFAULT '',
   "vip" BOOLEAN NOT NULL DEFAULT false,
@@ -404,6 +410,30 @@ DO $$ BEGIN
   ALTER TABLE "User" ADD COLUMN "lastLogin" TIMESTAMP(3);
 EXCEPTION WHEN duplicate_column THEN null;
 END $$;
+DO $$ BEGIN
+  ALTER TABLE "Guest" ADD COLUMN "region" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "Guest" ADD COLUMN "zone" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "Guest" ADD COLUMN "woreda" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "Guest" ADD COLUMN "kebele" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "Guest" ADD COLUMN "houseNumber" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "Guest" ADD COLUMN "streetName" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
 `;
 
 // ─── Indexes ───────────────────────────────────────────────────────────────
@@ -421,6 +451,9 @@ CREATE INDEX IF NOT EXISTS "Guest_idNumber_idx" ON "Guest" ("idNumber");
 CREATE INDEX IF NOT EXISTS "Guest_email_idx" ON "Guest" ("email");
 CREATE INDEX IF NOT EXISTS "Guest_createdAt_idx" ON "Guest" ("createdAt");
 CREATE INDEX IF NOT EXISTS "Guest_name_idx" ON "Guest" ("name");
+CREATE INDEX IF NOT EXISTS "Guest_region_idx" ON "Guest" ("region");
+CREATE INDEX IF NOT EXISTS "Guest_zone_idx" ON "Guest" ("zone");
+CREATE INDEX IF NOT EXISTS "Guest_woreda_idx" ON "Guest" ("woreda");
 CREATE INDEX IF NOT EXISTS "Reservation_providerId_idx" ON "Reservation" ("providerId");
 CREATE INDEX IF NOT EXISTS "Reservation_guestId_idx" ON "Reservation" ("guestId");
 CREATE INDEX IF NOT EXISTS "Reservation_roomId_idx" ON "Reservation" ("roomId");

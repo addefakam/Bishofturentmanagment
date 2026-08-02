@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthContext, getProviderFilter, checkWritePermission, AuthError } from "@/lib/tenant";
+import { composeAddress } from "@/lib/ethiopian-admin-divisions";
 
 export async function PUT(
   req: NextRequest,
@@ -21,7 +22,12 @@ export async function PUT(
       return NextResponse.json({ error: "Guest not found" }, { status: 404 });
     }
 
-    const { name, phone, email, idNumber, idType, nationality, address, notes, vip } = body;
+    const { name, phone, email, idNumber, idType, nationality, region, zone, woreda, kebele, houseNumber, streetName, address, notes, vip } = body;
+
+    // Auto-compose address from normalized fields
+    const composedAddress = address !== undefined
+      ? address
+      : composeAddress({ region: existing.region, zone: existing.zone, woreda: existing.woreda, kebele: existing.kebele, houseNumber: existing.houseNumber, streetName: existing.streetName, ...body });
 
     const guest = await db.guest.update({
       where: { id },
@@ -32,7 +38,13 @@ export async function PUT(
         ...(idNumber !== undefined && { idNumber }),
         ...(idType !== undefined && { idType }),
         ...(nationality !== undefined && { nationality }),
-        ...(address !== undefined && { address }),
+        ...(region !== undefined && { region }),
+        ...(zone !== undefined && { zone }),
+        ...(woreda !== undefined && { woreda }),
+        ...(kebele !== undefined && { kebele }),
+        ...(houseNumber !== undefined && { houseNumber }),
+        ...(streetName !== undefined && { streetName }),
+        address: composedAddress,
         ...(notes !== undefined && { notes }),
         ...(vip !== undefined && { vip }),
       },

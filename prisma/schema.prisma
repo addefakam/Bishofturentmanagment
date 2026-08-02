@@ -180,6 +180,12 @@ model Guest {
   idNumber    String   @default("")
   idType      String   @default("")
   nationality String   @default("")
+  region      String   @default("")
+  zone        String   @default("")
+  woreda      String   @default("")
+  kebele      String   @default("")
+  houseNumber String   @default("")
+  streetName  String   @default("")
   address     String   @default("")
   notes       String   @default("")
   vip         Boolean  @default(false)
@@ -199,6 +205,9 @@ model Guest {
   @@index([email])
   @@index([createdAt])
   @@index([name])
+  @@index([region])
+  @@index([zone])
+  @@index([woreda])
 }
 
 model Reservation {

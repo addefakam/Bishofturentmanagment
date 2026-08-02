@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthContext, getProviderFilter, checkWritePermission } from "@/lib/tenant";
 import { checkSuspectMatch } from "@/lib/suspect-check";
+import { composeAddress } from "@/lib/ethiopian-admin-divisions";
 
 export async function GET(req: NextRequest) {
   try {
@@ -43,11 +44,14 @@ export async function POST(req: NextRequest) {
     checkWritePermission(auth, { staffOnlyWrite: true, staffPermissionKey: "guests" });
 
     const body = await req.json();
-    const { name, phone, email, idNumber, idType, nationality, address, notes, vip } = body;
+    const { name, phone, email, idNumber, idType, nationality, region, zone, woreda, kebele, houseNumber, streetName, address, notes, vip } = body;
 
     if (!name || !phone) {
       return NextResponse.json({ error: "Name and phone are required" }, { status: 400 });
     }
+
+    // Auto-compose address from normalized fields if not explicitly provided
+    const composedAddress = address || composeAddress({ region, zone, woreda, kebele, houseNumber, streetName });
 
     const guest = await db.guest.create({
       data: {
@@ -57,7 +61,13 @@ export async function POST(req: NextRequest) {
         idNumber: idNumber || "",
         idType: idType || "",
         nationality: nationality || "",
-        address: address || "",
+        region: region || "",
+        zone: zone || "",
+        woreda: woreda || "",
+        kebele: kebele || "",
+        houseNumber: houseNumber || "",
+        streetName: streetName || "",
+        address: composedAddress,
         notes: notes || "",
         vip: vip || false,
         providerId,
@@ -74,7 +84,7 @@ export async function POST(req: NextRequest) {
       extraDetails: {
         email: email || "",
         nationality: nationality || "",
-        address: address || "",
+        address: composedAddress,
       },
     }).catch(() => {});
 

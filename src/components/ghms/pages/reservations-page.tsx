@@ -87,6 +87,7 @@ import {
   UserPlus,
   UserCheck,
 } from "lucide-react";
+import AddressFields from "@/components/shared/address-fields";
 
 interface GuestOption {
   id: string;
@@ -167,7 +168,12 @@ export default function ReservationsPage() {
     idNumber: "",
     idType: "National ID",
     nationality: "",
-    address: "",
+    region: "",
+    zone: "",
+    woreda: "",
+    kebele: "",
+    houseNumber: "",
+    streetName: "",
     notes: "",
   });
 
@@ -282,8 +288,15 @@ export default function ReservationsPage() {
 
   const step1Valid = useMemo(() => {
     if (guestMode === "existing") return !!selectedGuestId;
-    return !!(newGuestForm.name.trim() && newGuestForm.phone.trim());
-  }, [guestMode, selectedGuestId, newGuestForm.name, newGuestForm.phone]);
+    return !!(
+      newGuestForm.name.trim() &&
+      newGuestForm.phone.trim() &&
+      newGuestForm.region.trim() &&
+      newGuestForm.zone.trim() &&
+      newGuestForm.woreda.trim() &&
+      newGuestForm.kebele.trim()
+    );
+  }, [guestMode, selectedGuestId, newGuestForm.name, newGuestForm.phone, newGuestForm.region, newGuestForm.zone, newGuestForm.woreda, newGuestForm.kebele]);
 
   // Filtered reservations
   const filtered = useMemo(() => {
@@ -391,7 +404,7 @@ export default function ReservationsPage() {
     setWizardStep(1);
     setGuestMode("existing");
     setSelectedGuestId("");
-    setNewGuestForm({ name: "", phone: "", email: "", idNumber: "", idType: "National ID", nationality: "", address: "", notes: "" });
+    setNewGuestForm({ name: "", phone: "", email: "", idNumber: "", idType: "National ID", nationality: "", region: "", zone: "", woreda: "", kebele: "", houseNumber: "", streetName: "", notes: "" });
     setCreateForm({ roomId: "", checkIn: "", checkOut: "", notes: "" });
   };
 
@@ -962,8 +975,19 @@ export default function ReservationsPage() {
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Address</Label>
-                    <Input placeholder="Guest address" value={newGuestForm.address} onChange={(e) => setNewGuestForm({ ...newGuestForm, address: e.target.value })} />
+                    <Label>Guest Address <span className="text-rose-500">*</span></Label>
+                    <AddressFields
+                      value={{
+                        region: newGuestForm.region,
+                        zone: newGuestForm.zone,
+                        woreda: newGuestForm.woreda,
+                        kebele: newGuestForm.kebele,
+                        houseNumber: newGuestForm.houseNumber,
+                        streetName: newGuestForm.streetName,
+                      }}
+                      onChange={(addr) => setNewGuestForm({ ...newGuestForm, ...addr })}
+                      columns={3}
+                    />
                   </div>
                 </div>
               )}
