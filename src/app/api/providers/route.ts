@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureDatabase } from "@/lib/init-db";
 import { db } from "@/lib/db";
 import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
 import { hashPassword } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
   try {
+    await ensureDatabase();
+
     const auth = await getAuthContext(req);
     // Both POLICE and SUPERUSER can list providers (guesthouses)
     if (auth.role !== "POLICE" && auth.role !== "SUPERUSER") {

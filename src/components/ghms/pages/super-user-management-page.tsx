@@ -405,6 +405,9 @@ export default function SuperUserManagementPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Only approved providers can be assigned to operator/staff users
+  const approvedProviders = providers.filter((p) => p.status === "APPROVED");
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -491,10 +494,9 @@ export default function SuperUserManagementPage() {
       toast.error("Password is required for new users");
       return;
     }
-    if ((form.role === "OPERATOR" || form.role === "STAFF") && !form.providerId) {
-      toast.error("Please select a provider for this user");
-      return;
-    }
+    // Provider is optional — operator/staff can be created without one
+    // and assigned to a guesthouse later from the Providers page.
+    // No provider validation needed here.
     if (form.role === "POLICE" && !form.policeRank) {
       toast.error("Please select a police rank");
       return;
@@ -510,7 +512,7 @@ export default function SuperUserManagementPage() {
         role: form.role,
         policeRank: form.role === "POLICE" ? form.policeRank : null,
         permissions: form.role === "STAFF" ? form.permissions : [],
-        providerId: form.providerId || null,
+        providerId: (form.providerId && form.providerId !== "__none__") ? form.providerId : null,
         isActive: form.isActive,
       };
       if (form.password) payload.password = form.password;
@@ -844,7 +846,7 @@ export default function SuperUserManagementPage() {
                     <button
                       key={key}
                       type="button"
-                      onClick={() => setForm((f) => ({ ...f, role: key }))}
+                      onClick={() => setForm((f) => ({ ...f, role: key, providerId: (key === "OPERATOR" || key === "STAFF") ? f.providerId : "" }))}
                       className={`flex items-center gap-2.5 rounded-lg border-2 p-3 text-left transition-all ${
                         isSelected
                           ? `${conf.bg} ${conf.color} border-current`
@@ -933,38 +935,65 @@ export default function SuperUserManagementPage() {
               </div>
             </div>
 
-            {/* Provider Selection — for OPERATOR/STAFF */}
+            {/* Guesthouse Assignment — optional for OPERATOR/STAFF */}
             {(form.role === "OPERATOR" || form.role === "STAFF") && (
               <div className="grid gap-2">
-                <Label>Provider (Guesthouse)</Label>
-                <Select
-                  value={form.providerId}
-                  onValueChange={(v) => setForm((f) => ({ ...f, providerId: v }))}
-                >
-                  <SelectTrigger className="bg-slate-50">
-                    <Building2 className="mr-2 h-4 w-4 text-slate-400" />
-                    <SelectValue placeholder="Select a provider" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {providers.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{p.name}</span>
-                          <Badge
-                            variant="outline"
-                            className={`text-[9px] px-1 py-0 ${
-                              p.status === "APPROVED"
-                                ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                                : "bg-amber-50 text-amber-600 border-amber-200"
-                            }`}
-                          >
-                            {p.status}
-                          </Badge>
-                        </div>
+                <Label className="flex items-center gap-1.5">
+                  <Building2 className={`h-3.5 w-3.5 ${form.role === "OPERATOR" ? "text-emerald-600" : "text-sky-600"}`} />
+                  {form.role === "OPERATOR" ? "Assign to Guesthouse" : "Assign to Guesthouse"}
+                  <span className="font-normal text-slate-400">(optional — can assign later)</span>
+                </Label>
+                <p className="text-xs text-slate-400">
+                  {form.role === "OPERATOR"
+                    ? "Select which guesthouse this operator will manage. You can also skip this and assign later from the Providers page."
+                    : "Select which guesthouse this staff member works at. You can also skip this and assign later from the Providers page."}
+                </p>
+                {approvedProviders.length === 0 ? (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                    <p>No guesthouses registered yet. This {form.role.toLowerCase()} can be created now and assigned to a guesthouse later.</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => { setFormOpen(false); useAppStore.getState().setCurrentPage("providers"); }}
+                    >
+                      <Building2 className="mr-1.5 h-3.5 w-3.5" />
+                      Go to Providers to register one
+                    </Button>
+                  </div>
+                ) : (
+                  <Select
+                    value={form.providerId}
+                    onValueChange={(v) => setForm((f) => ({ ...f, providerId: v }))}
+                  >
+                    <SelectTrigger className="bg-slate-50">
+                      <SelectValue placeholder={
+                        form.role === "OPERATOR"
+                          ? "Select guesthouse for this operator (optional)"
+                          : "Select guesthouse for this staff member (optional)"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">
+                        <span className="text-slate-400">— No guesthouse (skip) —</span>
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      {approvedProviders.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{p.name}</span>
+                            <Badge
+                              variant="outline"
+                              className="text-[9px] px-1 py-0 bg-emerald-50 text-emerald-600 border-emerald-200"
+                            >
+                              {p.status}
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             )}
 

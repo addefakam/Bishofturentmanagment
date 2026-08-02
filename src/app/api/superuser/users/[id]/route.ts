@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureDatabase } from "@/lib/init-db";
 import { db } from "@/lib/db";
 import { getAuthContext, AuthError } from "@/lib/tenant";
 import { hashPassword } from "@/lib/auth-utils";
@@ -9,6 +10,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureDatabase();
+
     const auth = await getAuthContext(req);
     if (auth.role !== "SUPERUSER") {
       return NextResponse.json({ error: "Superuser access required" }, { status: 403 });
@@ -58,6 +61,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureDatabase();
+
     const auth = await getAuthContext(req);
     if (auth.role !== "SUPERUSER") {
       return NextResponse.json({ error: "Superuser access required" }, { status: 403 });
@@ -132,6 +137,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureDatabase();
+
     const auth = await getAuthContext(req);
     if (auth.role !== "SUPERUSER") {
       return NextResponse.json({ error: "Superuser access required" }, { status: 403 });

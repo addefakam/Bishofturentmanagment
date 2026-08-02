@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ensureDatabase } from "@/lib/init-db";
 import { db } from "@/lib/db";
 import { getAuthContext, AuthError } from "@/lib/tenant";
 import { hashPassword } from "@/lib/auth-utils";
@@ -6,6 +7,8 @@ import { hashPassword } from "@/lib/auth-utils";
 // GET /api/superuser/users — List ALL users across all providers with stats
 export async function GET(req: NextRequest) {
   try {
+    await ensureDatabase();
+
     const auth = await getAuthContext(req);
     if (auth.role !== "SUPERUSER") {
       return NextResponse.json({ error: "Superuser access required" }, { status: 403 });
@@ -109,6 +112,8 @@ export async function GET(req: NextRequest) {
 // POST /api/superuser/users — Create a new user (any role, any provider)
 export async function POST(req: NextRequest) {
   try {
+    await ensureDatabase();
+
     const auth = await getAuthContext(req);
     if (auth.role !== "SUPERUSER") {
       return NextResponse.json({ error: "Superuser access required" }, { status: 403 });
@@ -135,10 +140,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Police rank is required for police users" }, { status: 400 });
     }
 
-    // For OPERATOR/STAFF, providerId is required
-    if ((role === "OPERATOR" || role === "STAFF") && !providerId) {
-      return NextResponse.json({ error: "Provider is required for operator and staff users" }, { status: 400 });
-    }
+    // Note: providerId is optional for OPERATOR/STAFF — they can be assigned later
 
     // Check username uniqueness
     const existing = await db.user.findUnique({ where: { username } });

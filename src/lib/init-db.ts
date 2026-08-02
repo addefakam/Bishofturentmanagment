@@ -377,13 +377,21 @@ DO $$ BEGIN ALTER TABLE "SubscriptionPayment" ADD CONSTRAINT "SubscriptionPaymen
 
 // ─── Migrations: Add new columns to existing tables ────────────────
 const MIGRATIONS_SQL = `
--- Add email, phone, isActive, lastLogin to User table if missing
+-- Add email, phone, isActive, lastLogin, permissions, policeRank to User table if missing
 DO $$ BEGIN
   ALTER TABLE "User" ADD COLUMN "email" TEXT DEFAULT '';
 EXCEPTION WHEN duplicate_column THEN null;
 END $$;
 DO $$ BEGIN
   ALTER TABLE "User" ADD COLUMN "phone" TEXT DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "User" ADD COLUMN "permissions" TEXT NOT NULL DEFAULT '["reservations","guests"]';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "User" ADD COLUMN "policeRank" TEXT NOT NULL DEFAULT '';
 EXCEPTION WHEN duplicate_column THEN null;
 END $$;
 DO $$ BEGIN
@@ -527,7 +535,16 @@ export async function ensureDatabase(): Promise<void> {
       console.log("[init-db] User table exists:", tableExists);
 
       if (tableExists) {
-        console.log("[init-db] Tables already exist, skipping creation.");
+        console.log("[init-db] Tables already exist, running migrations to add any missing columns...");
+        try {
+          await client.query(MIGRATIONS_SQL);
+          console.log("[init-db] Migrations applied to existing tables.");
+          await client.query(INDEXES_SQL);
+          console.log("[init-db] Indexes verified.");
+        } catch (migrateErr) {
+          console.error("[init-db] Migration on existing tables failed:", migrateErr instanceof Error ? migrateErr.message : String(migrateErr));
+          // Don't throw — the tables exist, migrations are best-effort
+        }
         await client.end().catch(() => {});
         _initDone = true;
         return;
@@ -599,7 +616,15 @@ export async function ensureDatabase(): Promise<void> {
           `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='User') as ok`
         );
         if (res[0]?.ok) {
-          console.log("[init-db] Tables already exist (verified via Prisma).");
+          console.log("[init-db] Tables already exist (verified via Prisma), running migrations...");
+          try {
+            await execViaPrisma(MIGRATIONS_SQL);
+            console.log("[init-db] Migrations applied via Prisma.");
+            await execViaPrisma(INDEXES_SQL);
+            console.log("[init-db] Indexes verified via Prisma.");
+          } catch (migrateErr) {
+            console.error("[init-db] Prisma migration on existing tables failed:", migrateErr instanceof Error ? migrateErr.message : String(migrateErr));
+          }
           _initDone = true;
           return;
         }
