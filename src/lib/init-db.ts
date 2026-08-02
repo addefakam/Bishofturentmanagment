@@ -564,15 +564,11 @@ async function runMigrationsOnly(): Promise<void> {
 
 export async function ensureDatabase(): Promise<void> {
   if (_initDone) {
-    // Even if init was done, always run migrations on cold start
-    // to catch any new columns added in latest deploy.
-    // Migrations are idempotent (EXCEPTION WHEN duplicate_column).
+    // Always run migrations synchronously to ensure columns exist
+    // before any query executes. Migrations are idempotent.
     if (!_migrationsRan) {
       _migrationsRan = true;
-      runMigrationsOnly().catch((err) => {
-        console.error("[init-db] Background migration failed:", err instanceof Error ? err.message : String(err));
-        _migrationsRan = false; // Allow retry
-      });
+      await runMigrationsOnly();
     }
     return;
   }
