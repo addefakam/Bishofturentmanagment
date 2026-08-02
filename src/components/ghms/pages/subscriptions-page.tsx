@@ -12,6 +12,7 @@ import {
   Phone,
   CalendarDays,
   Filter,
+  Tag,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -19,6 +20,7 @@ import {
   formatCycle,
   formatDaysRemaining,
   getStatusBadgeClasses,
+  CYCLE_DAYS,
   type SubscriptionStatus,
 } from "@/lib/subscription";
 import {
@@ -26,13 +28,14 @@ import {
   apiUpdateSubscription,
   apiMarkPayment,
   apiGetSubscriptionPayments,
+  apiGetPlans,
 } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -68,6 +71,8 @@ interface SubRow {
   subscriptionId: string;
   cycle: string;
   price: number;
+  planId: string | null;
+  planName: string | null;
   status: SubscriptionStatus;
   daysRemaining: number;
   startDate: string;
@@ -75,10 +80,19 @@ interface SubRow {
   totalPayments: number;
 }
 
+interface PlanOption {
+  id: string;
+  name: string;
+  cycle: string;
+  price: number;
+  isActive: boolean;
+}
+
 export default function SubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<SubRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [plans, setPlans] = useState<PlanOption[]>([]);
 
   // Edit dialog
   const [editOpen, setEditOpen] = useState(false);
@@ -93,6 +107,7 @@ export default function SubscriptionsPage() {
   const [payAmount, setPayAmount] = useState("");
   const [payCycle, setPayCycle] = useState("");
   const [payNotes, setPayNotes] = useState("");
+  const [payPlanId, setPayPlanId] = useState("");
   const [paySaving, setPaySaving] = useState(false);
 
   // History dialog
@@ -116,9 +131,19 @@ export default function SubscriptionsPage() {
     }
   }, [statusFilter]);
 
+  const fetchPlans = useCallback(async () => {
+    try {
+      const data = await apiGetPlans();
+      setPlans(data.filter((p: PlanOption) => p.isActive));
+    } catch {
+      // Non-critical — plans are optional for the payment flow
+    }
+  }, []);
+
   useEffect(() => {
     fetchSubscriptions();
-  }, [fetchSubscriptions]);
+    fetchPlans();
+  }, [fetchSubscriptions, fetchPlans]);
 
   // Summary counts
   const counts = {
@@ -161,18 +186,35 @@ export default function SubscriptionsPage() {
     setPayAmount(String(row.price || ""));
     setPayCycle(row.cycle);
     setPayNotes("");
+    setPayPlanId("");
     setPayOpen(true);
+  }
+
+  // When a plan is selected in the payment dialog, auto-fill amount and cycle
+  function handlePayPlanChange(planId: string) {
+    setPayPlanId(planId);
+    if (planId) {
+      const plan = plans.find((p) => p.id === planId);
+      if (plan) {
+        setPayAmount(String(plan.price));
+        setPayCycle(plan.cycle);
+      }
+    }
   }
 
   async function handlePaymentConfirm() {
     if (!payRow || !payAmount.trim()) return;
     setPaySaving(true);
     try {
-      await apiMarkPayment(payRow.subscriptionId, {
+      const payload: Record<string, unknown> = {
         amount: parseFloat(payAmount),
         cycle: payCycle,
         notes: payNotes,
-      });
+      };
+      if (payPlanId) {
+        payload.planId = payPlanId;
+      }
+      await apiMarkPayment(payRow.subscriptionId, payload);
       toast.success(`Payment recorded for ${payRow.providerName}`);
       setPayOpen(false);
       fetchSubscriptions();
@@ -291,6 +333,7 @@ export default function SubscriptionsPage() {
                   <th className="px-4 py-2.5 text-left font-medium text-slate-600">Provider</th>
                   <th className="px-4 py-2.5 text-left font-medium text-slate-600">Owner</th>
                   <th className="px-4 py-2.5 text-left font-medium text-slate-600">Phone</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-slate-600">Plan</th>
                   <th className="px-4 py-2.5 text-left font-medium text-slate-600">Cycle</th>
                   <th className="px-4 py-2.5 text-left font-medium text-slate-600">Price</th>
                   <th className="px-4 py-2.5 text-left font-medium text-slate-600">Status</th>
@@ -302,7 +345,7 @@ export default function SubscriptionsPage() {
               <tbody>
                 {subscriptions.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
+                    <td colSpan={10} className="px-4 py-8 text-center text-slate-400">
                       No providers found.
                     </td>
                   </tr>
@@ -323,6 +366,19 @@ export default function SubscriptionsPage() {
                           <Phone className="h-3 w-3" />
                           {row.phone}
                         </span>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        {row.planName ? (
+                          <Badge
+                            variant="outline"
+                            className="border-emerald-200 bg-emerald-50 text-[10px] font-semibold text-emerald-700"
+                          >
+                            <Tag className="mr-1 size-3" />
+                            {row.planName}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-slate-400">No plan</span>
+                        )}
                       </td>
                       <td className="px-4 py-2.5 text-slate-600">
                         {formatCycle(row.cycle)}
@@ -446,6 +502,25 @@ export default function SubscriptionsPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="grid gap-4 py-2">
+            {/* Plan selector */}
+            {plans.length > 0 && (
+              <div className="grid gap-2">
+                <Label>Select Plan (optional)</Label>
+                <Select value={payPlanId} onValueChange={handlePayPlanChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a plan to auto-fill" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">No plan (manual entry)</SelectItem>
+                    {plans.map((plan) => (
+                      <SelectItem key={plan.id} value={plan.id}>
+                        {plan.name} — {plan.price.toLocaleString()} ETB ({formatCycle(plan.cycle)})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="grid gap-2">
               <Label>Amount (ETB)</Label>
               <Input

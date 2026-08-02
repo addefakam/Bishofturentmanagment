@@ -305,6 +305,15 @@ export const apiGetSubscriptionPayments = (subscriptionId: string) =>
 // Subscription status (provider side)
 export const apiSubscriptionStatus = () => req("/api/subscription/status");
 
+// Subscription Plans (SUPERUSER)
+export const apiGetPlans = () => req("/api/subscription-plans");
+export const apiCreatePlan = (data: { name: string; cycle: string; price: number }) =>
+  req("/api/subscription-plans", { method: "POST", body: JSON.stringify(data) });
+export const apiUpdatePlan = (id: string, data: Record<string, unknown>) =>
+  req(`/api/subscription-plans/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const apiDeletePlan = (id: string) =>
+  req(`/api/subscription-plans/${id}`, { method: "DELETE" });
+
 // Anomalies (Smart Detection)
 export const apiGetAnomalies = (q?: string) => req(`/api/anomalies${q ? `?${q}` : ""}`);
 export const apiReviewAnomalies = (ids: string[]) =>

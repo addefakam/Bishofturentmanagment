@@ -110,6 +110,9 @@ const JointOperationsPage = lazyPage(
 const SubscriptionsPage = lazyPage(
   () => import("@/components/ghms/pages/subscriptions-page")
 );
+const SubscriptionPlansPage = lazyPage(
+  () => import("@/components/ghms/pages/subscription-plans-page")
+);
 const SubscriptionLockoutPage = lazyPage(
   () => import("@/components/ghms/pages/subscription-lockout-page")
 );
@@ -180,6 +183,7 @@ const PAGE_MAP: Record<string, React.LazyExoticComponent<React.ComponentType>> =
     "owner-accounts": OwnerAccountsPage,
     "joint-operations": JointOperationsPage,
     subscriptions: SubscriptionsPage,
+    "subscription-plans": SubscriptionPlansPage,
     "subscription-lockout": SubscriptionLockoutPage,
     "police-room-availability": PoliceRoomAvailabilityPage,
     "anomaly-detection": AnomalyDetectionPage,

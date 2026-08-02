@@ -342,6 +342,15 @@ CREATE TABLE IF NOT EXISTS "SubscriptionPayment" (
   "notes" TEXT NOT NULL DEFAULT '',
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS "SubscriptionPlan" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "name" TEXT NOT NULL,
+  "cycle" "SubscriptionCycle" NOT NULL,
+  "price" DOUBLE PRECISION NOT NULL,
+  "isActive" BOOLEAN NOT NULL DEFAULT true,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 CREATE TABLE IF NOT EXISTS "PoliceAlertConfig" (
   "id" TEXT NOT NULL PRIMARY KEY,
   "emailEnabled" BOOLEAN NOT NULL DEFAULT false,
@@ -381,6 +390,7 @@ DO $$ BEGIN ALTER TABLE "Settings" ADD CONSTRAINT "Settings_providerId_fkey" FOR
 DO $$ BEGIN ALTER TABLE "SuspectMatch" ADD CONSTRAINT "SuspectMatch_suspectedPersonId_fkey" FOREIGN KEY ("suspectedPersonId") REFERENCES "SuspectedPerson"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN ALTER TABLE "Subscription" ADD CONSTRAINT "Subscription_providerId_fkey" FOREIGN KEY ("providerId") REFERENCES "Provider"("id") ON DELETE RESTRICT ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN ALTER TABLE "SubscriptionPayment" ADD CONSTRAINT "SubscriptionPayment_subscriptionId_fkey" FOREIGN KEY ("subscriptionId") REFERENCES "Subscription"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN ALTER TABLE "Subscription" ADD CONSTRAINT "Subscription_planId_fkey" FOREIGN KEY ("planId") REFERENCES "SubscriptionPlan"("id") ON DELETE SET NULL ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
 `;
 
 // ─── Migrations: Add new columns to existing tables ────────────────
@@ -436,6 +446,10 @@ EXCEPTION WHEN duplicate_column THEN null;
 END $$;
 DO $$ BEGIN
   ALTER TABLE "Guest" ADD COLUMN "streetName" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "Subscription" ADD COLUMN "planId" TEXT;
 EXCEPTION WHEN duplicate_column THEN null;
 END $$;
 `;
@@ -515,8 +529,11 @@ CREATE INDEX IF NOT EXISTS "FrequentStayAlert_riskLevel_idx" ON "FrequentStayAle
 CREATE INDEX IF NOT EXISTS "FrequentStayAlert_guestPhone_idx" ON "FrequentStayAlert" ("guestPhone");
 CREATE INDEX IF NOT EXISTS "FrequentStayAlert_guestIdNumber_idx" ON "FrequentStayAlert" ("guestIdNumber");
 CREATE INDEX IF NOT EXISTS "Subscription_endDate_idx" ON "Subscription" ("endDate");
+CREATE INDEX IF NOT EXISTS "Subscription_planId_idx" ON "Subscription" ("planId");
 CREATE INDEX IF NOT EXISTS "SubscriptionPayment_subscriptionId_idx" ON "SubscriptionPayment" ("subscriptionId");
 CREATE INDEX IF NOT EXISTS "SubscriptionPayment_createdAt_idx" ON "SubscriptionPayment" ("createdAt");
+CREATE INDEX IF NOT EXISTS "SubscriptionPlan_cycle_idx" ON "SubscriptionPlan" ("cycle");
+CREATE INDEX IF NOT EXISTS "SubscriptionPlan_isActive_idx" ON "SubscriptionPlan" ("isActive");
 `;
 
 let _initDone = false;
@@ -683,6 +700,22 @@ export async function ensureDatabase(): Promise<void> {
          WHERE NOT EXISTS (SELECT 1 FROM "PoliceAlertConfig" WHERE "id"='default-alert-config')`
       );
 
+      // Seed default SubscriptionPlans
+      await client.query(`
+        INSERT INTO "SubscriptionPlan" ("id","name","cycle","price","isActive","createdAt","updatedAt")
+        SELECT 'plan-monthly-001','Monthly','MONTHLY',500,true,NOW(),NOW()
+        WHERE NOT EXISTS (SELECT 1 FROM "SubscriptionPlan" WHERE "id"='plan-monthly-001');
+        INSERT INTO "SubscriptionPlan" ("id","name","cycle","price","isActive","createdAt","updatedAt")
+        SELECT 'plan-quarterly-001','Quarterly','QUARTERLY',1400,true,NOW(),NOW()
+        WHERE NOT EXISTS (SELECT 1 FROM "SubscriptionPlan" WHERE "id"='plan-quarterly-001');
+        INSERT INTO "SubscriptionPlan" ("id","name","cycle","price","isActive","createdAt","updatedAt")
+        SELECT 'plan-semi-annual-001','Semi-Annual','SEMI_ANNUAL',2600,true,NOW(),NOW()
+        WHERE NOT EXISTS (SELECT 1 FROM "SubscriptionPlan" WHERE "id"='plan-semi-annual-001');
+        INSERT INTO "SubscriptionPlan" ("id","name","cycle","price","isActive","createdAt","updatedAt")
+        SELECT 'plan-yearly-001','Annual','YEARLY',4800,true,NOW(),NOW()
+        WHERE NOT EXISTS (SELECT 1 FROM "SubscriptionPlan" WHERE "id"='plan-yearly-001');
+      `);
+
       console.log("[init-db] Database initialization complete via pg.");
       await client.end().catch(() => {});
       _initDone = true;
@@ -753,7 +786,28 @@ export async function ensureDatabase(): Promise<void> {
            SELECT 'default-alert-config',NOW(),NOW()
            WHERE NOT EXISTS (SELECT 1 FROM "PoliceAlertConfig" WHERE "id"='default-alert-config')`
         );
-        console.log("[init-db] SUPERUSER seeded via Prisma.");
+        // Seed default SubscriptionPlans
+        await prisma2.$executeRawUnsafe(
+          `INSERT INTO "SubscriptionPlan" ("id","name","cycle","price","isActive","createdAt","updatedAt")
+           SELECT 'plan-monthly-001','Monthly','MONTHLY',500,true,NOW(),NOW()
+           WHERE NOT EXISTS (SELECT 1 FROM "SubscriptionPlan" WHERE "id"='plan-monthly-001')`
+        );
+        await prisma2.$executeRawUnsafe(
+          `INSERT INTO "SubscriptionPlan" ("id","name","cycle","price","isActive","createdAt","updatedAt")
+           SELECT 'plan-quarterly-001','Quarterly','QUARTERLY',1400,true,NOW(),NOW()
+           WHERE NOT EXISTS (SELECT 1 FROM "SubscriptionPlan" WHERE "id"='plan-quarterly-001')`
+        );
+        await prisma2.$executeRawUnsafe(
+          `INSERT INTO "SubscriptionPlan" ("id","name","cycle","price","isActive","createdAt","updatedAt")
+           SELECT 'plan-semi-annual-001','Semi-Annual','SEMI_ANNUAL',2600,true,NOW(),NOW()
+           WHERE NOT EXISTS (SELECT 1 FROM "SubscriptionPlan" WHERE "id"='plan-semi-annual-001')`
+        );
+        await prisma2.$executeRawUnsafe(
+          `INSERT INTO "SubscriptionPlan" ("id","name","cycle","price","isActive","createdAt","updatedAt")
+           SELECT 'plan-yearly-001','Annual','YEARLY',4800,true,NOW(),NOW()
+           WHERE NOT EXISTS (SELECT 1 FROM "SubscriptionPlan" WHERE "id"='plan-yearly-001')`
+        );
+        console.log("[init-db] SUPERUSER and plans seeded via Prisma.");
       } finally {
         await prisma2.$disconnect().catch(() => {});
       }

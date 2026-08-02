@@ -566,20 +566,38 @@ enum SubscriptionCycle {
   YEARLY
 }
 
+model SubscriptionPlan {
+  id          String              @id @default(cuid())
+  name        String
+  cycle       SubscriptionCycle
+  price       Float
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  subscriptions Subscription[]
+
+  @@index([cycle])
+  @@index([isActive])
+}
+
 model Subscription {
   id            String              @id @default(cuid())
   providerId    String              @unique
-  startDate     DateTime            // Current period start
-  endDate       DateTime            // Current period end
+  startDate     DateTime
+  endDate       DateTime
   cycle         SubscriptionCycle  @default(MONTHLY)
-  price         Float               @default(0) // Price per cycle in ETB
+  price         Float               @default(0)
+  planId        String?
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 
   provider      Provider            @relation(fields: [providerId], references: [id])
+  plan          SubscriptionPlan?   @relation(fields: [planId], references: [id])
   payments      SubscriptionPayment[]
 
   @@index([endDate])
+  @@index([planId])
 }
 
 model SubscriptionPayment {

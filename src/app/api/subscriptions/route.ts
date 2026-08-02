@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
       include: {
         subscription: {
           include: {
+            plan: { select: { id: true, name: true } },
             payments: { select: { id: true } },
           },
         },
@@ -41,6 +42,8 @@ export async function GET(req: NextRequest) {
       subscriptionId: string;
       cycle: string;
       price: number;
+      planId: string | null;
+      planName: string | null;
       status: SubscriptionStatus;
       daysRemaining: number;
       startDate: string;
@@ -92,6 +95,8 @@ export async function GET(req: NextRequest) {
         subscriptionId: subscription.id,
         cycle: subscription.cycle,
         price: subscription.price,
+        planId: (subscription as any).planId ?? null,
+        planName: (subscription as any).plan?.name ?? null,
         status,
         daysRemaining,
         startDate: subscription.startDate.toISOString(),

@@ -43,6 +43,7 @@ import {
   Hotel,
   Wrench,
   DoorOpen,
+  Tag,
 } from "lucide-react";
 
 import { useAppStore, type CurrentUser } from "@/lib/store";
@@ -144,6 +145,7 @@ const SUPERUSER_NAV_ITEMS: NavItem[] = [
   { page: "super-admin-dashboard", label: "Admin Dashboard", icon: LayoutDashboard },
   { page: "guesthouse-user-management", label: "Guesthouse & User Mgmt", icon: Hotel },
   { page: "subscriptions", label: "Subscriptions", icon: CreditCard },
+  { page: "subscription-plans", label: "Pricing Plans", icon: Tag },
   { page: "super-system-config", label: "System Configuration", icon: Settings },
   { page: "super-audit-logs", label: "Audit Logs", icon: ClipboardList },
   { page: "super-data-reports", label: "Data & Reports", icon: BarChart3 },
