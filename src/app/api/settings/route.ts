@@ -19,6 +19,21 @@ const DEFAULT_SETTINGS = {
 export async function GET(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);
+
+    // SUPERUSER without providerId → return system config JSON
+    if (auth.role === "SUPERUSER" && !auth.providerId) {
+      const sysSettings = await db.settings.findFirst({
+        where: { providerId: null },
+      });
+
+      if (sysSettings?.configJson && typeof sysSettings.configJson === "object") {
+        return NextResponse.json(sysSettings.configJson as Record<string, unknown>);
+      }
+
+      // No system config stored yet — return empty object so frontend uses defaults
+      return NextResponse.json({});
+    }
+
     const { providerId } = getProviderFilter(auth);
 
     const settings = await db.settings.findFirst({
@@ -42,10 +57,31 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);
-    const { providerId } = getProviderFilter(auth);
     checkWritePermission(auth, { allowSuperuser: true });
 
     const body = await req.json();
+
+    // SUPERUSER without providerId → store as system config JSON
+    if (auth.role === "SUPERUSER" && !auth.providerId) {
+      const existing = await db.settings.findFirst({
+        where: { providerId: null },
+      });
+
+      if (existing) {
+        await db.settings.update({
+          where: { id: existing.id },
+          data: { configJson: body },
+        });
+      } else {
+        await db.settings.create({
+          data: { configJson: body },
+        });
+      }
+
+      return NextResponse.json({ success: true });
+    }
+
+    const { providerId } = getProviderFilter(auth);
 
     const existing = await db.settings.findFirst({
       where: providerId ? { providerId } : {},

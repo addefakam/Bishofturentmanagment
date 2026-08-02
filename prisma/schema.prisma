@@ -445,6 +445,7 @@ model Settings {
   logo            String?
   checkInTime     String   @default("14:00")
   checkOutTime    String   @default("12:00")
+  configJson      Json?
   providerId      String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

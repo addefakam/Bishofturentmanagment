@@ -17,11 +17,12 @@ import {
   MessageSquare,
   AlertTriangle,
   Loader2,
+  CreditCard,
 } from "lucide-react";
 
 // ── Types ──
 
-type TabKey = "general" | "guesthouse" | "security" | "notifications";
+type TabKey = "general" | "guesthouse" | "security" | "notifications" | "payment";
 
 interface GeneralSettings {
   systemName: string;
@@ -59,11 +60,26 @@ interface NotificationSettings {
   notificationEmailRecipients: string;
 }
 
+interface PaymentSettings {
+  trialDays: number;
+  warningDays: number;
+  graceDays: number;
+  defaultCycle: string;
+  paymentMethod: string;
+  latePaymentPenalty: number;
+  enableAutoReminder: boolean;
+  reminderDaysBefore: number;
+  currency: string;
+  currencySymbol: string;
+  paymentInstructions: string;
+}
+
 interface SystemConfig {
   general: GeneralSettings;
   guesthouse: GuesthouseSettings;
   security: SecuritySettings;
   notifications: NotificationSettings;
+  payment: PaymentSettings;
 }
 
 // ── Defaults ──
@@ -106,11 +122,26 @@ const DEFAULT_NOTIFICATIONS: NotificationSettings = {
   notificationEmailRecipients: "admin@ghms.et, security@ghms.et",
 };
 
+const DEFAULT_PAYMENT: PaymentSettings = {
+  trialDays: 15,
+  warningDays: 7,
+  graceDays: 2,
+  defaultCycle: "MONTHLY",
+  paymentMethod: "manual",
+  latePaymentPenalty: 10,
+  enableAutoReminder: true,
+  reminderDaysBefore: 7,
+  currency: "ETB",
+  currencySymbol: "Br",
+  paymentInstructions: "Contact your administrator to arrange payment. Payments can be made via bank transfer or mobile money.",
+};
+
 const FULL_DEFAULTS: SystemConfig = {
   general: DEFAULT_GENERAL,
   guesthouse: DEFAULT_GUESTHOUSE,
   security: DEFAULT_SECURITY,
   notifications: DEFAULT_NOTIFICATIONS,
+  payment: DEFAULT_PAYMENT,
 };
 
 // ── Tab Definitions ──
@@ -124,6 +155,7 @@ const TABS: Array<{
   { key: "guesthouse", label: "Guesthouse", icon: Building2 },
   { key: "security", label: "Security", icon: Shield },
   { key: "notifications", label: "Notifications", icon: Bell },
+  { key: "payment", label: "Payment & Billing", icon: CreditCard },
 ];
 
 // ── Shared UI Components ──
@@ -778,6 +810,213 @@ function NotificationsTab({
   );
 }
 
+function PaymentTab({
+  settings,
+  onChange,
+}: {
+  settings: PaymentSettings;
+  onChange: (partial: Partial<PaymentSettings>) => void;
+}) {
+  return (
+    <div className="space-y-5">
+      {/* Subscription Timing */}
+      <SectionCard
+        title="Subscription Timing"
+        description="Control trial, warning, grace, and reminder periods"
+        icon={Clock}
+      >
+        <SettingRow
+          label="Trial Period"
+          description="Free trial days for newly approved guesthouses"
+        >
+          <NumberInput
+            id="trialDays"
+            value={settings.trialDays}
+            onChange={(v) => onChange({ trialDays: v })}
+            min={0}
+            max={90}
+            suffix="days"
+          />
+        </SettingRow>
+
+        <SettingRow
+          label="Warning Period"
+          description="Days before subscription expiry to show warning banner"
+        >
+          <NumberInput
+            id="warningDays"
+            value={settings.warningDays}
+            onChange={(v) => onChange({ warningDays: v })}
+            min={1}
+            max={30}
+            suffix="days"
+          />
+        </SettingRow>
+
+        <SettingRow
+          label="Grace Period"
+          description="Days after expiry before service is suspended"
+        >
+          <NumberInput
+            id="graceDays"
+            value={settings.graceDays}
+            onChange={(v) => onChange({ graceDays: v })}
+            min={0}
+            max={14}
+            suffix="days"
+          />
+        </SettingRow>
+
+        <SettingRow
+          label="Reminder Before Expiry"
+          description="Send payment reminder this many days before expiry"
+        >
+          <NumberInput
+            id="reminderDaysBefore"
+            value={settings.reminderDaysBefore}
+            onChange={(v) => onChange({ reminderDaysBefore: v })}
+            min={1}
+            max={30}
+            suffix="days"
+          />
+        </SettingRow>
+
+        <SettingRow
+          label="Enable Auto Reminder"
+          description="Automatically send payment reminders to providers"
+        >
+          <ToggleSwitch
+            id="enableAutoReminder"
+            checked={settings.enableAutoReminder}
+            onChange={(v) => onChange({ enableAutoReminder: v })}
+          />
+        </SettingRow>
+      </SectionCard>
+
+      {/* Default Subscription */}
+      <SectionCard
+        title="Default Subscription"
+        description="Default billing cycle and payment settings for new subscriptions"
+        icon={CreditCard}
+      >
+        <SettingRow
+          label="Default Cycle"
+          description="Default billing cycle when creating new subscriptions"
+        >
+          <select
+            id="defaultCycle"
+            value={settings.defaultCycle}
+            onChange={(e) => onChange({ defaultCycle: e.target.value })}
+            className={selectClass}
+          >
+            <option value="MONTHLY">Monthly</option>
+            <option value="QUARTERLY">Quarterly</option>
+            <option value="SEMI_ANNUAL">Semi-Annual</option>
+            <option value="YEARLY">Yearly</option>
+          </select>
+        </SettingRow>
+
+        <SettingRow
+          label="Payment Method"
+          description="How subscription payments are collected"
+        >
+          <select
+            id="paymentMethod"
+            value={settings.paymentMethod}
+            onChange={(e) => onChange({ paymentMethod: e.target.value })}
+            className={selectClass}
+          >
+            <option value="manual">Manual</option>
+            <option value="online">Online</option>
+          </select>
+        </SettingRow>
+
+        <SettingRow
+          label="Late Payment Penalty"
+          description="Penalty percentage applied for late subscription renewals"
+        >
+          <NumberInput
+            id="latePaymentPenalty"
+            value={settings.latePaymentPenalty}
+            onChange={(v) => onChange({ latePaymentPenalty: v })}
+            min={0}
+            max={100}
+            step={0.5}
+            suffix="%"
+          />
+        </SettingRow>
+      </SectionCard>
+
+      {/* Currency & Payment Info */}
+      <SectionCard
+        title="Currency & Payment Info"
+        description="Currency display and payment instructions shown to providers"
+        icon={Globe}
+      >
+        <SettingRow
+          label="Currency"
+          description="Currency used for subscription pricing"
+        >
+          <select
+            id="currency"
+            value={settings.currency}
+            onChange={(e) => {
+              const symbolMap: Record<string, string> = {
+                ETB: "Br",
+                USD: "$",
+                EUR: "€",
+              };
+              onChange({
+                currency: e.target.value,
+                currencySymbol: symbolMap[e.target.value] || e.target.value,
+              });
+            }}
+            className={selectClass}
+          >
+            <option value="ETB">ETB — Ethiopian Birr</option>
+            <option value="USD">USD — US Dollar</option>
+            <option value="EUR">EUR — Euro</option>
+          </select>
+        </SettingRow>
+
+        <SettingRow
+          label="Currency Symbol"
+          description="Symbol displayed next to amounts"
+        >
+          <input
+            id="currencySymbol"
+            type="text"
+            value={settings.currencySymbol}
+            onChange={(e) => onChange({ currencySymbol: e.target.value })}
+            className={inputClass}
+          />
+        </SettingRow>
+
+        <div className="py-4 space-y-4">
+          <div>
+            <FormLabel htmlFor="paymentInstructions">
+              Payment Instructions
+            </FormLabel>
+            <p className="text-xs text-slate-500 mb-2">
+              Instructions shown to providers on the subscription page.
+            </p>
+            <textarea
+              id="paymentInstructions"
+              value={settings.paymentInstructions}
+              onChange={(e) =>
+                onChange({ paymentInstructions: e.target.value })
+              }
+              className={textareaClass}
+              rows={3}
+              placeholder="e.g. Contact your administrator to arrange payment."
+            />
+          </div>
+        </div>
+      </SectionCard>
+    </div>
+  );
+}
+
 // ── Main Page Component ──
 
 export default function SuperSystemConfigPage() {
@@ -813,6 +1052,7 @@ export default function SuperSystemConfigPage() {
         guesthouse: { ...DEFAULT_GUESTHOUSE, ...data.guesthouse },
         security: { ...DEFAULT_SECURITY, ...data.security },
         notifications: { ...DEFAULT_NOTIFICATIONS, ...data.notifications },
+      payment: { ...DEFAULT_PAYMENT, ...data.payment },
       });
     } catch (err) {
       // API may not support this shape yet — use defaults
@@ -911,6 +1151,17 @@ export default function SuperSystemConfigPage() {
       setConfig((prev) => ({
         ...prev,
         notifications: { ...prev.notifications, ...partial },
+      }));
+      setDirty(true);
+    },
+    []
+  );
+
+  const updatePayment = useCallback(
+    (partial: Partial<PaymentSettings>) => {
+      setConfig((prev) => ({
+        ...prev,
+        payment: { ...prev.payment, ...partial },
       }));
       setDirty(true);
     },
@@ -1047,6 +1298,12 @@ export default function SuperSystemConfigPage() {
             <NotificationsTab
               settings={config.notifications}
               onChange={updateNotifications}
+            />
+          )}
+          {activeTab === "payment" && (
+            <PaymentTab
+              settings={config.payment}
+              onChange={updatePayment}
             />
           )}
         </div>

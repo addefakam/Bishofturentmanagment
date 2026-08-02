@@ -1,7 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthContext, AuthError } from "@/lib/tenant";
-import { calcSubscriptionStatus, TRIAL_DAYS } from "@/lib/subscription";
+import { calcSubscriptionStatus, TRIAL_DAYS, WARNING_DAYS, GRACE_DAYS } from "@/lib/subscription";
+
+async function getPaymentConfig() {
+  try {
+    const sysSettings = await db.settings.findFirst({
+      where: { providerId: null },
+    });
+    if (sysSettings?.configJson && typeof sysSettings.configJson === "object") {
+      const config = sysSettings.configJson as Record<string, unknown>;
+      const payment = config.payment;
+      if (payment && typeof payment === "object") {
+        return {
+          trialDays: (payment as Record<string, unknown>).trialDays as number ?? TRIAL_DAYS,
+          warningDays: (payment as Record<string, unknown>).warningDays as number ?? WARNING_DAYS,
+          graceDays: (payment as Record<string, unknown>).graceDays as number ?? GRACE_DAYS,
+          currencySymbol: (payment as Record<string, unknown>).currencySymbol as string ?? "Br",
+          paymentMethod: (payment as Record<string, unknown>).paymentMethod as string ?? "manual",
+          paymentInstructions: (payment as Record<string, unknown>).paymentInstructions as string ?? "",
+        };
+      }
+    }
+  } catch {
+    // Fall back to defaults
+  }
+  return {
+    trialDays: TRIAL_DAYS,
+    warningDays: WARNING_DAYS,
+    graceDays: GRACE_DAYS,
+    currencySymbol: "Br",
+    paymentMethod: "manual",
+    paymentInstructions: "",
+  };
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,8 +51,9 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Fetch subscription + provider info IN PARALLEL (was 2-4 sequential queries)
-    const [subscription, provider] = await Promise.all([
+    // Fetch payment config, subscription, and provider info IN PARALLEL
+    const [paymentConfig, subscription, provider] = await Promise.all([
+      getPaymentConfig(),
       db.subscription.findFirst({ where: { providerId: auth.providerId } }),
       db.provider.findFirst({
         where: { id: auth.providerId },
@@ -33,7 +66,7 @@ export async function GET(req: NextRequest) {
     if (!subscription && provider?.status === "APPROVED") {
       const now = new Date();
       const trialEnd = new Date(now);
-      trialEnd.setDate(trialEnd.getDate() + TRIAL_DAYS);
+      trialEnd.setDate(trialEnd.getDate() + paymentConfig.trialDays);
       try {
         finalSub = await db.subscription.create({
           data: { providerId: auth.providerId, startDate: now, endDate: trialEnd, cycle: "MONTHLY", price: 0 },
@@ -51,7 +84,10 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const { status, daysRemaining } = calcSubscriptionStatus(finalSub.endDate);
+    const { status, daysRemaining } = calcSubscriptionStatus(finalSub.endDate, {
+      warningDays: paymentConfig.warningDays,
+      graceDays: paymentConfig.graceDays,
+    });
 
     return NextResponse.json({
       status,
@@ -62,6 +98,9 @@ export async function GET(req: NextRequest) {
       providerName: provider?.name || "",
       ownerName: provider?.ownerName || "",
       phone: provider?.phone || "",
+      currencySymbol: paymentConfig.currencySymbol,
+      paymentMethod: paymentConfig.paymentMethod,
+      paymentInstructions: paymentConfig.paymentInstructions,
     });
   } catch (error: unknown) {
     if (error instanceof AuthError) {

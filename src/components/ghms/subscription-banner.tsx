@@ -1,13 +1,14 @@
 "use client";
 
-import { AlertTriangle, Clock, X } from "lucide-react";
+import { AlertTriangle, Clock } from "lucide-react";
 import { formatDaysRemaining, type SubscriptionStatus } from "@/lib/subscription";
-import { Button } from "@/components/ui/button";
 
 interface SubscriptionBannerProps {
   status: SubscriptionStatus;
   daysRemaining: number;
   providerName?: string;
+  paymentMethod?: string;
+  paymentInstructions?: string;
 }
 
 /**
@@ -18,12 +19,18 @@ interface SubscriptionBannerProps {
 export default function SubscriptionBanner({
   status,
   daysRemaining,
-  providerName,
+  paymentMethod,
+  paymentInstructions,
 }: SubscriptionBannerProps) {
   if (status === "ACTIVE" || status === "SUSPENDED") return null;
 
   const isGrace = status === "GRACE";
   const isWarning = status === "WARNING";
+
+  const methodLabel = paymentMethod === "online" ? "online payment" : "manual payment";
+  const instructionsLine = paymentInstructions
+    ? ` Payment method: ${methodLabel}.`
+    : ` Payment method: ${methodLabel}. Contact your administrator to arrange payment.`;
 
   return (
     <div
@@ -54,9 +61,18 @@ export default function SubscriptionBanner({
           }`}
         >
           {isGrace
-            ? `Your subscription expired ${Math.abs(daysRemaining)} day${Math.abs(daysRemaining) !== 1 ? "s" : ""} ago. Renew within the grace period or your service will be suspended. New check-ins and reservations are disabled.`
-            : `${formatDaysRemaining(daysRemaining)}. Please contact the administrator to renew your subscription.`}
+            ? `Your subscription expired ${Math.abs(daysRemaining)} day${Math.abs(daysRemaining) !== 1 ? "s" : ""} ago. Renew within the grace period or your service will be suspended. New check-ins and reservations are disabled.${instructionsLine}`
+            : `${formatDaysRemaining(daysRemaining)}. Please contact the administrator to renew your subscription.${instructionsLine}`}
         </p>
+        {paymentInstructions && (
+          <p
+            className={`text-xs mt-0.5 ${
+              isGrace ? "text-rose-600" : "text-amber-600"
+            }`}
+          >
+            {paymentInstructions}
+          </p>
+        )}
       </div>
       <div
         className={`flex shrink-0 items-center gap-1 rounded-full px-3 py-1 ${

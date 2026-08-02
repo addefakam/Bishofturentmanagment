@@ -14,6 +14,8 @@ interface LockoutInfo {
   endDate: string;
   cycle: string;
   price: number;
+  currencySymbol?: string;
+  paymentInstructions?: string;
 }
 
 /**
@@ -78,7 +80,7 @@ export default function SubscriptionLockoutPage({ info }: { info: LockoutInfo })
               <div className="flex justify-between">
                 <span className="text-slate-500">Amount Due:</span>
                 <span className="font-bold text-rose-700">
-                  {info.price > 0 ? `${info.price.toLocaleString()} ETB` : "Contact admin"}
+                  {info.price > 0 ? `${info.price.toLocaleString()} ${info.currencySymbol || "ETB"}` : "Contact admin"}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -90,6 +92,20 @@ export default function SubscriptionLockoutPage({ info }: { info: LockoutInfo })
             </div>
           </CardContent>
         </Card>
+
+        {/* Payment Instructions */}
+        {info.paymentInstructions && (
+          <Card className="mt-4 mx-auto max-w-sm border-slate-200">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-2">
+                <CreditCard className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
+                <p className="text-xs text-slate-600 text-left leading-relaxed">
+                  {info.paymentInstructions}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Contact */}
         <div className="mt-6 flex items-center justify-center gap-2">

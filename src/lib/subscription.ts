@@ -38,28 +38,31 @@ export interface SubscriptionInfo {
 /**
  * Calculate subscription status based on endDate.
  * Returns status + days remaining (positive = future, negative = past).
+ * Accepts optional warningDays and graceDays (falls back to module-level constants).
  */
-export function calcSubscriptionStatus(endDate: Date | string): {
+export function calcSubscriptionStatus(
+  endDate: Date | string,
+  options?: { warningDays?: number; graceDays?: number }
+): {
   status: SubscriptionStatus;
   daysRemaining: number;
 } {
+  const wd = options?.warningDays ?? WARNING_DAYS;
+  const gd = options?.graceDays ?? GRACE_DAYS;
   const end = new Date(endDate);
   const now = new Date();
   const diffMs = end.getTime() - now.getTime();
   const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
-  if (daysRemaining > WARNING_DAYS) {
+  if (daysRemaining > wd) {
     return { status: "ACTIVE", daysRemaining };
   }
   if (daysRemaining > 0) {
-    // Within WARNING_DAYS (7) of expiry
     return { status: "WARNING", daysRemaining };
   }
-  if (daysRemaining > -GRACE_DAYS) {
-    // Within GRACE_DAYS (2) after expiry
+  if (daysRemaining > -gd) {
     return { status: "GRACE", daysRemaining };
   }
-  // More than GRACE_DAYS past expiry
   return { status: "SUSPENDED", daysRemaining };
 }
 

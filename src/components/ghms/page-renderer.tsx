@@ -267,6 +267,8 @@ export default function PageRenderer() {
               status={subscription.status}
               daysRemaining={subscription.daysRemaining}
               providerName={subscription.providerName}
+              paymentMethod={subscription.paymentMethod}
+              paymentInstructions={subscription.paymentInstructions}
             />
           </div>
         )}

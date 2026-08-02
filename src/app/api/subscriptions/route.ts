@@ -1,7 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthContext, AuthError } from "@/lib/tenant";
-import { calcSubscriptionStatus, TRIAL_DAYS, type SubscriptionStatus } from "@/lib/subscription";
+import { calcSubscriptionStatus, TRIAL_DAYS, WARNING_DAYS, GRACE_DAYS, type SubscriptionStatus } from "@/lib/subscription";
+
+async function getPaymentConfig() {
+  try {
+    const sysSettings = await db.settings.findFirst({
+      where: { providerId: null },
+    });
+    if (sysSettings?.configJson && typeof sysSettings.configJson === "object") {
+      const config = sysSettings.configJson as Record<string, unknown>;
+      const payment = config.payment;
+      if (payment && typeof payment === "object") {
+        return {
+          trialDays: (payment as Record<string, unknown>).trialDays as number ?? TRIAL_DAYS,
+          warningDays: (payment as Record<string, unknown>).warningDays as number ?? WARNING_DAYS,
+          graceDays: (payment as Record<string, unknown>).graceDays as number ?? GRACE_DAYS,
+        };
+      }
+    }
+  } catch {
+    // Fall back to defaults
+  }
+  return { trialDays: TRIAL_DAYS, warningDays: WARNING_DAYS, graceDays: GRACE_DAYS };
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,19 +40,22 @@ export async function GET(req: NextRequest) {
       ? statusFilter.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
       : null;
 
-    // Fetch all APPROVED providers with their subscription and payments
-    const providers = await db.provider.findMany({
-      where: { status: "APPROVED" },
-      include: {
-        subscription: {
-          include: {
-            plan: { select: { id: true, name: true } },
-            payments: { select: { id: true } },
+    // Fetch payment config and providers IN PARALLEL
+    const [paymentConfig, providers] = await Promise.all([
+      getPaymentConfig(),
+      db.provider.findMany({
+        where: { status: "APPROVED" },
+        include: {
+          subscription: {
+            include: {
+              plan: { select: { id: true, name: true } },
+              payments: { select: { id: true } },
+            },
           },
         },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
 
     const now = new Date();
     const results: Array<{
@@ -57,7 +82,7 @@ export async function GET(req: NextRequest) {
       // Auto-create trial subscription for providers that don't have one
       if (!subscription) {
         const trialEnd = new Date(now);
-        trialEnd.setDate(trialEnd.getDate() + TRIAL_DAYS);
+        trialEnd.setDate(trialEnd.getDate() + paymentConfig.trialDays);
 
         // Use findFirst + create pattern (no upsert for Turso)
         const existing = await db.subscription.findFirst({
@@ -83,7 +108,10 @@ export async function GET(req: NextRequest) {
       }
 
       // Calculate dynamic status
-      const { status, daysRemaining } = calcSubscriptionStatus(subscription.endDate);
+      const { status, daysRemaining } = calcSubscriptionStatus(subscription.endDate, {
+        warningDays: paymentConfig.warningDays,
+        graceDays: paymentConfig.graceDays,
+      });
 
       // Build result row
       const row = {

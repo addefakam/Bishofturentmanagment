@@ -30,6 +30,9 @@ export interface SubscriptionInfo {
   providerName: string;
   ownerName: string;
   phone: string;
+  currencySymbol?: string;
+  paymentMethod?: string;
+  paymentInstructions?: string;
 }
 
 export interface JointSessionInfo {
