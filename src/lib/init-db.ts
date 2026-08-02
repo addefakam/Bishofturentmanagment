@@ -516,6 +516,7 @@ CREATE INDEX IF NOT EXISTS "SubscriptionPayment_createdAt_idx" ON "SubscriptionP
 `;
 
 let _initDone = false;
+let _migrationsRan = false;
 let _initPromise: Promise<void> | null = null;
 
 /** Execute SQL via raw pg Client */
@@ -542,8 +543,39 @@ async function execViaPrisma(sql: string): Promise<void> {
   }
 }
 
+/**
+ * Run only MIGRATIONS_SQL + INDEXES_SQL without full init.
+ * Used as a background check when _initDone is already true.
+ */
+async function runMigrationsOnly(): Promise<void> {
+  console.log("[init-db] Running idempotent migrations on existing DB...");
+  try {
+    await execViaPrisma(MIGRATIONS_SQL);
+    console.log("[init-db] Background migrations applied.");
+  } catch (err) {
+    throw err;
+  }
+  try {
+    await execViaPrisma(INDEXES_SQL);
+  } catch {
+    // Indexes are best-effort
+  }
+}
+
 export async function ensureDatabase(): Promise<void> {
-  if (_initDone) return;
+  if (_initDone) {
+    // Even if init was done, always run migrations on cold start
+    // to catch any new columns added in latest deploy.
+    // Migrations are idempotent (EXCEPTION WHEN duplicate_column).
+    if (!_migrationsRan) {
+      _migrationsRan = true;
+      runMigrationsOnly().catch((err) => {
+        console.error("[init-db] Background migration failed:", err instanceof Error ? err.message : String(err));
+        _migrationsRan = false; // Allow retry
+      });
+    }
+    return;
+  }
   if (_initPromise) return _initPromise;
 
   if (!process.env.DATABASE_URL) {
@@ -719,4 +751,30 @@ export async function ensureDatabase(): Promise<void> {
   })();
 
   return _initPromise;
+}
+
+/**
+ * Force-run just the migrations + indexes on the live database.
+ * Useful after deploying schema changes to add new columns without full re-init.
+ * All migrations use EXCEPTION WHEN duplicate_column so they are safe to re-run.
+ */
+export async function forceMigrate(): Promise<void> {
+  console.log("[forceMigrate] Running migrations on existing database...");
+  try {
+    await execViaPrisma(MIGRATIONS_SQL);
+    console.log("[forceMigrate] Migrations applied.");
+  } catch (err) {
+    console.error("[forceMigrate] Migration failed:", err instanceof Error ? err.message : String(err));
+    throw err;
+  }
+  try {
+    await execViaPrisma(INDEXES_SQL);
+    console.log("[forceMigrate] Indexes verified.");
+  } catch (err) {
+    console.error("[forceMigrate] Index creation failed:", err instanceof Error ? err.message : String(err));
+    // Don't throw — indexes are best-effort
+  }
+  // Reset init flag so next ensureDatabase() will do a full check
+  _initDone = false;
+  _initPromise = null;
 }
