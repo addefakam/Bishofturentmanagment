@@ -279,17 +279,52 @@ export default function ReportsPage() {
       g.roomNumber.toLowerCase().includes(q)
     );
   }, [activeGuests, activeGuestSearch]);
-  const handleExport = () => {
+  const handleExportPDF = () => {
     if (!data) return;
-    const json = JSON.stringify(data, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `report-${from}-to-${to}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("Report exported");
+    const providerName = useAppStore.getState().currentUser?.providerName || "Guest House";
+    const win = window.open("", "_blank");
+    if (!win) { toast.error("Please allow popups to export PDF"); return; }
+
+    const statusRows = statusBreakdown.map(s => `<tr><td>${s.status.replace(/_/g, " ")}</td><td style="text-align:right">${s.count}</td><td style="text-align:right">${formatCurrency(s.revenue)}</td></tr>`).join("");
+    const dailyRows = data.dailyRevenue.map(d => `<tr><td>${d.date}</td><td style="text-align:right">${formatCurrency(d.amount)}</td></tr>`).join("");
+    const expenseRows = data.expenseBreakdown.map(e => `<tr><td>${e.category}</td><td style="text-align:right">${formatCurrency(e.amount)}</td></tr>`).join("");
+
+    win.document.write(`<!DOCTYPE html><html><head><title>Report ${from} to ${to}</title>
+      <style>
+        @page { margin: 20mm; size: A4; }
+        body { font-family: Arial, Helvetica, sans-serif; color: #1e293b; font-size: 13px; }
+        h1 { font-size: 22px; margin-bottom: 2px; }
+        .subtitle { color: #64748b; font-size: 13px; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th { background: #f1f5f9; text-align: left; padding: 8px 12px; font-size: 12px; font-weight: 600; border-bottom: 2px solid #e2e8f0; }
+        td { padding: 7px 12px; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
+        .summary { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+        .summary-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; }
+        .summary-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+        .summary-value { font-size: 20px; font-weight: 700; margin-top: 4px; }
+        .green { color: #059669; } .red { color: #dc2626; } .blue { color: #2563eb; } .violet { color: #7c3aed; }
+        .section-title { font-size: 15px; font-weight: 700; margin: 24px 0 10px; color: #334155; }
+        .footer { margin-top: 30px; padding-top: 12px; border-top: 1px solid #e2e8f0; color: #94a3b8; font-size: 11px; }
+        @media print { .no-print { display: none; } }
+      </style></head><body>
+      <h1>Financial Report</h1>
+      <p class="subtitle">${providerName} &middot; ${from} to ${to}</p>
+      <div class="summary">
+        <div class="summary-card"><div class="summary-label">Total Revenue</div><div class="summary-value green">${formatCurrency(data.revenue)}</div></div>
+        <div class="summary-card"><div class="summary-label">Total Expenses</div><div class="summary-value red">${formatCurrency(data.expenses)}</div></div>
+        <div class="summary-card"><div class="summary-label">Net Profit</div><div class="summary-value ${data.profit >= 0 ? "green" : "red"}">${formatCurrency(data.profit)}</div></div>
+        <div class="summary-card"><div class="summary-label">Avg Occupancy</div><div class="summary-value violet">${data.occupancyRate}%</div></div>
+      </div>
+      <p class="section-title">Reservations by Status</p>
+      <table><thead><tr><th>Status</th><th style="text-align:right">Count</th><th style="text-align:right">Revenue</th></tr></thead><tbody>${statusRows}</tbody></table>
+      <p class="section-title">Daily Revenue Trend</p>
+      <table><thead><tr><th>Date</th><th style="text-align:right">Revenue</th></tr></thead><tbody>${dailyRows}</tbody></table>
+      ${data.expenseBreakdown.length > 0 ? `<p class="section-title">Expense Breakdown</p><table><thead><tr><th>Category</th><th style="text-align:right">Amount</th></tr></thead><tbody>${expenseRows}</tbody></table>` : ""}
+      <div class="footer">Generated on ${new Date().toLocaleString()} &middot; GHMS Report</div>
+      <div class="no-print" style="text-align:center;margin-top:20px;"><button onclick="window.print()" style="padding:10px 24px;background:#0f172a;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;">Save as PDF</button></div>
+      </body></html>`);
+    win.document.close();
+    toast.success("Report opened for PDF export");
   };
 
   return (
@@ -310,9 +345,9 @@ export default function ReportsPage() {
             <Users className="mr-2 h-4 w-4" />
             Served Guests ({servedGuests.length})
           </Button>
-          <Button variant="outline" onClick={handleExport} disabled={loading || !data}>
+          <Button variant="outline" onClick={handleExportPDF} disabled={loading || !data}>
             <Download className="mr-2 h-4 w-4" />
-            Export JSON
+            Export PDF
           </Button>
         </div>
       </div>

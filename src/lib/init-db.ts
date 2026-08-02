@@ -54,10 +54,12 @@ CREATE TABLE IF NOT EXISTS "User" (
   "isActive" BOOLEAN NOT NULL DEFAULT true,
   "lastLogin" TIMESTAMP(3),
   "providerId" TEXT,
+  "createdBy" TEXT,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "User_username_key" UNIQUE ("username")
 );
+DO $$ BEGIN CREATE INDEX "User_createdBy_idx" ON "User"("createdBy"); EXCEPTION WHEN duplicate_object THEN null; END $$;
 CREATE TABLE IF NOT EXISTS "Room" (
   "id" TEXT NOT NULL PRIMARY KEY,
   "number" TEXT NOT NULL,
