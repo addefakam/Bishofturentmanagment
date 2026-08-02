@@ -92,7 +92,7 @@ export async function PUT(
     if (email !== undefined) updateData.email = email || null;
     if (phone !== undefined) updateData.phone = phone || null;
     if (role !== undefined) updateData.role = role;
-    if (policeRank !== undefined) updateData.policeRank = role === "POLICE" ? policeRank : null;
+    if (policeRank !== undefined) updateData.policeRank = role === "POLICE" ? policeRank : "";
     if (permissions !== undefined) {
       updateData.permissions = typeof permissions === "string" ? permissions : JSON.stringify(permissions || []);
     }

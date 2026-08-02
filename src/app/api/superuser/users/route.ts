@@ -158,7 +158,7 @@ export async function POST(req: NextRequest) {
         email: email || null,
         phone: phone || null,
         role,
-        policeRank: role === "POLICE" ? policeRank : null,
+        policeRank: role === "POLICE" ? policeRank : "",
         permissions: typeof permissions === "string" ? permissions : JSON.stringify(permissions || []),
         providerId: providerId || null,
         isActive: isActive !== undefined ? isActive : true,

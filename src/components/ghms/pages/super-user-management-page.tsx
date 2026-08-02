@@ -510,7 +510,7 @@ export default function SuperUserManagementPage() {
         email: form.email.trim() || null,
         phone: form.phone.trim() || null,
         role: form.role,
-        policeRank: form.role === "POLICE" ? form.policeRank : null,
+        policeRank: form.role === "POLICE" ? form.policeRank : "",
         permissions: form.role === "STAFF" ? form.permissions : [],
         providerId: (form.providerId && form.providerId !== "__none__") ? form.providerId : null,
         isActive: form.isActive,
