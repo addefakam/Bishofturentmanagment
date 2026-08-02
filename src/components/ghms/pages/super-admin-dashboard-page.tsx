@@ -14,7 +14,6 @@ import {
   Building2,
   Shield,
   CreditCard,
-  BarChart3,
   Settings,
   RefreshCw,
   Activity,
@@ -22,7 +21,6 @@ import {
   CheckCircle,
   ArrowRight,
   Star,
-  FileDown,
   Globe,
   Server,
 } from "lucide-react";
@@ -168,38 +166,6 @@ export default function SuperAdminDashboardPage() {
     fetchAllData(true);
   };
 
-  // ── Quick Action Cards ──
-  const quickActions = [
-    {
-      title: "User Management",
-      description: "Add, edit, or remove users",
-      icon: <Users className="h-5 w-5" />,
-      iconBg: "bg-sky-100 text-sky-600",
-      page: "owner-accounts",
-    },
-    {
-      title: "Guesthouse Registry",
-      description: "View all guesthouses",
-      icon: <Building2 className="h-5 w-5" />,
-      iconBg: "bg-emerald-100 text-emerald-600",
-      page: "reports",
-    },
-    {
-      title: "Generate Reports",
-      description: "Export data & analytics",
-      icon: <FileDown className="h-5 w-5" />,
-      iconBg: "bg-amber-100 text-amber-600",
-      page: "reports",
-    },
-    {
-      title: "Security Settings",
-      description: "Permissions & access control",
-      icon: <Shield className="h-5 w-5" />,
-      iconBg: "bg-rose-100 text-rose-600",
-      page: "settings",
-    },
-  ];
-
   // ── Stat Cards ──
   const statCards = [
     {
@@ -335,38 +301,6 @@ export default function SuperAdminDashboardPage() {
             ))}
           </div>
 
-          <Separator className="my-5" />
-
-          {/* Quick Actions 2x2 Grid */}
-          <div>
-            <h3 className="mb-3 text-sm font-semibold text-slate-700">
-              Quick Actions
-            </h3>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {quickActions.map((action) => (
-                <button
-                  key={action.title}
-                  onClick={() => setCurrentPage(action.page)}
-                  className="group flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 text-left transition-all hover:border-slate-300 hover:shadow-md"
-                >
-                  <div
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${action.iconBg}`}
-                  >
-                    {action.icon}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 group-hover:text-slate-900">
-                      {action.title}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {action.description}
-                    </p>
-                  </div>
-                  <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-1 group-hover:text-slate-600" />
-                </button>
-              ))}
-            </div>
-          </div>
         </CardContent>
       </Card>
 
