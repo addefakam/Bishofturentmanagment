@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       }
 
       const body = await req.json();
-      const { name, ownerName, phone, email, address, type, licenseNo, username, password } = body;
+      const { name, ownerName, phone, email, address, type, licenseNo, licenseFile, username, password } = body;
 
       if (!name?.trim() || !ownerName?.trim() || !phone?.trim()) {
         return NextResponse.json(
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
             address: address?.trim() || "",
             type: type || "GUEST_HOUSE",
             licenseNo: licenseNo?.trim() || "",
-            licenseFile: "",
+            licenseFile: typeof licenseFile === "string" ? licenseFile : "",
             status: "APPROVED",
             approvedBy: auth.userId || auth.username || "superuser",
             approvedAt: new Date(),

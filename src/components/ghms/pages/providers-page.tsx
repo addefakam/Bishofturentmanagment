@@ -61,6 +61,8 @@ import {
   Loader2,
   UserPlus,
   KeyRound,
+  Upload,
+  X,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -128,6 +130,8 @@ interface RegisterForm {
   address: string;
   type: string;
   licenseNo: string;
+  licenseFileData: string;
+  licenseFileName: string;
   username: string;
   password: string;
 }
@@ -140,6 +144,8 @@ const emptyRegisterForm: RegisterForm = {
   address: "",
   type: "GUEST_HOUSE",
   licenseNo: "",
+  licenseFileData: "",
+  licenseFileName: "",
   username: "",
   password: "",
 };
@@ -328,6 +334,7 @@ export default function ProvidersPage() {
       setRegistering(true);
       await apiSuperCreateProvider({
         ...registerForm,
+        licenseFile: registerForm.licenseFileData || undefined,
       });
       toast.success(`"${registerForm.name}" registered and approved successfully`);
       setRegisterOpen(false);
@@ -995,6 +1002,56 @@ export default function ProvidersPage() {
                   placeholder="Business license number"
                   className="bg-slate-50"
                 />
+              </div>
+              <div className="grid gap-1.5 sm:col-span-2">
+                <Label className="text-sm">Upload License <span className="text-slate-400 font-normal">(optional)</span></Label>
+                {!registerForm.licenseFileData ? (
+                  <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/50 p-6 transition-colors hover:border-primary/40 hover:bg-primary/5">
+                    <Upload className="h-8 w-8 text-slate-400" />
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-slate-600">Click to upload license document</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">PDF, Image, or any document (max 5MB)</p>
+                    </div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > 5 * 1024 * 1024) {
+                          toast.error("File size must be under 5MB");
+                          return;
+                        }
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          const base64 = reader.result as string;
+                          setRegisterForm((f) => ({
+                            ...f,
+                            licenseFileData: base64,
+                            licenseFileName: file.name,
+                          }));
+                        };
+                        reader.readAsDataURL(file);
+                      }}
+                    />
+                  </label>
+                ) : (
+                  <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                    <FileText className="h-8 w-8 shrink-0 text-emerald-600" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-slate-700">{registerForm.licenseFileName}</p>
+                      <p className="text-[11px] text-emerald-600">License uploaded</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRegisterForm((f) => ({ ...f, licenseFileData: "", licenseFileName: "" }))}
+                      className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-slate-200 transition-colors"
+                    >
+                      <X className="h-3.5 w-3.5 text-slate-500" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
