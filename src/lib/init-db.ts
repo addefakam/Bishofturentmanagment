@@ -530,14 +530,34 @@ async function execViaPg(sql: string, params?: unknown[]): Promise<void> {
   }
 }
 
-/** Execute DDL via Prisma $executeRawUnsafe (bypasses Prisma's table-existence check) */
+/** Execute DDL via Prisma $executeRawUnsafe — splits multi-statement SQL
+ *  because Prisma's driver does NOT support multiple statements per call. */
 async function execViaPrisma(sql: string): Promise<void> {
+  // Split on `DO $$` blocks and standalone statements
+  // Each `DO $$ ... END $$;` is one executable unit
+  const statements = sql
+    .split(/(?=DO \$\$)/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+
+  // If no DO blocks found, split by semicolons (for CREATE INDEX etc.)
+  const parts = statements.length > 1
+    ? statements
+    : sql.split(';').map(s => s.trim()).filter(s => s.length > 0);
+
   const prisma = new PrismaClient({
     log: ["warn", "error"],
   });
   try {
-    // $executeRawUnsafe sends SQL directly without schema validation
-    await prisma.$executeRawUnsafe(sql);
+    for (const part of parts) {
+      const stmt = part.endsWith(';') ? part : part + ';';
+      try {
+        await prisma.$executeRawUnsafe(stmt);
+      } catch (err) {
+        // Individual statement might fail (e.g. duplicate_object) — log but continue
+        console.error("[execViaPrisma] Statement failed (continuing):", stmt.slice(0, 80), err instanceof Error ? err.message : String(err));
+      }
+    }
   } finally {
     await prisma.$disconnect().catch(() => {});
   }
