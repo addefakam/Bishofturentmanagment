@@ -103,6 +103,7 @@ const ReviewsPage = lazyPage(
 const OwnerAccountsPage = lazyPage(
   () => import("@/components/ghms/pages/owner-accounts-page")
 );
+const UsersPage = lazyPage(() => import("@/components/ghms/pages/users-page"));
 const JointOperationsPage = lazyPage(
   () => import("@/components/ghms/pages/joint-operations-page")
 );
@@ -155,7 +156,7 @@ const PAGE_MAP: Record<string, React.LazyExoticComponent<React.ComponentType>> =
     expenses: ExpensesPage,
     resources: ResourcesPage,
     housekeeping: HousekeepingPage,
-    users: OwnerAccountsPage,
+    users: UsersPage,
     reports: ReportsPage,
     settings: SettingsPage,
     notifications: NotificationsPage,

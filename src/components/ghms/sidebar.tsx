@@ -85,7 +85,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { page: "expenses", label: "Expenses", icon: Receipt },
   { page: "resources", label: "Resources", icon: Package },
   { page: "housekeeping", label: "Housekeeping", icon: Sparkles },
-  { page: "users", label: "Users", icon: UserCog },
+  { page: "users", label: "Account Management", icon: UserCog },
   { page: "reports", label: "Reports", icon: BarChart3 },
   { page: "settings", label: "Settings", icon: Settings },
   { page: "notifications", label: "Notifications", icon: Bell, badge: "new" },

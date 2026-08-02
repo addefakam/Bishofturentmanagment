@@ -135,6 +135,7 @@ model User {
   isActive    Boolean         @default(true)
   lastLogin   DateTime?
   providerId  String?
+  createdBy    String?         // User ID of the OPERATOR who created this account
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
@@ -143,6 +144,7 @@ model User {
   @@index([providerId])
   @@index([role])
   @@index([isActive])
+  @@index([createdBy])
 }
 
 model Room {

@@ -21,6 +21,11 @@ export async function GET(req: NextRequest) {
     const where: Record<string, unknown> = {};
     if (isPolice) {
       if (providerFilter) where.providerId = providerFilter;
+    } else if (auth.role === "OPERATOR") {
+      // OPERATOR only sees STAFF accounts they personally created
+      where.providerId = providerId;
+      where.createdBy = auth.userId;
+      where.role = "STAFF";
     } else {
       where.providerId = providerId;
     }
@@ -35,6 +40,7 @@ export async function GET(req: NextRequest) {
         permissions: true,
         policeRank: true,
         providerId: true,
+        createdBy: true,
         createdAt: true,
         updatedAt: true,
         provider: {
@@ -90,6 +96,7 @@ export async function POST(req: NextRequest) {
         name,
         permissions: typeof permissions === "string" ? permissions : JSON.stringify(permissions || []),
         providerId: targetProviderId,
+        createdBy: auth.role === "OPERATOR" ? auth.userId : undefined,
       },
     });
 
