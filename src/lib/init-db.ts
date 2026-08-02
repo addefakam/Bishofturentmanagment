@@ -47,8 +47,12 @@ CREATE TABLE IF NOT EXISTS "User" (
   "password" TEXT NOT NULL,
   "role" "UserRole" NOT NULL DEFAULT 'STAFF',
   "name" TEXT NOT NULL,
+  "email" TEXT DEFAULT '',
+  "phone" TEXT DEFAULT '',
   "permissions" TEXT NOT NULL DEFAULT '["reservations","guests"]',
   "policeRank" TEXT NOT NULL DEFAULT '',
+  "isActive" BOOLEAN NOT NULL DEFAULT true,
+  "lastLogin" TIMESTAMP(3),
   "providerId" TEXT,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -371,12 +375,34 @@ DO $$ BEGIN ALTER TABLE "Subscription" ADD CONSTRAINT "Subscription_providerId_f
 DO $$ BEGIN ALTER TABLE "SubscriptionPayment" ADD CONSTRAINT "SubscriptionPayment_subscriptionId_fkey" FOREIGN KEY ("subscriptionId") REFERENCES "Subscription"("id") ON DELETE CASCADE ON UPDATE CASCADE; EXCEPTION WHEN duplicate_object THEN null; END $$;
 `;
 
+// ─── Migrations: Add new columns to existing tables ────────────────
+const MIGRATIONS_SQL = `
+-- Add email, phone, isActive, lastLogin to User table if missing
+DO $$ BEGIN
+  ALTER TABLE "User" ADD COLUMN "email" TEXT DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "User" ADD COLUMN "phone" TEXT DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "User" ADD COLUMN "isActive" BOOLEAN NOT NULL DEFAULT true;
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "User" ADD COLUMN "lastLogin" TIMESTAMP(3);
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+`;
+
 // ─── Indexes ───────────────────────────────────────────────────────────────
 const INDEXES_SQL = `
 CREATE INDEX IF NOT EXISTS "Provider_status_idx" ON "Provider" ("status");
 CREATE INDEX IF NOT EXISTS "Provider_createdAt_idx" ON "Provider" ("createdAt");
 CREATE INDEX IF NOT EXISTS "User_providerId_idx" ON "User" ("providerId");
 CREATE INDEX IF NOT EXISTS "User_role_idx" ON "User" ("role");
+CREATE INDEX IF NOT EXISTS "User_isActive_idx" ON "User" ("isActive");
 CREATE INDEX IF NOT EXISTS "Room_providerId_idx" ON "Room" ("providerId");
 CREATE INDEX IF NOT EXISTS "Room_status_idx" ON "Room" ("status");
 CREATE INDEX IF NOT EXISTS "Guest_providerId_idx" ON "Guest" ("providerId");
@@ -528,6 +554,10 @@ export async function ensureDatabase(): Promise<void> {
       console.log("[init-db] Creating foreign keys...");
       await client.query(FKS_SQL);
 
+      // Run migrations (add new columns to existing tables)
+      console.log("[init-db] Running migrations...");
+      await client.query(MIGRATIONS_SQL);
+
       // Create indexes
       console.log("[init-db] Creating indexes...");
       await client.query(INDEXES_SQL);
@@ -589,6 +619,9 @@ export async function ensureDatabase(): Promise<void> {
 
       await execViaPrisma(FKS_SQL);
       console.log("[init-db] Foreign keys created via Prisma.");
+
+      await execViaPrisma(MIGRATIONS_SQL);
+      console.log("[init-db] Migrations ran via Prisma.");
 
       await execViaPrisma(INDEXES_SQL);
       console.log("[init-db] Indexes created via Prisma.");

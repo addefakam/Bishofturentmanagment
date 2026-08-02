@@ -320,3 +320,39 @@ export const apiPoliceRoomAvailability = () => req("/api/police-room-availabilit
 // Police suspend provider (with reason + notification to provider)
 export const apiPoliceSuspendProvider = (data: Record<string, unknown>) =>
   req("/api/police-suspend-provider", { method: "POST", body: JSON.stringify(data) });
+
+// ── Superuser User Management ──
+export const apiSuperGetUsers = (params?: {
+  search?: string;
+  role?: string;
+  providerId?: string;
+  page?: number;
+  pageSize?: number;
+}) => {
+  const sp = new URLSearchParams();
+  if (params?.search) sp.set("search", params.search);
+  if (params?.role) sp.set("role", params.role);
+  if (params?.providerId) sp.set("providerId", params.providerId);
+  if (params?.page) sp.set("page", String(params.page));
+  if (params?.pageSize) sp.set("pageSize", String(params.pageSize));
+  const qs = sp.toString();
+  return req(`/api/superuser/users${qs ? `?${qs}` : ""}`);
+};
+export const apiSuperGetUser = (id: string) =>
+  req(`/api/superuser/users/${id}`);
+export const apiSuperCreateUser = (data: Record<string, unknown>) =>
+  req("/api/superuser/users", { method: "POST", body: JSON.stringify(data) });
+export const apiSuperUpdateUser = (id: string, data: Record<string, unknown>) =>
+  req(`/api/superuser/users/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const apiSuperDeleteUser = (id: string) =>
+  req(`/api/superuser/users/${id}`, { method: "DELETE" });
+
+// ── Superuser Profile ──
+export const apiSuperGetProfile = () =>
+  req("/api/superuser/users");
+export const apiSuperUpdateProfile = (id: string, data: Record<string, unknown>) =>
+  req(`/api/superuser/users/${id}`, { method: "PUT", body: JSON.stringify(data) });
+
+// ── Superuser: list providers for dropdown ──
+export const apiSuperGetProviders = () =>
+  req("/api/providers");

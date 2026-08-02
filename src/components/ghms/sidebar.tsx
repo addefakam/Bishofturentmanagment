@@ -30,6 +30,7 @@ import {
   Clock,
   AlertTriangle,
   UserCircle,
+  UserPlus,
   ChevronDown,
   LogOut,
   BrainCircuit,
@@ -148,7 +149,7 @@ const POLICE_NAV_ITEMS: NavItem[] = [
 // SUPERUSER (admin): admin dashboard, user management, guesthouses, subscriptions, system config, audit logs, data & reports, notifications
 const SUPERUSER_NAV_ITEMS: NavItem[] = [
   { page: "super-admin-dashboard", label: "Admin Dashboard", icon: LayoutDashboard },
-  { page: "owner-accounts", label: "User Management", icon: Users },
+  { page: "super-user-management", label: "User Management", icon: Users },
   { page: "providers", label: "Guesthouses", icon: Building2 },
   { page: "subscriptions", label: "Subscriptions", icon: CreditCard },
   { page: "super-system-config", label: "System Configuration", icon: Settings },
@@ -490,7 +491,7 @@ function SidebarContent({
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="flex items-center gap-2.5 cursor-pointer"
-                      onClick={() => onNavigate("settings")}
+                      onClick={() => onNavigate("super-profile")}
                     >
                       <UserCircle className="size-4 text-slate-500" />
                       <span>My Profile</span>
