@@ -411,6 +411,10 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_column THEN null;
 END $$;
 DO $$ BEGIN
+  ALTER TABLE "User" ADD COLUMN "createdBy" TEXT;
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
   ALTER TABLE "Guest" ADD COLUMN "region" TEXT NOT NULL DEFAULT '';
 EXCEPTION WHEN duplicate_column THEN null;
 END $$;
