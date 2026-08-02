@@ -585,7 +585,7 @@ function SidebarContent({
 
       <Separator className="bg-slate-200/60" />
 
-      {/* ── Bottom section: collapse toggle ── */
+      {/* ── Bottom section: collapse toggle ── */}
       <div className="p-3">
         {/* Desktop collapse toggle */}
         {!collapsed && (
