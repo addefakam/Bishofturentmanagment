@@ -92,7 +92,12 @@ export async function PUT(
     if (email !== undefined) updateData.email = email || null;
     if (phone !== undefined) updateData.phone = phone || null;
     if (role !== undefined) updateData.role = role;
-    if (policeRank !== undefined) updateData.policeRank = role === "POLICE" ? policeRank : "";
+    // policeRank is non-nullable in schema — always ensure it's a string
+    if (role === "POLICE" && policeRank) {
+      updateData.policeRank = policeRank;
+    } else if (role !== undefined || policeRank !== undefined) {
+      updateData.policeRank = "";
+    }
     if (permissions !== undefined) {
       updateData.permissions = typeof permissions === "string" ? permissions : JSON.stringify(permissions || []);
     }
