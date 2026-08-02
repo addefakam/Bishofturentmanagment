@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,8 +11,6 @@ import {
 } from "@/components/ui/select";
 import {
   ethiopianRegions,
-  getZones,
-  getWoredas,
   getLevel2Label,
 } from "@/lib/ethiopian-admin-divisions";
 
@@ -53,31 +50,10 @@ export default function AddressFields({
   onChange,
   columns = 2,
 }: AddressFieldsProps) {
-  const zones = useMemo(
-    () => (value.region ? getZones(value.region) : []),
-    [value.region]
-  );
-
-  const woredas = useMemo(
-    () => (value.region && value.zone ? getWoredas(value.region, value.zone) : []),
-    [value.region, value.zone]
-  );
-
-  const level2Label = useMemo(
-    () => (value.region ? getLevel2Label(value.region) : "Zone/Sub-city"),
-    [value.region]
-  );
+  const level2Label = value.region ? getLevel2Label(value.region) : "Zone/Sub-city";
 
   const update = (field: keyof AddressData, val: string) => {
-    const next = { ...value, [field]: val };
-    // Reset dependent fields when a parent changes
-    if (field === "region") {
-      next.zone = "";
-      next.woreda = "";
-    } else if (field === "zone") {
-      next.woreda = "";
-    }
-    onChange(next);
+    onChange({ ...value, [field]: val });
   };
 
   const colClass = columns === 3
@@ -110,47 +86,21 @@ export default function AddressFields({
         {/* Zone / Sub-city */}
         <div className="space-y-1.5">
           <Label>{level2Label} <span className="text-rose-500">*</span></Label>
-          <Select
+          <Input
+            placeholder={`Enter ${level2Label.toLowerCase()}`}
             value={value.zone}
-            onValueChange={(v) => update("zone", v)}
-            disabled={!value.region}
-          >
-            <SelectTrigger>
-              <SelectValue
-                placeholder={value.region ? `Select ${level2Label.toLowerCase()}` : "Select region first"}
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {zones.map((z) => (
-                <SelectItem key={z} value={z}>
-                  {z}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            onChange={(e) => update("zone", e.target.value)}
+          />
         </div>
 
         {/* Woreda */}
         <div className="space-y-1.5">
           <Label>Woreda <span className="text-rose-500">*</span></Label>
-          <Select
+          <Input
+            placeholder="Enter woreda"
             value={value.woreda}
-            onValueChange={(v) => update("woreda", v)}
-            disabled={!value.zone}
-          >
-            <SelectTrigger>
-              <SelectValue
-                placeholder={value.zone ? "Select woreda" : `Select ${level2Label.toLowerCase()} first`}
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {woredas.map((w) => (
-                <SelectItem key={w} value={w}>
-                  {w}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            onChange={(e) => update("woreda", e.target.value)}
+          />
         </div>
 
         {/* Kebele */}
