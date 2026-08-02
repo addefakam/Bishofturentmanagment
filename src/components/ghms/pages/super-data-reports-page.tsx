@@ -405,6 +405,24 @@ export default function SuperDataReportsPage() {
     }
   };
 
+  // Map Recent Exports to real export actions
+  const EXPORT_TYPE_MAP: Record<string, (typeof EXPORT_OPTIONS)[number]> = {
+    "Users Export": EXPORT_OPTIONS[0],
+    "Guesthouses Export": EXPORT_OPTIONS[1],
+    "Reservations Export": EXPORT_OPTIONS[2],
+    "Financial Report": EXPORT_OPTIONS[3],
+    "Full System Backup": EXPORT_OPTIONS[4],
+  };
+
+  const handleRecentDownload = (exp: RecentExport) => {
+    const option = EXPORT_TYPE_MAP[exp.type];
+    if (option) {
+      handleExport(option);
+    } else {
+      toast.error("This export is not available for re-download");
+    }
+  };
+
   // Stat cards
   const statCards = [
     {
@@ -715,14 +733,15 @@ export default function SuperDataReportsPage() {
                               variant="ghost"
                               size="sm"
                               className="h-7 gap-1.5 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                              onClick={() =>
-                                toast.info(
-                                  `Downloading ${exp.type}...`
-                                )
-                              }
+                              onClick={() => handleRecentDownload(exp)}
+                              disabled={exportingId !== null}
                             >
-                              <Download className="h-3 w-3" />
-                              Download
+                              {exportingId ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Download className="h-3 w-3" />
+                              )}
+                              {exportingId ? "Downloading..." : "Download"}
                             </Button>
                           ) : (
                             <Button
