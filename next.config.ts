@@ -9,9 +9,6 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   serverExternalPackages: ["@prisma/client", "@prisma/adapter-libsql", "pg", "bcryptjs"],
-  turbopack: {
-    root: __dirname,
-  },
 };
 
 export default nextConfig;

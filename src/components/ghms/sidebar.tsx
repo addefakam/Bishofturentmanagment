@@ -33,6 +33,12 @@ import {
   ChevronDown,
   LogOut,
   BrainCircuit,
+  ClipboardList,
+  Database,
+  FileDown,
+  RefreshCw,
+  Activity,
+  Globe,
 } from "lucide-react";
 
 import { useAppStore, type CurrentUser } from "@/lib/store";
@@ -139,12 +145,16 @@ const POLICE_NAV_ITEMS: NavItem[] = [
   },
 ];
 
-// SUPERUSER (admin): police admin management, guesthouse management, subscriptions, settings, notifications (no dashboard)
+// SUPERUSER (admin): admin dashboard, user management, guesthouses, subscriptions, system config, audit logs, data & reports, notifications
 const SUPERUSER_NAV_ITEMS: NavItem[] = [
-  { page: "owner-accounts", label: "Police Admins", icon: Shield },
+  { page: "super-admin-dashboard", label: "Admin Dashboard", icon: LayoutDashboard },
+  { page: "owner-accounts", label: "User Management", icon: Users },
   { page: "providers", label: "Guesthouses", icon: Building2 },
   { page: "subscriptions", label: "Subscriptions", icon: CreditCard },
-  { page: "notifications", label: "Notifications", icon: Bell },
+  { page: "super-system-config", label: "System Configuration", icon: Settings },
+  { page: "super-audit-logs", label: "Audit Logs", icon: ClipboardList },
+  { page: "super-data-reports", label: "Data & Reports", icon: BarChart3 },
+  { page: "notifications", label: "Notifications", icon: Bell, badge: "new" },
 ];
 
 const OPERATOR_EXCLUDED = new Set<string>(["owner-accounts"]);

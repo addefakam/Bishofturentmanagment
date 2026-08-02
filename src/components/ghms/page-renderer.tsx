@@ -118,6 +118,18 @@ const PoliceRoomAvailabilityPage = lazyPage(
 const AnomalyDetectionPage = lazyPage(
   () => import("@/components/ghms/pages/anomalies-page")
 );
+const SuperAdminDashboardPage = lazyPage(
+  () => import("@/components/ghms/pages/super-admin-dashboard-page")
+);
+const SuperSystemConfigPage = lazyPage(
+  () => import("@/components/ghms/pages/super-system-config-page")
+);
+const SuperAuditLogsPage = lazyPage(
+  () => import("@/components/ghms/pages/super-audit-logs-page")
+);
+const SuperDataReportsPage = lazyPage(
+  () => import("@/components/ghms/pages/super-data-reports-page")
+);
 
 // ── Page registry: maps page key → lazy component ──
 const PAGE_MAP: Record<string, React.LazyExoticComponent<React.ComponentType>> =
@@ -150,6 +162,10 @@ const PAGE_MAP: Record<string, React.LazyExoticComponent<React.ComponentType>> =
     "subscription-lockout": SubscriptionLockoutPage,
     "police-room-availability": PoliceRoomAvailabilityPage,
     "anomaly-detection": AnomalyDetectionPage,
+    "super-admin-dashboard": SuperAdminDashboardPage,
+    "super-system-config": SuperSystemConfigPage,
+    "super-audit-logs": SuperAuditLogsPage,
+    "super-data-reports": SuperDataReportsPage,
   };
 
 // ── Page Renderer ──
