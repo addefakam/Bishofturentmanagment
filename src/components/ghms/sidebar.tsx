@@ -150,7 +150,7 @@ const POLICE_NAV_ITEMS: NavItem[] = [
 // SUPERUSER (admin): admin dashboard, user management, guesthouses, subscriptions, system config, audit logs, data & reports, notifications
 const SUPERUSER_NAV_ITEMS: NavItem[] = [
   { page: "super-admin-dashboard", label: "Admin Dashboard", icon: LayoutDashboard },
-  { page: "super-guesthouse-users", label: "Guesthouse & User Mgmt", icon: Hotel },
+  { page: "guesthouse-user-management", label: "Guesthouse & User Mgmt", icon: Hotel },
   { page: "subscriptions", label: "Subscriptions", icon: CreditCard },
   { page: "super-system-config", label: "System Configuration", icon: Settings },
   { page: "super-audit-logs", label: "Audit Logs", icon: ClipboardList },

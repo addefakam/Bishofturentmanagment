@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
+import { getAuthContext, AuthError } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);
-    requirePolice(auth);
+    if (auth.role !== "POLICE" && auth.role !== "SUPERUSER") {
+      throw new AuthError("Police or superuser access required", 403);
+    }
     const { searchParams } = new URL(req.url);
     const action = searchParams.get("action") || "";
     const page = parseInt(searchParams.get("page") || "1");

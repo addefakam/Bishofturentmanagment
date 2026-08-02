@@ -5,7 +5,6 @@ import { useAppStore } from "@/lib/store";
 import { apiDashboard } from "@/lib/api";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -15,15 +14,10 @@ import {
   TrendingUp,
   CalendarCheck,
   DollarSign,
-  Plus,
-  LogIn,
-  Receipt,
   ArrowUpRight,
   ArrowDownRight,
   Clock,
   Activity,
-  UserCheck,
-  UserX,
   AlertCircle,
   Info,
   CheckCircle2,
@@ -69,7 +63,7 @@ const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
 };
 
 export default function DashboardPage() {
-  const { refreshKey, setCurrentPage } = useAppStore();
+  const { refreshKey } = useAppStore();
   const [data, setData] = useState<DashboardData | null>(null);
   const [activity, setActivity] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -184,10 +178,7 @@ export default function DashboardPage() {
           <Skeleton className="h-72 rounded-xl" />
           <Skeleton className="h-72 rounded-xl" />
         </div>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <Skeleton className="h-64 rounded-xl" />
-          <Skeleton className="h-64 rounded-xl lg:col-span-2" />
-        </div>
+        <Skeleton className="h-64 rounded-xl" />
       </div>
     );
   }
@@ -306,67 +297,8 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Quick Actions & Today's Schedule */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Quick Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Zap className="h-4 w-4 text-violet-500" />
-              Quick Actions
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Button
-              className="w-full justify-start gap-3 bg-sky-600 hover:bg-sky-700"
-              onClick={() => setCurrentPage("reservations")}
-            >
-              <Plus className="h-4 w-4" />
-              New Reservation
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-3"
-              onClick={() => setCurrentPage("reservations")}
-            >
-              <LogIn className="h-4 w-4 text-emerald-600" />
-              Check-in Guest
-              {data && data.todayCheckins > 0 && (
-                <Badge variant="secondary" className="ml-auto bg-emerald-50 text-emerald-700">
-                  {data.todayCheckins}
-                </Badge>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-3"
-              onClick={() => setCurrentPage("expenses")}
-            >
-              <Receipt className="h-4 w-4 text-amber-600" />
-              Add Expense
-            </Button>
-            <Separator className="my-2" />
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-3"
-              onClick={() => setCurrentPage("rooms")}
-            >
-              <DoorOpen className="h-4 w-4 text-sky-600" />
-              View All Rooms
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-3"
-              onClick={() => setCurrentPage("guests")}
-            >
-              <UserCheck className="h-4 w-4 text-violet-600" />
-              Manage Guests
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Today's Schedule */}
-        <Card className="lg:col-span-2">
+      {/* Today's Schedule */}
+      <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Clock className="h-4 w-4 text-sky-500" />
@@ -432,8 +364,7 @@ export default function DashboardPage() {
               </div>
             </div>
           </CardContent>
-        </Card>
-      </div>
+      </Card>
 
       {/* Recent Activity */}
       <Card>
@@ -473,24 +404,5 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-function Zap(props: React.ComponentProps<"svg">) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />
-    </svg>
   );
 }

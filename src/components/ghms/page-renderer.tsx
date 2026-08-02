@@ -139,6 +139,10 @@ const SuperGuesthouseUsersPage = lazyPage(
 const SuperProfilePage = lazyPage(
   () => import("@/components/ghms/pages/super-profile-page")
 );
+const GuesthouseUserManagementPage = lazyPage(
+  () => import("@/components/ghms/pages/guesthouse-user-management-page")
+);
+);
 
 // ── Page registry: maps page key → lazy component ──
 const PAGE_MAP: Record<string, React.LazyExoticComponent<React.ComponentType>> =
@@ -178,6 +182,7 @@ const PAGE_MAP: Record<string, React.LazyExoticComponent<React.ComponentType>> =
     "super-user-management": SuperUserManagementPage,
     "super-guesthouse-users": SuperGuesthouseUsersPage,
     "super-profile": SuperProfilePage,
+    "guesthouse-user-management": GuesthouseUserManagementPage,
   };
 
 // ── Page Renderer ──
