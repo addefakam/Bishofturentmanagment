@@ -63,6 +63,7 @@ import {
   KeyRound,
   Upload,
   X,
+  RotateCcw,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -89,6 +90,9 @@ interface Provider {
   longitude: number;
   createdAt: string;
   updatedAt: string;
+  suspensionReason?: string;
+  suspendedAt?: string | null;
+  suspendedBy?: string;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -299,8 +303,14 @@ export default function ProvidersPage() {
   const handleStatusAction = async (provider: Provider, status: string) => {
     try {
       setActioning(true);
-      await apiUpdateProvider(provider.id, { status });
-      toast.success(`Provider ${status.toLowerCase()}`);
+      if (status === "REACTIVATE") {
+        // Police reactivates: set back to APPROVED and clear suspension fields
+        await apiUpdateProvider(provider.id, { status: "APPROVED" });
+        toast.success(`"${provider.name}" has been reactivated`);
+      } else {
+        await apiUpdateProvider(provider.id, { status });
+        toast.success(`Provider ${status.toLowerCase()}`);
+      }
       setConfirmAction(null);
       triggerRefresh();
     } catch (err: unknown) {
@@ -482,7 +492,7 @@ export default function ProvidersPage() {
             {/* Mobile/Tablet: Card layout */}
             <div className="divide-y lg:hidden">
               {paginatedProviders.map((provider) => (
-                <div key={provider.id} className="p-3 sm:p-4">
+                <div key={provider.id} className={`p-3 sm:p-4 ${provider.status === "SUSPENDED" ? "bg-orange-50/60" : ""}`}
                   <div className="flex items-start justify-between gap-2">
                     <button className="min-w-0 flex-1 text-left" onClick={() => openDetail(provider)}>
                       <div className="flex items-center gap-2">
@@ -523,6 +533,11 @@ export default function ProvidersPage() {
                         <CheckCircle2 className="h-3.5 w-3.5" /> Approve
                       </button>
                     )}
+                    {provider.status === "SUSPENDED" && (
+                      <button className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-teal-600 hover:bg-teal-50" onClick={() => setConfirmAction({ provider, action: "REACTIVATE" })}>
+                        <RotateCcw className="h-3.5 w-3.5" /> Reactivate
+                      </button>
+                    )}
                     {provider.status !== "REJECTED" && provider.status !== "APPROVED" && (
                       <button className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50" onClick={() => openReject(provider)}>
                         <XCircle className="h-3.5 w-3.5" /> Reject
@@ -554,7 +569,7 @@ export default function ProvidersPage() {
                 </TableHeader>
                 <TableBody>
                   {paginatedProviders.map((provider) => (
-                    <TableRow key={provider.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openDetail(provider)}>
+                    <TableRow key={provider.id} className={`cursor-pointer hover:bg-muted/50 ${provider.status === "SUSPENDED" ? "bg-orange-50/70 hover:bg-orange-100/60" : ""}`} onClick={() => openDetail(provider)}>
                       <TableCell className="font-medium">{provider.name}</TableCell>
                       <TableCell className="max-w-[150px] truncate text-xs">{provider.address || "—"}</TableCell>
                       <TableCell>{provider.ownerName}</TableCell>
@@ -584,6 +599,11 @@ export default function ProvidersPage() {
                           {provider.status === "APPROVED" && (
                             <Button size="sm" variant="ghost" className="h-8 text-orange-600 hover:bg-orange-50" onClick={() => openSuspend(provider)}>
                               <Ban className="mr-1 h-4 w-4" /> Suspend
+                            </Button>
+                          )}
+                          {provider.status === "SUSPENDED" && (
+                            <Button size="sm" variant="ghost" className="h-8 text-teal-600 hover:bg-teal-50" onClick={() => setConfirmAction({ provider, action: "REACTIVATE" })}>
+                              <RotateCcw className="mr-1 h-4 w-4" /> Reactivate
                             </Button>
                           )}
                         </div>
@@ -695,6 +715,11 @@ export default function ProvidersPage() {
                 {selectedProvider.status === "APPROVED" && (
                   <Button size="sm" variant="destructive" className="gap-1.5" onClick={() => { setDetailOpen(false); openSuspend(selectedProvider); }}>
                     <Ban className="h-3.5 w-3.5" /> Suspend
+                  </Button>
+                )}
+                {selectedProvider.status === "SUSPENDED" && (
+                  <Button size="sm" className="gap-1.5 bg-teal-600 hover:bg-teal-700" onClick={() => { setDetailOpen(false); setConfirmAction({ provider: selectedProvider, action: "REACTIVATE" }); }}>
+                    <RotateCcw className="h-3.5 w-3.5" /> Reactivate
                   </Button>
                 )}
                 {selectedProvider.licenseFile && (
@@ -884,11 +909,13 @@ export default function ProvidersPage() {
         <AlertDialogContent className="mx-4 sm:mx-0 max-w-md w-[calc(100%-2rem)] sm:w-full">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base sm:text-lg">
-              {confirmAction?.action === "APPROVED" ? "Approve Provider" : "Suspend Provider"}
+              {confirmAction?.action === "APPROVED" ? "Approve Provider" : confirmAction?.action === "REACTIVATE" ? "Reactivate Provider" : "Suspend Provider"}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs sm:text-sm">
               {confirmAction?.action === "APPROVED"
                 ? `Are you sure you want to approve "${confirmAction?.provider.name}"?`
+                : confirmAction?.action === "REACTIVATE"
+                ? `Are you sure you want to reactivate "${confirmAction?.provider.name}"? The guesthouse will regain full access.`
                 : `Are you sure you want to suspend "${confirmAction?.provider.name}"?`}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -900,10 +927,12 @@ export default function ProvidersPage() {
               className={
                 confirmAction?.action === "APPROVED"
                   ? "w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-600"
+                  : confirmAction?.action === "REACTIVATE"
+                  ? "w-full sm:w-auto bg-teal-600 hover:bg-teal-700 focus:ring-teal-600"
                   : "w-full sm:w-auto bg-orange-600 hover:bg-orange-700 focus:ring-orange-600"
               }
             >
-              {actioning ? "Processing..." : confirmAction?.action === "APPROVED" ? "Approve" : "Suspend"}
+              {actioning ? "Processing..." : confirmAction?.action === "APPROVED" ? "Approve" : confirmAction?.action === "REACTIVATE" ? "Reactivate" : "Suspend"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

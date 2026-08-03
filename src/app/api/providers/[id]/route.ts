@@ -57,6 +57,12 @@ export async function PUT(
     if (status === "APPROVED") {
       updateData.approvedBy = auth.role;
       updateData.approvedAt = new Date();
+      // If reactivating from suspended, clear suspension fields
+      if (existing.status === "SUSPENDED") {
+        updateData.suspensionReason = "";
+        updateData.suspendedAt = null;
+        updateData.suspendedBy = "";
+      }
     }
 
     const provider = await db.provider.update({
