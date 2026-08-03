@@ -25,6 +25,14 @@ export async function req(url: string, opts: RequestInit = {}) {
   });
   if (!res.ok) {
     const t = await res.text().catch(() => "");
+    // Try to extract a clean error message from JSON response
+    try {
+      const j = JSON.parse(t);
+      if (j.error) throw new Error(j.error);
+      if (j.message) throw new Error(j.message);
+    } catch (e) {
+      if (e instanceof Error && e.message !== t) throw e; // Re-throw our extracted error
+    }
     throw new Error(t || `Request failed: ${res.status}`);
   }
   return res.json();

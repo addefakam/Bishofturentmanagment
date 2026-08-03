@@ -38,6 +38,9 @@ CREATE TABLE IF NOT EXISTS "Provider" (
   "approvedBy" TEXT,
   "approvedAt" TIMESTAMP(3),
   "rejectionReason" TEXT NOT NULL DEFAULT '',
+  "suspensionReason" TEXT NOT NULL DEFAULT '',
+  "suspendedAt" TIMESTAMP(3),
+  "suspendedBy" TEXT NOT NULL DEFAULT '',
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -452,6 +455,18 @@ EXCEPTION WHEN duplicate_column THEN null;
 END $$;
 DO $$ BEGIN
   ALTER TABLE "Subscription" ADD COLUMN "planId" TEXT;
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "Provider" ADD COLUMN "suspensionReason" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "Provider" ADD COLUMN "suspendedAt" TIMESTAMP(3);
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "Provider" ADD COLUMN "suspendedBy" TEXT NOT NULL DEFAULT '';
 EXCEPTION WHEN duplicate_column THEN null;
 END $$;
 `;

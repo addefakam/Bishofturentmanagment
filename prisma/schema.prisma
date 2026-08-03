@@ -102,6 +102,9 @@ model Provider {
   approvedBy  String?
   approvedAt  DateTime?
   rejectionReason String      @default("")
+  suspensionReason String     @default("")
+  suspendedAt  DateTime?
+  suspendedBy  String          @default("")
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
