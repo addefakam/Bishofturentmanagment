@@ -1,1 +1,1 @@
-
+[{"name":"run-turbopack","duration":202212,"timestamp":1163880685,"id":14,"parentId":1,"tags":{"failed":true},"startTime":1785784961728,"traceId":"f5846f22eea4d6e0"},{"name":"next-build","duration":293456,"timestamp":1163789490,"id":1,"tags":{"buildMode":"default","version":"16.2.12","bundler":"turbopack","has-custom-webpack-config":"false","use-build-worker":"true","failed":true},"startTime":1785784961637,"traceId":"f5846f22eea4d6e0"}]
