@@ -538,7 +538,7 @@ export default function ProvidersPage() {
                         <RotateCcw className="h-3.5 w-3.5" /> Reactivate
                       </button>
                     )}
-                    {provider.status !== "REJECTED" && provider.status !== "APPROVED" && (
+                    {provider.status !== "REJECTED" && provider.status !== "APPROVED" && provider.status !== "SUSPENDED" && (
                       <button className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50" onClick={() => openReject(provider)}>
                         <XCircle className="h-3.5 w-3.5" /> Reject
                       </button>
@@ -591,7 +591,7 @@ export default function ProvidersPage() {
                               <CheckCircle2 className="mr-1 h-4 w-4" /> Approve
                             </Button>
                           )}
-                          {provider.status !== "REJECTED" && provider.status !== "APPROVED" && (
+                          {provider.status !== "REJECTED" && provider.status !== "APPROVED" && provider.status !== "SUSPENDED" && (
                             <Button size="sm" variant="ghost" className="h-8 text-red-600 hover:bg-red-50" onClick={() => openReject(provider)}>
                               <XCircle className="mr-1 h-4 w-4" /> Reject
                             </Button>
