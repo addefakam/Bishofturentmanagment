@@ -313,6 +313,9 @@ export const apiGetSubscriptionPayments = (subscriptionId: string) =>
 // Subscription status (provider side)
 export const apiSubscriptionStatus = () => req("/api/subscription/status");
 
+// Operator bill tracking
+export const apiMyBill = () => req("/api/my-bill");
+
 // Subscription Plans (SUPERUSER)
 export const apiGetPlans = () => req("/api/subscription-plans");
 export const apiCreatePlan = (data: { name: string; cycle: string; price: number }) =>

@@ -279,6 +279,15 @@ export default function SubscriptionsPage() {
     );
   }
 
+  // Pre-compute billing breakdown for display
+  const billingBreakdown = payRow && (!payPlanId || payPlanId === "_none")
+    ? {
+        months: CYCLE_MONTHS[payCycle] || 1,
+        total: (payRow.totalBeds * PRICE_PER_BED_PER_MONTH * (CYCLE_MONTHS[payCycle] || 1)),
+        beds: payRow.totalBeds,
+      }
+    : null;
+
   return (
     <div className="space-y-6 p-4 md:p-6">
       {/* Header */}
@@ -582,16 +591,12 @@ export default function SubscriptionsPage() {
               </Select>
             </div>
             {/* Calculation breakdown */}
-            {payRow && (!payPlanId || payPlanId === "_none") && (() => {
-              const m = CYCLE_MONTHS[payCycle] || 1;
-              const t = payRow.totalBeds * PRICE_PER_BED_PER_MONTH * m;
-              return (
+            {billingBreakdown && (
               <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs text-blue-800 space-y-1">
                 <p className="font-semibold">Calculation</p>
-                <p>{payRow.totalBeds} beds x {PRICE_PER_BED_PER_MONTH} ETB/bed/month x {m} month(s) = <strong>{t.toLocaleString()} ETB</strong></p>
+                <p>{billingBreakdown.beds} beds x {PRICE_PER_BED_PER_MONTH} ETB/bed/month x {billingBreakdown.months} month(s) = <strong>{billingBreakdown.total.toLocaleString()} ETB</strong></p>
               </div>
-              );
-            })()}
+            )}
             <div className="grid gap-2">
               <Label>Notes (optional)</Label>
               <Input

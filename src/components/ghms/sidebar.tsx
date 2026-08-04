@@ -488,6 +488,15 @@ function SidebarContent({
                     <UserCircle className="size-4 text-slate-500" />
                     <span>My Profile</span>
                   </DropdownMenuItem>
+                  {(user.role === "OPERATOR" || user.role === "STAFF") && (
+                    <DropdownMenuItem
+                      className="flex items-center gap-2.5 cursor-pointer"
+                      onClick={() => onNavigate("my-bill")}
+                    >
+                      <Receipt className="size-4 text-slate-500" />
+                      <span>Bill</span>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="flex items-center gap-2.5 cursor-pointer text-rose-600 focus:text-rose-600 focus:bg-rose-50"
