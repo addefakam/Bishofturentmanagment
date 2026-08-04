@@ -492,7 +492,7 @@ export default function ProvidersPage() {
             {/* Mobile/Tablet: Card layout */}
             <div className="divide-y lg:hidden">
               {paginatedProviders.map((provider) => (
-                <div key={provider.id} className={`p-3 sm:p-4 ${provider.status === "SUSPENDED" ? "bg-orange-50/60" : ""}`}
+                <div key={provider.id} className={`p-3 sm:p-4 ${provider.status === "SUSPENDED" ? "bg-orange-50/60" : ""}`}>
                   <div className="flex items-start justify-between gap-2">
                     <button className="min-w-0 flex-1 text-left" onClick={() => openDetail(provider)}>
                       <div className="flex items-center gap-2">
