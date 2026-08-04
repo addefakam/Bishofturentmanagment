@@ -29,17 +29,18 @@ export async function PUT(
       );
     }
 
-    // SUPERUSER can ONLY suspend guesthouses.
-    if (auth.role === "SUPERUSER" && status !== "SUSPENDED") {
-      return NextResponse.json(
-        { error: "This action is not available for your account. Suspension is the only status change allowed from here." },
-        { status: 403 }
-      );
-    }
-
     const existing = await db.provider.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: "Provider not found" }, { status: 404 });
+    }
+
+    // SUPERUSER can suspend and reactivate guesthouses.
+    const isReactivation = status === "APPROVED" && existing.status === "SUSPENDED";
+    if (auth.role === "SUPERUSER" && status !== "SUSPENDED" && !isReactivation) {
+      return NextResponse.json(
+        { error: "This action is not available for your account. Only suspension and reactivation are allowed from here." },
+        { status: 403 }
+      );
     }
 
     const updateData: Record<string, unknown> = {
