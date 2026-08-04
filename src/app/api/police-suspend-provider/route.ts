@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sql } from "@prisma/client/runtime/library";
-import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
+import { getAuthContext, AuthError } from "@/lib/tenant";
 
 export async function POST(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);
-    requirePolice(auth);
+    if (auth.role !== "POLICE" && auth.role !== "SUPERUSER") {
+      return NextResponse.json(
+        { error: "Access denied" },
+        { status: 403 }
+      );
+    }
 
     const body = await req.json();
     const { providerId, suspensionReason, providerMessage } = body;
@@ -92,7 +97,7 @@ export async function POST(req: NextRequest) {
     const message = error instanceof Error ? error.message : "Failed to suspend provider";
     const status =
       message.includes("not found") ? 404 :
-      message.includes("Police") ? 403 :
+      message.includes("denied") ? 403 :
       message.includes("required") ? 400 :
       message.includes("already") ? 400 : 500;
     return NextResponse.json({ error: message }, { status });
