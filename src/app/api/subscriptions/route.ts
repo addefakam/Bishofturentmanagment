@@ -52,6 +52,7 @@ export async function GET(req: NextRequest) {
               payments: { select: { id: true } },
             },
           },
+          rooms: { select: { capacity: true } },
         },
         orderBy: { createdAt: "desc" },
       }),
@@ -74,6 +75,7 @@ export async function GET(req: NextRequest) {
       startDate: string;
       endDate: string;
       totalPayments: number;
+      totalBeds: number;
     }> = [];
 
     for (const provider of providers) {
@@ -113,6 +115,9 @@ export async function GET(req: NextRequest) {
         graceDays: paymentConfig.graceDays,
       });
 
+      // Sum up total beds (room capacities)
+      const totalBeds = (provider.rooms || []).reduce((sum: number, r: { capacity: number }) => sum + (r.capacity || 0), 0);
+
       // Build result row
       const row = {
         providerId: provider.id,
@@ -130,6 +135,7 @@ export async function GET(req: NextRequest) {
         startDate: subscription.startDate.toISOString(),
         endDate: subscription.endDate.toISOString(),
         totalPayments: subscription.payments?.length ?? 0,
+        totalBeds,
       };
 
       results.push(row);

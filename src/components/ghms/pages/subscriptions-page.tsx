@@ -78,7 +78,17 @@ interface SubRow {
   startDate: string;
   endDate: string;
   totalPayments: number;
+  totalBeds: number;
 }
+
+// ── Billing constants ──
+const PRICE_PER_BED_PER_MONTH = 100; // ETB
+const CYCLE_MONTHS: Record<string, number> = {
+  MONTHLY: 1,
+  QUARTERLY: 3,
+  SEMI_ANNUAL: 6,
+  YEARLY: 12,
+};
 
 interface PlanOption {
   id: string;
@@ -183,21 +193,41 @@ export default function SubscriptionsPage() {
   // ── Payment handlers ──
   function openPay(row: SubRow) {
     setPayRow(row);
-    setPayAmount(String(row.price || ""));
     setPayCycle(row.cycle);
     setPayNotes("");
     setPayPlanId("");
+    // Auto-calculate: totalBeds × 100 × numberOfMonths
+    const months = CYCLE_MONTHS[row.cycle] || CYCLE_MONTHS.MONTHLY;
+    const calculated = row.totalBeds * PRICE_PER_BED_PER_MONTH * months;
+    setPayAmount(String(calculated));
     setPayOpen(true);
   }
 
   // When a plan is selected in the payment dialog, auto-fill amount and cycle
   function handlePayPlanChange(planId: string) {
     setPayPlanId(planId);
-    if (planId) {
+    if (planId && planId !== "_none") {
       const plan = plans.find((p) => p.id === planId);
       if (plan) {
         setPayAmount(String(plan.price));
         setPayCycle(plan.cycle);
+      }
+    } else {
+      // No plan selected — recalculate from beds
+      if (payRow) {
+        const months = CYCLE_MONTHS[payCycle] || CYCLE_MONTHS.MONTHLY;
+        setPayAmount(String(payRow.totalBeds * PRICE_PER_BED_PER_MONTH * months));
+      }
+    }
+  }
+
+  // Recalculate amount when cycle changes (if no plan selected)
+  function handlePayCycleChange(cycle: string) {
+    setPayCycle(cycle);
+    if (!payPlanId || payPlanId === "_none") {
+      if (payRow) {
+        const months = CYCLE_MONTHS[cycle] || CYCLE_MONTHS.MONTHLY;
+        setPayAmount(String(payRow.totalBeds * PRICE_PER_BED_PER_MONTH * months));
       }
     }
   }
@@ -334,6 +364,7 @@ export default function SubscriptionsPage() {
                   <th className="px-4 py-2.5 text-left font-medium text-slate-600">Owner</th>
                   <th className="px-4 py-2.5 text-left font-medium text-slate-600">Phone</th>
                   <th className="px-4 py-2.5 text-left font-medium text-slate-600">Plan</th>
+                  <th className="px-4 py-2.5 text-left font-medium text-slate-600">Beds</th>
                   <th className="px-4 py-2.5 text-left font-medium text-slate-600">Cycle</th>
                   <th className="px-4 py-2.5 text-left font-medium text-slate-600">Price</th>
                   <th className="px-4 py-2.5 text-left font-medium text-slate-600">Status</th>
@@ -345,7 +376,7 @@ export default function SubscriptionsPage() {
               <tbody>
                 {subscriptions.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-4 py-8 text-center text-slate-400">
+                    <td colSpan={11} className="px-4 py-8 text-center text-slate-400">
                       No providers found.
                     </td>
                   </tr>
@@ -379,6 +410,10 @@ export default function SubscriptionsPage() {
                         ) : (
                           <span className="text-xs text-slate-400">No plan</span>
                         )}
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-600">
+                        <span className="font-medium">{row.totalBeds}</span>
+                        <span className="text-[10px] text-slate-400 ml-1">beds</span>
                       </td>
                       <td className="px-4 py-2.5 text-slate-600">
                         {formatCycle(row.cycle)}
@@ -534,18 +569,25 @@ export default function SubscriptionsPage() {
             </div>
             <div className="grid gap-2">
               <Label>Cycle</Label>
-              <Select value={payCycle} onValueChange={setPayCycle}>
+              <Select value={payCycle} onValueChange={handlePayCycleChange}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="MONTHLY">Monthly (30 days)</SelectItem>
-                  <SelectItem value="QUARTERLY">Quarterly (90 days)</SelectItem>
-                  <SelectItem value="SEMI_ANNUAL">Semi-Annual (180 days)</SelectItem>
-                  <SelectItem value="YEARLY">Yearly (365 days)</SelectItem>
+                  <SelectItem value="MONTHLY">Monthly (1 month)</SelectItem>
+                  <SelectItem value="QUARTERLY">Quarterly (3 months)</SelectItem>
+                  <SelectItem value="SEMI_ANNUAL">Semi-Annual (6 months)</SelectItem>
+                  <SelectItem value="YEARLY">Yearly (12 months)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {/* Calculation breakdown */
+            {payRow && (!payPlanId || payPlanId === "_none") && (
+              <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs text-blue-800 space-y-1">
+                <p className="font-semibold">Calculation</p>
+                <p>{payRow.totalBeds} beds x {PRICE_PER_BED_PER_MONTH} ETB/bed/month x {CYCLE_MONTHS[payCycle] || 1} month(s) = <strong>{payRow.totalBeds * PRICE_PER_BED_PER_MONTH * (CYCLE_MONTHS[payCycle] || 1).toLocaleString()} ETB</strong></p>
+              </div>
+            )}
             <div className="grid gap-2">
               <Label>Notes (optional)</Label>
               <Input
