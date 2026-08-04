@@ -581,13 +581,17 @@ export default function SubscriptionsPage() {
                 </SelectContent>
               </Select>
             </div>
-            {/* Calculation breakdown */
-            {payRow && (!payPlanId || payPlanId === "_none") && (
+            {/* Calculation breakdown */}
+            {payRow && (!payPlanId || payPlanId === "_none") && (() => {
+              const m = CYCLE_MONTHS[payCycle] || 1;
+              const t = payRow.totalBeds * PRICE_PER_BED_PER_MONTH * m;
+              return (
               <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs text-blue-800 space-y-1">
                 <p className="font-semibold">Calculation</p>
-                <p>{payRow.totalBeds} beds x {PRICE_PER_BED_PER_MONTH} ETB/bed/month x {CYCLE_MONTHS[payCycle] || 1} month(s) = <strong>{payRow.totalBeds * PRICE_PER_BED_PER_MONTH * (CYCLE_MONTHS[payCycle] || 1).toLocaleString()} ETB</strong></p>
+                <p>{payRow.totalBeds} beds x {PRICE_PER_BED_PER_MONTH} ETB/bed/month x {m} month(s) = <strong>{t.toLocaleString()} ETB</strong></p>
               </div>
-            )}
+              );
+            })()}
             <div className="grid gap-2">
               <Label>Notes (optional)</Label>
               <Input
