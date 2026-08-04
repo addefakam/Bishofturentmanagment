@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sql } from "@prisma/client/runtime/library";
 import { getAuthContext, AuthError } from "@/lib/tenant";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(
   req: NextRequest,
@@ -28,8 +28,6 @@ export async function POST(
       );
     }
 
-    const actorName = auth.userName || auth.name || "Unknown";
-
     // Reactivate: set back to APPROVED and clear all suspension fields
     const updatedProvider = await db.provider.update({
       where: { id },
@@ -55,11 +53,13 @@ export async function POST(
       },
     });
 
-    // Audit log
-    await db.$executeRaw(
-      sql`INSERT INTO "AuditLog" ("id", "officerName", "action", "targetId", "targetType", "details", "ipAddress", "createdAt")
-       VALUES (${crypto.randomUUID()}, ${actorName}, ${"REACTIVATE_PROVIDER"}, ${id}, ${"Provider"}, ${`Reactivated provider "${provider.name}" (ID: ${id}). Previously suspended by: ${provider.suspendedBy || "unknown"}. Reason was: ${provider.suspensionReason || "none"}`}, ${req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || ""}, CURRENT_TIMESTAMP)`
-    );
+    // Audit log (fire-and-forget, won't break on error)
+    logAudit(req, {
+      action: "REACTIVATE_PROVIDER",
+      targetId: id,
+      targetType: "Provider",
+      details: `Reactivated provider "${provider.name}" (ID: ${id}). Previously suspended by: ${provider.suspendedBy || "unknown"}. Reason was: ${provider.suspensionReason || "none"}`,
+    });
 
     return NextResponse.json({
       success: true,
