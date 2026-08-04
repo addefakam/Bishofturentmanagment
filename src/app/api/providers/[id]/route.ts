@@ -30,11 +30,9 @@ export async function PUT(
     }
 
     // SUPERUSER can ONLY suspend guesthouses.
-    // They cannot approve, reject, or re-activate guesthouses.
-    // Reactivation of a suspended guesthouse must be done by the Police module.
     if (auth.role === "SUPERUSER" && status !== "SUSPENDED") {
       return NextResponse.json(
-        { error: "Superuser can only suspend guesthouses. Approve, reject, and reactivate are reserved for the Police module." },
+        { error: "This action is not available for your account. Suspension is the only status change allowed from here." },
         { status: 403 }
       );
     }
@@ -79,7 +77,6 @@ export async function PUT(
     const status =
       message.includes("not found") ? 404 :
       message.includes("denied") ? 403 :
-      message.includes("Superuser") ? 403 :
       message.includes("required") ? 400 : 500;
     return NextResponse.json({ error: message }, { status });
   }
