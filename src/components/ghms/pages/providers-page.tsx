@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { usePagination } from "@/hooks/use-pagination";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import { useAppStore } from "@/lib/store";
-import { apiGetProviders, apiUpdateProvider, apiGeocodeAddress, apiGeocodeBatch, apiPoliceSuspendProvider, apiSuperCreateProvider } from "@/lib/api";
+import { req, apiGetProviders, apiUpdateProvider, apiGeocodeAddress, apiGeocodeBatch, apiPoliceSuspendProvider, apiSuperCreateProvider } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -304,9 +304,8 @@ export default function ProvidersPage() {
     try {
       setActioning(true);
       if (status === "REACTIVATE") {
-        // Police reactivates: set back to APPROVED and clear suspension fields
-        await apiUpdateProvider(provider.id, { status: "APPROVED" });
-        toast.success(`"${provider.name}" has been reactivated`);
+        await req(`/api/providers/${provider.id}/reactivate`, { method: "POST" });
+        toast.success(`"${provider.name}" has been reactivated and is fully active`);
       } else {
         await apiUpdateProvider(provider.id, { status });
         toast.success(`Provider ${status.toLowerCase()}`);
