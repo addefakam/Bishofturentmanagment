@@ -196,7 +196,8 @@ function getNavItems(user: CurrentUser, isJointActive: boolean): NavItem[] {
       const rank = (user.policeRank || "OFFICER") as PoliceRank;
       const allowedPages = POLICE_RANK_PERMISSIONS[rank] || POLICE_RANK_PERMISSIONS.OFFICER;
       const base = POLICE_NAV_ITEMS.filter((item) => allowedPages.includes(item.page));
-      if (isJointActive) {
+      // Joint-only pages are only available to ADMIN rank during an active joint session
+      if (isJointActive && rank === "ADMIN") {
         const jointItems = POLICE_JOINT_ONLY_ITEMS.filter((item) => allowedPages.includes(item.page));
         return [...base, ...jointItems];
       }
@@ -442,16 +443,16 @@ function SidebarContent({
   const navItems = getNavItems(user, jointSession.active);
   const roleDisplay = getRoleDisplay(user.role);
 
-  // Redirect police user away from joint-only pages if joint session ends
+  // Redirect police ADMIN away from joint-only pages if joint session ends
   const JOINT_ONLY_PAGES = new Set([
     "police-guests", "suspected-persons", "police-investigation",
     "police-security", "anomaly-detection", "owner-accounts",
   ]);
   useEffect(() => {
-    if (user.role === "POLICE" && !jointSession.active && JOINT_ONLY_PAGES.has(useAppStore.getState().currentPage)) {
+    if (user.role === "POLICE" && user.policeRank === "ADMIN" && !jointSession.active && JOINT_ONLY_PAGES.has(useAppStore.getState().currentPage)) {
       setCurrentPage("police-dashboard");
     }
-  }, [user.role, jointSession.active, setCurrentPage]);
+  }, [user.role, user.policeRank, jointSession.active, setCurrentPage]);
 
   // Determine if user can start a joint session (SUPERUSER or POLICE ADMIN)
   const canStartJoint =
@@ -563,8 +564,8 @@ function SidebarContent({
             />
           ))}
 
-          {/* Joint session section label — shown when joint-only items are visible */}
-          {user.role === "POLICE" && jointSession.active && (
+          {/* Joint session section — only for Police ADMIN during active joint session */}
+          {user.role === "POLICE" && user.policeRank === "ADMIN" && jointSession.active && (
             <>
               <Separator className="my-2 bg-slate-200/60" />
               <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-600">
@@ -578,8 +579,8 @@ function SidebarContent({
             </>
           )}
 
-          {/* Joint Operations — non-police roles during active joint session */}
-          {user.role !== "POLICE" && jointSession.active && (
+          {/* Joint Operations — SUPERUSER during active joint session */}
+          {user.role === "SUPERUSER" && jointSession.active && (
             <>
               <Separator className="my-2 bg-slate-200/60" />
               <NavItemButton
