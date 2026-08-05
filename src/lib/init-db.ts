@@ -88,6 +88,11 @@ CREATE TABLE IF NOT EXISTS "Guest" (
   "idNumber" TEXT NOT NULL DEFAULT '',
   "idType" TEXT NOT NULL DEFAULT '',
   "nationality" TEXT NOT NULL DEFAULT '',
+  "gender" TEXT NOT NULL DEFAULT '',
+  "age" TEXT NOT NULL DEFAULT '',
+  "dateOfBirth" TEXT NOT NULL DEFAULT '',
+  "occupation" TEXT NOT NULL DEFAULT '',
+  "photoUrl" TEXT NOT NULL DEFAULT '',
   "region" TEXT NOT NULL DEFAULT '',
   "zone" TEXT NOT NULL DEFAULT '',
   "woreda" TEXT NOT NULL DEFAULT '',
@@ -507,6 +512,26 @@ EXCEPTION WHEN duplicate_column THEN null;
 END $$;
 DO $$ BEGIN
   ALTER TABLE "SuspectedPerson" ADD COLUMN "wantedDate" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "Guest" ADD COLUMN "gender" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "Guest" ADD COLUMN "age" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "Guest" ADD COLUMN "dateOfBirth" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "Guest" ADD COLUMN "occupation" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "Guest" ADD COLUMN "photoUrl" TEXT NOT NULL DEFAULT '';
 EXCEPTION WHEN duplicate_column THEN null;
 END $$;
 `;

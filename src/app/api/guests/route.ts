@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     checkWritePermission(auth, { staffOnlyWrite: true, staffPermissionKey: "guests" });
 
     const body = await req.json();
-    const { name, phone, email, idNumber, idType, nationality, region, zone, woreda, kebele, houseNumber, streetName, address, notes, vip } = body;
+    const { name, phone, email, idNumber, idType, nationality, gender, age, dateOfBirth, occupation, photoUrl, region, zone, woreda, kebele, houseNumber, streetName, address, notes, vip } = body;
 
     if (!name || !phone) {
       return NextResponse.json({ error: "Name and phone are required" }, { status: 400 });
@@ -61,6 +61,11 @@ export async function POST(req: NextRequest) {
         idNumber: idNumber || "",
         idType: idType || "",
         nationality: nationality || "",
+        gender: gender || "",
+        age: age || "",
+        dateOfBirth: dateOfBirth || "",
+        occupation: occupation || "",
+        photoUrl: photoUrl || "",
         region: region || "",
         zone: zone || "",
         woreda: woreda || "",
@@ -84,6 +89,7 @@ export async function POST(req: NextRequest) {
       extraDetails: {
         email: email || "",
         nationality: nationality || "",
+        gender: gender || "",
         address: composedAddress,
       },
     }).catch(() => {});

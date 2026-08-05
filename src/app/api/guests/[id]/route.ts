@@ -22,7 +22,7 @@ export async function PUT(
       return NextResponse.json({ error: "Guest not found" }, { status: 404 });
     }
 
-    const { name, phone, email, idNumber, idType, nationality, region, zone, woreda, kebele, houseNumber, streetName, address, notes, vip } = body;
+    const { name, phone, email, idNumber, idType, nationality, gender, age, dateOfBirth, occupation, photoUrl, region, zone, woreda, kebele, houseNumber, streetName, address, notes, vip } = body;
 
     // Auto-compose address from normalized fields
     const composedAddress = address !== undefined
@@ -38,6 +38,11 @@ export async function PUT(
         ...(idNumber !== undefined && { idNumber }),
         ...(idType !== undefined && { idType }),
         ...(nationality !== undefined && { nationality }),
+        ...(gender !== undefined && { gender }),
+        ...(age !== undefined && { age }),
+        ...(dateOfBirth !== undefined && { dateOfBirth }),
+        ...(occupation !== undefined && { occupation }),
+        ...(photoUrl !== undefined && { photoUrl }),
         ...(region !== undefined && { region }),
         ...(zone !== undefined && { zone }),
         ...(woreda !== undefined && { woreda }),
