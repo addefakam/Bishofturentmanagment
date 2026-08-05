@@ -102,8 +102,8 @@ const POLICE_NAV_ITEMS: NavItem[] = [
     icon: BedDouble,
   },
   {
-    page: "suspect-alerts",
-    label: "Suspect Alerts",
+    page: "suspect-management",
+    label: "Suspect Management",
     icon: ShieldAlert,
     badge: "new",
   },
@@ -115,11 +115,6 @@ const POLICE_JOINT_ONLY_ITEMS: NavItem[] = [
     page: "police-guests",
     label: "Guests Search",
     icon: Search,
-  },
-  {
-    page: "suspected-persons",
-    label: "Suspected Persons",
-    icon: UserX,
   },
   {
     page: "police-investigation",
