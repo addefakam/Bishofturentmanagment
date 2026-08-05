@@ -117,8 +117,6 @@ export async function POST(req: NextRequest) {
     const phone = formData.get("phone") as string;
     const email = (formData.get("email") as string) || "";
     const address = (formData.get("address") as string) || "";
-    const latitude = parseFloat(formData.get("latitude") as string) || 9.02;
-    const longitude = parseFloat(formData.get("longitude") as string) || 38.75;
     const type = (formData.get("type") as string) || "GUEST_HOUSE";
     const licenseNo = (formData.get("licenseNo") as string) || "";
     const licenseFile = formData.get("licenseFile") as File | null;
@@ -151,6 +149,25 @@ export async function POST(req: NextRequest) {
       licenseFileData = `data:${mimeType};base64,${base64}`;
     }
 
+    // ── Auto-geocode address to get lat/lng ──
+    let latitude: number | null = null;
+    let longitude: number | null = null;
+    if (address.trim()) {
+      try {
+        const geoRes = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address + ", Ethiopia")}&limit=1`,
+          { headers: { "User-Agent": "GHMS-Registration/1.0" }, signal: AbortSignal.timeout(5000) }
+        );
+        const geoData = await geoRes.json();
+        if (geoData && geoData.length > 0) {
+          latitude = parseFloat(geoData[0].lat);
+          longitude = parseFloat(geoData[0].lon);
+        }
+      } catch {
+        // Geocoding failed — store without coordinates
+      }
+    }
+
     const provider = await db.$transaction(async (tx) => {
       const p = await tx.provider.create({
         data: {
@@ -159,8 +176,7 @@ export async function POST(req: NextRequest) {
           phone,
           email,
           address,
-          latitude,
-          longitude,
+          ...(latitude !== null && longitude !== null ? { latitude, longitude } : {}),
           type,
           licenseNo,
           licenseFile: licenseFileData,
