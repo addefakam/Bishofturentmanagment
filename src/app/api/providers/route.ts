@@ -71,6 +71,24 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      // ── Auto-geocode address to get lat/lng ──
+      let geoLat: number | undefined;
+      let geoLng: number | undefined;
+      const addr = address?.trim() || "";
+      if (addr) {
+        try {
+          const geoRes = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr + ", Ethiopia")}&limit=1`,
+            { headers: { "User-Agent": "GHMS-Registration/1.0" }, signal: AbortSignal.timeout(5000) }
+          );
+          const geoData = await geoRes.json();
+          if (geoData?.length > 0) {
+            geoLat = parseFloat(geoData[0].lat);
+            geoLng = parseFloat(geoData[0].lon);
+          }
+        } catch { /* geocoding failed — store without coordinates */ }
+      }
+
       const provider = await db.$transaction(async (tx) => {
         const p = await tx.provider.create({
           data: {
@@ -78,7 +96,8 @@ export async function POST(req: NextRequest) {
             ownerName: ownerName.trim(),
             phone: phone.trim(),
             email: email?.trim() || "",
-            address: address?.trim() || "",
+            address: addr,
+            ...(geoLat !== undefined && geoLng !== undefined ? { latitude: geoLat, longitude: geoLng } : {}),
             type: type || "GUEST_HOUSE",
             licenseNo: licenseNo?.trim() || "",
             licenseFile: typeof licenseFile === "string" ? licenseFile : "",

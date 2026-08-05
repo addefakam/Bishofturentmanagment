@@ -1018,9 +1018,19 @@ export default function ProvidersPage() {
                 <Input
                   value={registerForm.address}
                   onChange={(e) => setRegisterForm((f) => ({ ...f, address: e.target.value }))}
+                  onBlur={async () => {
+                    const addr = registerForm.address.trim();
+                    if (!addr) return;
+                    try {
+                      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr + ", Ethiopia")}&limit=1`, { headers: { "User-Agent": "GHMS-Registration/1.0" } });
+                      const data = await res.json();
+                      if (data?.length > 0) setRegisterForm((f) => ({ ...f, address: data[0].display_name }));
+                    } catch { /* keep original */ }
+                  }}
                   placeholder="Street, city, sub-city"
                   className="bg-slate-50"
                 />
+                <p className="text-[11px] text-slate-400">Address will be auto-normalized when you click away.</p>
               </div>
               <div className="grid gap-1.5 sm:col-span-2">
                 <Label className="text-sm">License No <span className="text-slate-400 font-normal">(optional)</span></Label>
