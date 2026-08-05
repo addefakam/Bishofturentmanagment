@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { sql } from "@prisma/client/runtime/library";
+import { Prisma } from "@prisma/client";
 import { dispatchAlertForMatch } from "./alert-dispatcher";
 
 let tablesEnsured = false;
@@ -16,7 +16,7 @@ async function ensureTables() {
   } catch {
     // Table doesn't exist — create them
     console.log("[suspect-check] Creating SuspectedPerson and SuspectMatch tables...");
-    await db.$executeRaw(sql`
+    await db.$executeRaw(Prisma.sql`
       CREATE TABLE IF NOT EXISTS "SuspectedPerson" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "name" TEXT NOT NULL,
@@ -33,7 +33,7 @@ async function ensureTables() {
         "updatedAt" TIMESTAMP NOT NULL
       );
     `);
-    await db.$executeRaw(sql`
+    await db.$executeRaw(Prisma.sql`
       CREATE TABLE IF NOT EXISTS "SuspectMatch" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "suspectedPersonId" TEXT NOT NULL,
@@ -51,10 +51,10 @@ async function ensureTables() {
         FOREIGN KEY ("suspectedPersonId") REFERENCES "SuspectedPerson"("id") ON DELETE CASCADE ON UPDATE CASCADE
       );
     `);
-    await db.$executeRaw(sql`
+    await db.$executeRaw(Prisma.sql`
       CREATE INDEX IF NOT EXISTS "SuspectMatch_suspectedPersonId_idx" ON "SuspectMatch"("suspectedPersonId");
     `);
-    await db.$executeRaw(sql`
+    await db.$executeRaw(Prisma.sql`
       CREATE INDEX IF NOT EXISTS "SuspectMatch_isRead_idx" ON "SuspectMatch"("isRead");
     `);
     tablesEnsured = true;

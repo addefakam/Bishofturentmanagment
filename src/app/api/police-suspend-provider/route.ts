@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sql } from "@prisma/client/runtime/library";
+import { Prisma } from "@prisma/client";
 import { getAuthContext, AuthError } from "@/lib/tenant";
 
 export async function POST(req: NextRequest) {
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
 
     // Also create an audit log entry
     await db.$executeRaw(
-      sql`INSERT INTO "AuditLog" ("id", "officerName", "action", "targetId", "targetType", "details", "ipAddress", "createdAt")
+      Prisma.sql`INSERT INTO "AuditLog" ("id", "officerName", "action", "targetId", "targetType", "details", "ipAddress", "createdAt")
        VALUES (${crypto.randomUUID()}, ${officerName}, ${"SUSPEND_PROVIDER"}, ${providerId}, ${"Provider"}, ${`Suspended provider "${provider.name}" (ID: ${providerId}). Reason: ${suspensionReason.trim()}. Message sent to provider: ${notificationMessage.substring(0, 200)}`}, ${req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || ""}, CURRENT_TIMESTAMP)`
     );
 

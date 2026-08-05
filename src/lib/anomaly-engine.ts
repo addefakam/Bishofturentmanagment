@@ -16,7 +16,7 @@
  */
 
 import { db } from "./db";
-import { sql } from "@prisma/client/runtime/library";
+import { Prisma } from "@prisma/client";
 
 // ── Anomaly Detection Toggle (in-memory cache) ──
 let _cachedEnabled: boolean | null = null;
@@ -130,7 +130,7 @@ async function getProviderName(providerId: string): Promise<string> {
 async function isDuplicate(type: AnomalyType, guestPhone: string, providerId: string, withinHours: number = 24): Promise<boolean> {
   const cutoff = new Date(Date.now() - withinHours * 3600_000).toISOString();
   const count = await db.$queryRaw<{ c: bigint }[]>(
-    sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord"
+    Prisma.sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord"
      WHERE "type" = ${type} AND "guestPhone" = ${guestPhone || ""} AND "providerId" = ${providerId || ""} AND "createdAt" >= ${cutoff}::timestamptz`
   );
   return (count[0]?.c || 0n) > 0n;
@@ -147,7 +147,7 @@ async function detectIdentityMismatch(ctx: DetectContext): Promise<AnomalyRecord
   const rows = await db.$queryRaw<{
     name: string; idNumber: string; providerId: string; providerName: string;
   }[]>(
-    sql`SELECT g."name", g."idNumber", g."providerId", p."name" as "providerName"
+    Prisma.sql`SELECT g."name", g."idNumber", g."providerId", p."name" as "providerName"
      FROM "Guest" g JOIN "Provider" p ON p."id" = g."providerId"
      WHERE LOWER(TRIM(g."phone")) = LOWER(${phone})
      AND g."providerId" != ${ctx.providerId}
@@ -194,7 +194,7 @@ async function detectRapidMultiProvider(ctx: DetectContext): Promise<AnomalyReco
   const rows = await db.$queryRaw<{
     providerId: string; providerName: string; checkIn: string; status: string;
   }[]>(
-    sql`SELECT r."providerId", p."name" as "providerName", r."checkIn", r."status"
+    Prisma.sql`SELECT r."providerId", p."name" as "providerName", r."checkIn", r."status"
      FROM "Reservation" r JOIN "Guest" g ON r."guestId" = g."id"
      JOIN "Provider" p ON p."id" = r."providerId"
      WHERE LOWER(TRIM(g."phone")) = LOWER(${phone})
@@ -234,7 +234,7 @@ async function detectNoShowPattern(ctx: DetectContext): Promise<AnomalyRecord | 
   const today = new Date().toISOString().split("T")[0];
 
   const rows = await db.$queryRaw<{ count: bigint }[]>(
-    sql`SELECT COUNT(*)::bigint as count
+    Prisma.sql`SELECT COUNT(*)::bigint as count
      FROM "Reservation" r JOIN "Guest" g ON r."guestId" = g."id"
      WHERE LOWER(TRIM(g."phone")) = LOWER(${phone})
      AND r."status" IN ('CANCELLED', 'UPCOMING')
@@ -275,7 +275,7 @@ async function detectCashAnomaly(ctx: DetectContext): Promise<AnomalyRecord | nu
   const totalCash = payments.reduce((sum, p) => sum + p.amount, 0);
 
   const avgRows = await db.$queryRaw<{ avg: number | null }[]>(
-    sql`SELECT AVG("amount") as avg FROM "Payment" WHERE "providerId" = ${ctx.providerId} AND "method" = 'CASH'`
+    Prisma.sql`SELECT AVG("amount") as avg FROM "Payment" WHERE "providerId" = ${ctx.providerId} AND "method" = 'CASH'`
   );
   const avgCash = Number(avgRows[0]?.avg || 0);
 
@@ -315,7 +315,7 @@ async function detectCrossProviderId(ctx: DetectContext): Promise<AnomalyRecord 
   const rows = await db.$queryRaw<{
     name: string; phone: string; providerId: string; providerName: string;
   }[]>(
-    sql`SELECT g."name", g."phone", g."providerId", p."name" as "providerName"
+    Prisma.sql`SELECT g."name", g."phone", g."providerId", p."name" as "providerName"
      FROM "Guest" g JOIN "Provider" p ON p."id" = g."providerId"
      WHERE LOWER(TRIM(g."idNumber")) = LOWER(${idNum})
      AND g."providerId" != ${ctx.providerId}`
@@ -359,7 +359,7 @@ async function detectShortStayPattern(ctx: DetectContext): Promise<AnomalyRecord
   const rows = await db.$queryRaw<{
     providerId: string; providerName: string; checkIn: string; nights: number;
   }[]>(
-    sql`SELECT r."providerId", p."name" as "providerName", r."checkIn", r."nights"
+    Prisma.sql`SELECT r."providerId", p."name" as "providerName", r."checkIn", r."nights"
      FROM "Reservation" r JOIN "Guest" g ON r."guestId" = g."id"
      JOIN "Provider" p ON p."id" = r."providerId"
      WHERE LOWER(TRIM(g."phone")) = LOWER(${phone})
@@ -400,7 +400,7 @@ async function detectFakeIdPattern(ctx: DetectContext): Promise<AnomalyRecord | 
   const rows = await db.$queryRaw<{
     name: string; phone: string; providerId: string; providerName: string;
   }[]>(
-    sql`SELECT g."name", g."phone", g."providerId", p."name" as "providerName"
+    Prisma.sql`SELECT g."name", g."phone", g."providerId", p."name" as "providerName"
      FROM "Guest" g JOIN "Provider" p ON p."id" = g."providerId"
      WHERE LOWER(TRIM(g."idNumber")) = LOWER(${idNum})
      AND g."id" != COALESCE((
@@ -437,7 +437,7 @@ async function detectFakeIdPattern(ctx: DetectContext): Promise<AnomalyRecord | 
 // ── Save anomaly to DB ──
 async function saveAnomaly(anomaly: AnomalyRecord): Promise<void> {
   await db.$executeRaw(
-    sql`INSERT INTO "AnomalyRecord" ("id", "type", "severity", "riskScore", "guestName", "guestPhone", "guestIdNumber", "providerId", "providerName", "description", "metadata", "isReviewed", "createdAt")
+    Prisma.sql`INSERT INTO "AnomalyRecord" ("id", "type", "severity", "riskScore", "guestName", "guestPhone", "guestIdNumber", "providerId", "providerName", "description", "metadata", "isReviewed", "createdAt")
      VALUES (${anomaly.id}, ${anomaly.type}, ${anomaly.severity}, ${anomaly.riskScore}, ${anomaly.guestName}, ${anomaly.guestPhone}, ${anomaly.guestIdNumber}, ${anomaly.providerId}, ${anomaly.providerName}, ${anomaly.description}, ${anomaly.metadata}, false, ${anomaly.createdAt}::timestamptz)`
   );
 }
@@ -504,7 +504,7 @@ export async function runSystemWideScan(): Promise<{ scanned: number; anomalies:
   const guests = await db.$queryRaw<{
     id: string; name: string; phone: string; idNumber: string; providerId: string;
   }[]>(
-    sql`SELECT g."id", g."name", g."phone", g."idNumber", g."providerId"
+    Prisma.sql`SELECT g."id", g."name", g."phone", g."idNumber", g."providerId"
      FROM "Guest" g
      WHERE g."createdAt" >= ${ninetyDaysAgo}::timestamptz
        AND (g."phone" IS NOT NULL AND g."phone" != '')
@@ -531,7 +531,7 @@ export async function runSystemWideScan(): Promise<{ scanned: number; anomalies:
 
   const fiveMinAgo = new Date(Date.now() - 5 * 60_000);
   const recentAnomalies = await db.$queryRaw<{ c: bigint }[]>(
-    sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord" WHERE "createdAt" >= ${fiveMinAgo}::timestamptz`
+    Prisma.sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord" WHERE "createdAt" >= ${fiveMinAgo}::timestamptz`
   );
 
   return { scanned: guests.length, anomalies: Number(recentAnomalies[0]?.c || 0) };
@@ -541,26 +541,26 @@ export async function getAnomalyStats(providerId?: string) {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400_000).toISOString();
 
   const baseWhere = providerId
-    ? sql`WHERE "providerId" = ${providerId}`
-    : sql``;
+    ? Prisma.sql`WHERE "providerId" = ${providerId}`
+    : Prisma.sql``;
 
   const [total, unreviewed, bySeverity, byType, recent] = await Promise.all([
     db.$queryRaw<{ c: bigint }[]>(
-      sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord" ${baseWhere}`
+      Prisma.sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord" ${baseWhere}`
     ),
     db.$queryRaw<{ c: bigint }[]>(
       providerId
-        ? sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord" WHERE "providerId" = ${providerId} AND "isReviewed" = false`
-        : sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord" WHERE "isReviewed" = false`
+        ? Prisma.sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord" WHERE "providerId" = ${providerId} AND "isReviewed" = false`
+        : Prisma.sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord" WHERE "isReviewed" = false`
     ),
     db.$queryRaw<{ severity: string; count: bigint }[]>(
-      sql`SELECT "severity", COUNT(*)::bigint as count FROM "AnomalyRecord" ${baseWhere} GROUP BY "severity"`
+      Prisma.sql`SELECT "severity", COUNT(*)::bigint as count FROM "AnomalyRecord" ${baseWhere} GROUP BY "severity"`
     ),
     db.$queryRaw<{ type: string; count: bigint }[]>(
-      sql`SELECT "type", COUNT(*)::bigint as count FROM "AnomalyRecord" ${baseWhere} GROUP BY "type" ORDER BY count DESC`
+      Prisma.sql`SELECT "type", COUNT(*)::bigint as count FROM "AnomalyRecord" ${baseWhere} GROUP BY "type" ORDER BY count DESC`
     ),
     db.$queryRaw<{ c: bigint }[]>(
-      sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord" WHERE "createdAt" >= ${thirtyDaysAgo}::timestamptz`
+      Prisma.sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord" WHERE "createdAt" >= ${thirtyDaysAgo}::timestamptz`
     ),
   ]);
 

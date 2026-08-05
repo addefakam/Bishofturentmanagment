@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sql } from "@prisma/client/runtime/library";
-import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
+import { Prisma } from "@prisma/client";
+import { getAuthContext, AuthError } from "@/lib/tenant";
 import { logAudit } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);
-    requirePolice(auth);
+    if (auth.role !== "POLICE" && auth.role !== "SUPERUSER") { return NextResponse.json({ error: "Access denied" }, { status: 403 }); }
 
     // All queries are capped to prevent OOM. Dashboard doesn't need exhaustive data.
     const [frequentStays, auditLogs, allProviders] = await Promise.all([
@@ -90,13 +90,13 @@ export async function GET(req: NextRequest) {
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
     const reservationCounts = await db.$queryRaw<{month: string; count: bigint}[]>(
-      sql`SELECT TO_CHAR("createdAt", 'YYYY-MM') as month, COUNT(*) as count
+      Prisma.sql`SELECT TO_CHAR("createdAt", 'YYYY-MM') as month, COUNT(*) as count
        FROM "Reservation"
        WHERE "createdAt" >= ${sixMonthsAgo.toISOString()}
        GROUP BY TO_CHAR("createdAt", 'YYYY-MM')`
     );
     const suspectMatchCounts = await db.$queryRaw<{month: string; count: bigint}[]>(
-      sql`SELECT TO_CHAR("createdAt", 'YYYY-MM') as month, COUNT(*) as count
+      Prisma.sql`SELECT TO_CHAR("createdAt", 'YYYY-MM') as month, COUNT(*) as count
        FROM "SuspectMatch"
        WHERE "createdAt" >= ${sixMonthsAgo.toISOString()}
        GROUP BY TO_CHAR("createdAt", 'YYYY-MM')`

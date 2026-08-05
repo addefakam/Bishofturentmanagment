@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sql } from "@prisma/client/runtime/library";
-import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
+import { Prisma } from "@prisma/client";
+import { getAuthContext, AuthError } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);
-    requirePolice(auth);
+    if (auth.role !== "POLICE" && auth.role !== "SUPERUSER") { return NextResponse.json({ error: "Access denied" }, { status: 403 }); }
 
     const { searchParams } = req.nextUrl;
     const q = searchParams.get("q") || "";
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     let linkedGuests: unknown[] = [];
     if (q) {
       linkedGuests = await db.$queryRaw(
-        sql`SELECT g.*, p."name" as "providerName", p."id" as "providerId"
+        Prisma.sql`SELECT g.*, p."name" as "providerName", p."id" as "providerId"
         FROM "Guest" g
         JOIN "Provider" p ON g."providerId" = p."id"
         WHERE g."phone" LIKE ${"%" + q + "%"} OR g."idNumber" LIKE ${"%" + q + "%"} OR g."name" LIKE ${"%" + q + "%"}
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 
     // 2. Guest linking graph — same phone or ID across providers
     const linkingData = await db.$queryRaw(
-      sql`SELECT
+      Prisma.sql`SELECT
         g."phone",
         g."idNumber",
         COUNT(DISTINCT g."providerId") as providerCount,
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
 
     // 3. Frequent stay patterns
     const frequentPatterns = await db.$queryRaw(
-      sql`SELECT
+      Prisma.sql`SELECT
         g."id", g."name", g."phone", g."idNumber", g."totalStays",
         p."name" as "providerName",
         MIN(r."checkIn") as firstStay,

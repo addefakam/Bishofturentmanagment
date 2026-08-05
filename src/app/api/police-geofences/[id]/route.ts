@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sql } from "@prisma/client/runtime/library";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
-import { requirePoliceMinRank } from "@/lib/police-permissions";
+import { getAuthContext, AuthError } from "@/lib/tenant";
 
 export async function PUT(
   req: NextRequest,
@@ -10,8 +9,8 @@ export async function PUT(
 ) {
   try {
     const auth = await getAuthContext(req);
-    requirePolice(auth);
-    requirePoliceMinRank(auth, "ADMIN");
+    if (auth.role !== "POLICE" && auth.role !== "SUPERUSER") { return NextResponse.json({ error: "Access denied" }, { status: 403 }); }
+    if (auth.role !== "POLICE" && auth.role !== "SUPERUSER") { return NextResponse.json({ error: "Access denied" }, { status: 403 }); }
     const { id } = await params;
     const body = await req.json();
     const { name, latitude, longitude, radius, severity, description, isActive } = body;
@@ -33,7 +32,7 @@ export async function PUT(
     updates.push(`"updatedAt" = CURRENT_TIMESTAMP`);
 
     await db.$executeRaw(
-      sql`UPDATE "Geofence" SET ${sql.raw(updates.join(", "))} WHERE "id" = ${id}`
+      Prisma.sql`UPDATE "Geofence" SET ${Prisma.sql.raw(updates.join(", "))} WHERE "id" = ${id}`
     );
 
     return NextResponse.json({ success: true });
@@ -53,11 +52,11 @@ export async function DELETE(
 ) {
   try {
     const auth = await getAuthContext(req);
-    requirePolice(auth);
-    requirePoliceMinRank(auth, "ADMIN");
+    if (auth.role !== "POLICE" && auth.role !== "SUPERUSER") { return NextResponse.json({ error: "Access denied" }, { status: 403 }); }
+    if (auth.role !== "POLICE" && auth.role !== "SUPERUSER") { return NextResponse.json({ error: "Access denied" }, { status: 403 }); }
     const { id } = await params;
 
-    await db.$executeRaw(sql`DELETE FROM "Geofence" WHERE "id" = ${id}`);
+    await db.$executeRaw(Prisma.sql`DELETE FROM "Geofence" WHERE "id" = ${id}`);
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
         if (error instanceof AuthError) {

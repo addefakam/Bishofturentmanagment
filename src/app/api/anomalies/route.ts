@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
-import { requirePoliceMinRank } from "@/lib/police-permissions";
+import { getAuthContext, AuthError } from "@/lib/tenant";
 import { logAudit } from "@/lib/audit";
 import { runSystemWideScan, getAnomalyStats, isAnomalyDetectionEnabled, invalidateAnomalyToggleCache } from "@/lib/anomaly-engine";
-import { sql } from "@prisma/client/runtime/library";
+import { Prisma } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);
-    requirePolice(auth);
+    if (auth.role !== "POLICE" && auth.role !== "SUPERUSER") { return NextResponse.json({ error: "Access denied" }, { status: 403 }); }
 
     const { searchParams } = req.nextUrl;
     const type = searchParams.get("type") || "";
@@ -22,7 +21,7 @@ export async function GET(req: NextRequest) {
 
     const [anomalies, countResult, stats, enabled] = await Promise.all([
       db.$queryRaw<Record<string, unknown>[]>(
-        sql`SELECT * FROM "AnomalyRecord"
+        Prisma.sql`SELECT * FROM "AnomalyRecord"
           WHERE (${type} = '' OR "type" = ${type})
             AND (${severity} = '' OR "severity" = ${severity})
             AND (${reviewed === null}::boolean OR "isReviewed" = ${reviewed === "true"}::boolean)
@@ -30,7 +29,7 @@ export async function GET(req: NextRequest) {
           LIMIT ${pageSize} OFFSET ${offset}`
       ),
       db.$queryRaw<{ c: bigint }[]>(
-        sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord"
+        Prisma.sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord"
           WHERE (${type} = '' OR "type" = ${type})
             AND (${severity} = '' OR "severity" = ${severity})
             AND (${reviewed === null}::boolean OR "isReviewed" = ${reviewed === "true"}::boolean)`
@@ -60,13 +59,13 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);
-    requirePolice(auth);
+    if (auth.role !== "POLICE" && auth.role !== "SUPERUSER") { return NextResponse.json({ error: "Access denied" }, { status: 403 }); }
 
     const body = await req.json();
     const { action } = body;
 
     if (action === "toggle") {
-      requirePoliceMinRank(auth, "ADMIN");
+      if (auth.role !== "POLICE" && auth.role !== "SUPERUSER") { return NextResponse.json({ error: "Access denied" }, { status: 403 }); }
 
       const enabled: boolean = body.enabled ?? false;
 
@@ -93,9 +92,9 @@ export async function POST(req: NextRequest) {
       }
 
       if (ids.length > 0) {
-        const idList = sql.join(ids.map(id => sql`${id}`), sql`, `);
+        const idList = Prisma.sql.join(ids.map(id => Prisma.sql`${id}`), Prisma.sql`, `);
         await db.$executeRaw(
-          sql`UPDATE "AnomalyRecord" SET "isReviewed" = true WHERE "id" IN (${idList})`
+          Prisma.sql`UPDATE "AnomalyRecord" SET "isReviewed" = true WHERE "id" IN (${idList})`
         );
       }
 
@@ -104,7 +103,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "scan") {
-      requirePoliceMinRank(auth, "DETECTIVE");
+      if (auth.role !== "POLICE" && auth.role !== "SUPERUSER") { return NextResponse.json({ error: "Access denied" }, { status: 403 }); }
       logAudit(req, { action: "ANOMALY_SCAN", details: "System-wide anomaly scan triggered" });
 
       const result = await runSystemWideScan();

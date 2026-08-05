@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sql } from "@prisma/client/runtime/library";
-import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
+import { Prisma } from "@prisma/client";
+import { getAuthContext, AuthError } from "@/lib/tenant";
 
 const MAX_PAGE_SIZE = 100;
 const DEFAULT_PAGE_SIZE = 5;
@@ -24,7 +24,7 @@ interface GuestRow {
 export async function GET(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);
-    requirePolice(auth);
+    if (auth.role !== "POLICE" && auth.role !== "SUPERUSER") { return NextResponse.json({ error: "Access denied" }, { status: 403 }); }
 
     const { searchParams } = new URL(req.url);
     const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     // Uses SQL GROUP BY + HAVING so we don't load all guests into memory.
     // UNION ALL combines phone and idNumber duplicates into one paginated stream.
     const linkKeys = await db.$queryRaw<LinkKeyRow[]>(
-      sql`SELECT linkType, linkValue, COUNT(*) as total FROM (
+      Prisma.sql`SELECT linkType, linkValue, COUNT(*) as total FROM (
          SELECT 'phone' AS linkType, LOWER(TRIM("phone")) AS linkValue
          FROM "Guest"
          WHERE "phone" IS NOT NULL AND "phone" != ''
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 
     // Step 2: Get total count of distinct link keys (for pagination metadata).
     const totalRow = await db.$queryRaw<{count: bigint}[]>(
-      sql`SELECT COUNT(*) as count FROM (
+      Prisma.sql`SELECT COUNT(*) as count FROM (
          SELECT linkType, linkValue
          FROM (
            SELECT 'phone' AS linkType, LOWER(TRIM("phone")) AS linkValue
@@ -92,9 +92,9 @@ export async function GET(req: NextRequest) {
 
     for (const key of linkKeys) {
       const field = key.linkType === "phone" ? "phone" : "idNumber";
-      const col = field === "phone" ? sql`"phone"` : sql`"idNumber"`;
+      const col = field === "phone" ? Prisma.sql`"phone"` : Prisma.sql`"idNumber"`;
       const guests: GuestRow[] = await db.$queryRaw<GuestRow[]>(
-        sql`SELECT g."id", g."name", g."phone", g."idNumber", g."nationality",
+        Prisma.sql`SELECT g."id", g."name", g."phone", g."idNumber", g."nationality",
                 p."name" AS "providerName"
          FROM "Guest" g
          LEFT JOIN "Provider" p ON g."providerId" = p."id"
