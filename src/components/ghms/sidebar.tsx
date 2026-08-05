@@ -102,15 +102,19 @@ const POLICE_NAV_ITEMS: NavItem[] = [
     icon: BedDouble,
   },
   {
-    page: "police-guests",
-    label: "Guests Search",
-    icon: Search,
-  },
-  {
     page: "suspect-alerts",
     label: "Suspect Alerts",
     icon: ShieldAlert,
     badge: "new",
+  },
+];
+
+// Police pages that require an active joint session
+const POLICE_JOINT_ONLY_ITEMS: NavItem[] = [
+  {
+    page: "police-guests",
+    label: "Guests Search",
+    icon: Search,
   },
   {
     page: "suspected-persons",
@@ -191,12 +195,17 @@ const PERMISSION_PAGE_MAP: Record<string, NavItem> = {
 };
 
 // ── Helper: get nav items based on role ──
-function getNavItems(user: CurrentUser): NavItem[] {
+function getNavItems(user: CurrentUser, isJointActive: boolean): NavItem[] {
   switch (user.role) {
     case "POLICE": {
       const rank = (user.policeRank || "OFFICER") as PoliceRank;
       const allowedPages = POLICE_RANK_PERMISSIONS[rank] || POLICE_RANK_PERMISSIONS.OFFICER;
-      return POLICE_NAV_ITEMS.filter((item) => allowedPages.includes(item.page));
+      const base = POLICE_NAV_ITEMS.filter((item) => allowedPages.includes(item.page));
+      if (isJointActive) {
+        const jointItems = POLICE_JOINT_ONLY_ITEMS.filter((item) => allowedPages.includes(item.page));
+        return [...base, ...jointItems];
+      }
+      return base;
     }
 
     case "SUPERUSER":
@@ -434,9 +443,20 @@ function SidebarContent({
   collapsed: boolean;
   onToggleCollapse: () => void;
 }) {
-  const { jointSession, setJointLoginDialogOpen, subscription } = useAppStore();
-  const navItems = getNavItems(user);
+  const { jointSession, setJointLoginDialogOpen, subscription, setCurrentPage } = useAppStore();
+  const navItems = getNavItems(user, jointSession.active);
   const roleDisplay = getRoleDisplay(user.role);
+
+  // Redirect police user away from joint-only pages if joint session ends
+  const JOINT_ONLY_PAGES = new Set([
+    "police-guests", "suspected-persons", "police-investigation",
+    "police-security", "anomaly-detection", "owner-accounts",
+  ]);
+  useEffect(() => {
+    if (user.role === "POLICE" && !jointSession.active && JOINT_ONLY_PAGES.has(useAppStore.getState().currentPage)) {
+      setCurrentPage("police-dashboard");
+    }
+  }, [user.role, jointSession.active, setCurrentPage]);
 
   // Determine if user can start a joint session (SUPERUSER or POLICE ADMIN)
   const canStartJoint =
@@ -548,8 +568,23 @@ function SidebarContent({
             />
           ))}
 
-          {/* Joint Operations — only shown during active joint session */}
-          {jointSession.active && (
+          {/* Joint session section label — shown when joint-only items are visible */}
+          {user.role === "POLICE" && jointSession.active && (
+            <>
+              <Separator className="my-2 bg-slate-200/60" />
+              <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-600">
+                Joint Session Access
+              </p>
+              <NavItemButton
+                item={{ page: "joint-operations", label: "Joint Operations", icon: ShieldCheck }}
+                currentPage={currentPage}
+                onClick={() => onNavigate("joint-operations")}
+              />
+            </>
+          )}
+
+          {/* Joint Operations — non-police roles during active joint session */}
+          {user.role !== "POLICE" && jointSession.active && (
             <>
               <Separator className="my-2 bg-slate-200/60" />
               <NavItemButton
