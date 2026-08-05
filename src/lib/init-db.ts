@@ -58,6 +58,13 @@ CREATE TABLE IF NOT EXISTS "User" (
   "lastLogin" TIMESTAMP(3),
   "providerId" TEXT,
   "createdBy" TEXT,
+  "gender" TEXT NOT NULL DEFAULT '',
+  "age" TEXT NOT NULL DEFAULT '',
+  "dateOfBirth" TEXT NOT NULL DEFAULT '',
+  "badgeNumber" TEXT NOT NULL DEFAULT '',
+  "stationName" TEXT NOT NULL DEFAULT '',
+  "joinDate" TEXT NOT NULL DEFAULT '',
+  "photoUrl" TEXT NOT NULL DEFAULT '',
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "User_username_key" UNIQUE ("username")
@@ -532,6 +539,34 @@ EXCEPTION WHEN duplicate_column THEN null;
 END $$;
 DO $$ BEGIN
   ALTER TABLE "Guest" ADD COLUMN "photoUrl" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "User" ADD COLUMN "gender" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "User" ADD COLUMN "age" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "User" ADD COLUMN "dateOfBirth" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "User" ADD COLUMN "badgeNumber" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "User" ADD COLUMN "stationName" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "User" ADD COLUMN "joinDate" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "User" ADD COLUMN "photoUrl" TEXT NOT NULL DEFAULT '';
 EXCEPTION WHEN duplicate_column THEN null;
 END $$;
 `;

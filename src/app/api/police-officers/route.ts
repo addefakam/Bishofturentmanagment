@@ -43,9 +43,18 @@ export async function GET(req: NextRequest) {
         username: true,
         name: true,
         role: true,
+        email: true,
+        phone: true,
         permissions: true,
         policeRank: true,
         providerId: true,
+        gender: true,
+        age: true,
+        dateOfBirth: true,
+        badgeNumber: true,
+        stationName: true,
+        joinDate: true,
+        photoUrl: true,
         createdAt: true,
       },
       orderBy: { createdAt: "desc" },
@@ -96,7 +105,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { username, password, name, policeRank } = body;
+    const { username, password, name, policeRank, gender, age, dateOfBirth, email, phone, badgeNumber, stationName, joinDate, photoUrl } = body;
 
     if (!username || !password || !name) {
       return NextResponse.json(
@@ -154,6 +163,15 @@ export async function POST(req: NextRequest) {
         role: "POLICE",
         permissions: JSON.stringify([`police_rank:${requestedRank}`]),
         policeRank: requestedRank,
+        ...(gender !== undefined ? { gender } : {}),
+        ...(age !== undefined ? { age } : {}),
+        ...(dateOfBirth !== undefined ? { dateOfBirth } : {}),
+        ...(email !== undefined ? { email } : {}),
+        ...(phone !== undefined ? { phone } : {}),
+        ...(badgeNumber !== undefined ? { badgeNumber } : {}),
+        ...(stationName !== undefined ? { stationName } : {}),
+        ...(joinDate !== undefined ? { joinDate } : {}),
+        ...(photoUrl !== undefined ? { photoUrl } : {}),
       },
     });
 
@@ -208,7 +226,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { id, policeRank, name, password } = body;
+    const { id, policeRank, name, password, gender, age, dateOfBirth, email, phone, badgeNumber, stationName, joinDate, photoUrl } = body;
 
     if (!id) {
       return NextResponse.json({ error: "Officer ID is required" }, { status: 400 });
@@ -270,6 +288,42 @@ export async function PUT(req: NextRequest) {
 
     if (name) {
       updateData.name = name;
+    }
+
+    if (email !== undefined) {
+      updateData.email = email;
+    }
+
+    if (phone !== undefined) {
+      updateData.phone = phone;
+    }
+
+    if (gender !== undefined) {
+      updateData.gender = gender;
+    }
+
+    if (age !== undefined) {
+      updateData.age = age;
+    }
+
+    if (dateOfBirth !== undefined) {
+      updateData.dateOfBirth = dateOfBirth;
+    }
+
+    if (badgeNumber !== undefined) {
+      updateData.badgeNumber = badgeNumber;
+    }
+
+    if (stationName !== undefined) {
+      updateData.stationName = stationName;
+    }
+
+    if (joinDate !== undefined) {
+      updateData.joinDate = joinDate;
+    }
+
+    if (photoUrl !== undefined) {
+      updateData.photoUrl = photoUrl;
     }
 
     if (password) {

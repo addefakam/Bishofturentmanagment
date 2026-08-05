@@ -139,6 +139,14 @@ model User {
   lastLogin   DateTime?
   providerId  String?
   createdBy    String?         // User ID of the OPERATOR who created this account
+  // Officer-specific fields
+  gender        String          @default("")
+  age           String          @default("")
+  dateOfBirth   String          @default("")
+  badgeNumber   String          @default("")
+  stationName   String          @default("")
+  joinDate      String          @default("")
+  photoUrl      String          @default("")
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 

@@ -16,12 +16,12 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Plus, Trash2, MapPin, RefreshCw, Activity, UserCog, UserPlus,
+  Plus, Trash2, MapPin, RefreshCw, Activity, UserCog, UserPlus, Shield,
 } from "lucide-react";
 
 interface AuditLog { id: string; officerName: string; action: string; targetId: string | null; targetType: string | null; ipAddress: string | null; createdAt: string; }
 interface Geofence { id: string; name: string; address: string; latitude: number; longitude: number; radius: number; severity: string; isActive: boolean; createdAt: string; }
-interface Officer { id: string; username: string; name: string; role: string; permissions: string; providerId: string | null; createdAt: string; }
+interface Officer { id: string; username: string; name: string; role: string; permissions: string; providerId: string | null; createdAt: string; gender?: string; badgeNumber?: string; stationName?: string; photoUrl?: string; }
 
 const ACTION_LABELS: Record<string, string> = {
   VIEW_GUEST: "Viewed Guest", VIEW_MATCH: "Viewed Match", EXPORT_DATA: "Exported Data",
@@ -313,11 +313,19 @@ export default function PoliceSecurityPage() {
                     return (
                       <div key={o.id} className="flex items-center justify-between p-3 sm:px-4">
                         <div className="flex items-center gap-3 min-w-0">
-                          <UserCog className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          {o.photoUrl ? (
+                            <img src={o.photoUrl} alt={o.name} className="h-8 w-8 shrink-0 rounded-lg object-cover" />
+                          ) : (
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-100">
+                              <Shield className="h-4 w-4 text-rose-600" />
+                            </div>
+                          )}
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate">{o.name}</p>
-                            <div className="flex gap-2 text-[10px] text-muted-foreground">
+                            <div className="flex flex-wrap gap-x-2 text-[10px] text-muted-foreground">
                               <span>@{o.username}</span>
+                              {o.badgeNumber && <span>Badge: {o.badgeNumber}</span>}
+                              {o.stationName && <span>Station: {o.stationName}</span>}
                               <span>Joined: {new Date(o.createdAt).toLocaleDateString()}</span>
                             </div>
                           </div>

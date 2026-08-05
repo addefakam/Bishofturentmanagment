@@ -59,6 +59,7 @@ import {
   Pencil,
   Trash2,
   Crown,
+  Camera,
 } from "lucide-react";
 
 interface AccountUser {
@@ -71,6 +72,15 @@ interface AccountUser {
   permissions?: string;
   createdAt: string;
   provider?: { name: string } | null;
+  gender?: string;
+  age?: string;
+  dateOfBirth?: string;
+  email?: string;
+  phone?: string;
+  badgeNumber?: string;
+  stationName?: string;
+  joinDate?: string;
+  photoUrl?: string;
 }
 
 interface ProviderWithOwner {
@@ -207,6 +217,17 @@ export default function OwnerAccountsPage() {
   const [policeRank, setPoliceRank] = useState("OFFICER");
   const [policeSaving, setPoliceSaving] = useState(false);
   const [showPolicePassword, setShowPolicePassword] = useState(false);
+  // Extended officer fields
+  const [policeGender, setPoliceGender] = useState("");
+  const [policeAge, setPoliceAge] = useState("");
+  const [policeDOB, setPoliceDOB] = useState("");
+  const [policeEmail, setPoliceEmail] = useState("");
+  const [policePhone, setPolicePhone] = useState("");
+  const [policeBadge, setPoliceBadge] = useState("");
+  const [policeStation, setPoliceStation] = useState("");
+  const [policeJoinDate, setPoliceJoinDate] = useState("");
+  const [policePhoto, setPolicePhoto] = useState("");
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   // ── Delete confirmation ──
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -297,6 +318,34 @@ export default function OwnerAccountsPage() {
   };
 
   // ── Police CRUD handlers ──
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Photo must be under 2MB");
+      return;
+    }
+    setPhotoUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("photo", file);
+      const res = await fetch("/api/police-officers/photo", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.photoUrl) {
+        setPolicePhoto(data.photoUrl);
+      } else {
+        toast.error(data.error || "Failed to upload photo");
+      }
+    } catch {
+      toast.error("Failed to upload photo");
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
   const openAddPolice = () => {
     setEditMode(false);
     setEditPoliceId("");
@@ -311,6 +360,15 @@ export default function OwnerAccountsPage() {
           : availableRanks[0] || "VIEWER"
     );
     setShowPolicePassword(false);
+    setPoliceGender("");
+    setPoliceAge("");
+    setPoliceDOB("");
+    setPoliceEmail("");
+    setPolicePhone("");
+    setPoliceBadge("");
+    setPoliceStation("");
+    setPoliceJoinDate("");
+    setPolicePhoto("");
     setPoliceDialogOpen(true);
   };
 
@@ -322,6 +380,15 @@ export default function OwnerAccountsPage() {
     setPolicePassword("");
     setPoliceRank(police.policeRank || "VIEWER");
     setShowPolicePassword(false);
+    setPoliceGender(police.gender || "");
+    setPoliceAge(police.age || "");
+    setPoliceDOB(police.dateOfBirth || "");
+    setPoliceEmail(police.email || "");
+    setPolicePhone(police.phone || "");
+    setPoliceBadge(police.badgeNumber || "");
+    setPoliceStation(police.stationName || "");
+    setPoliceJoinDate(police.joinDate || "");
+    setPolicePhoto(police.photoUrl || "");
     setPoliceDialogOpen(true);
   };
 
@@ -344,6 +411,15 @@ export default function OwnerAccountsPage() {
           id: editPoliceId,
           name: policeName.trim(),
           policeRank,
+          gender: policeGender,
+          age: policeAge,
+          dateOfBirth: policeDOB,
+          email: policeEmail,
+          phone: policePhone,
+          badgeNumber: policeBadge,
+          stationName: policeStation,
+          joinDate: policeJoinDate,
+          photoUrl: policePhoto,
         };
         if (policePassword.trim()) {
           updateData.password = policePassword.trim();
@@ -357,6 +433,15 @@ export default function OwnerAccountsPage() {
           password: policePassword.trim(),
           name: policeName.trim(),
           policeRank,
+          gender: policeGender,
+          age: policeAge,
+          dateOfBirth: policeDOB,
+          email: policeEmail,
+          phone: policePhone,
+          badgeNumber: policeBadge,
+          stationName: policeStation,
+          joinDate: policeJoinDate,
+          photoUrl: policePhoto,
         });
         toast.success("Officer created successfully");
       }
@@ -442,9 +527,13 @@ export default function OwnerAccountsPage() {
       return (
         <div key={police.id} className="rounded-lg border p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-100">
-              <Shield className="h-4 w-4 text-rose-600" />
-            </div>
+            {police.photoUrl ? (
+              <img src={police.photoUrl} alt={police.name} className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+            ) : (
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-100">
+                <Shield className="h-4 w-4 text-rose-600" />
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <p className="font-semibold text-sm truncate">{police.name}</p>
@@ -463,9 +552,12 @@ export default function OwnerAccountsPage() {
             </div>
           </div>
 
-          <p className="text-xs text-muted-foreground">
-            Created: {new Date(police.createdAt).toLocaleDateString()}
-          </p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            {police.badgeNumber && <span>Badge: {police.badgeNumber}</span>}
+            {police.stationName && <span>Station: {police.stationName}</span>}
+            {police.gender && <span>Gender: {police.gender}</span>}
+            <span>Created: {new Date(police.createdAt).toLocaleDateString()}</span>
+          </div>
 
           <div className="flex gap-2">
             {canManageOfficer(police) && (
@@ -493,9 +585,13 @@ export default function OwnerAccountsPage() {
       <tr key={police.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
         <td className="px-4 py-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-100">
-              <Shield className="h-4 w-4 text-rose-600" />
-            </div>
+            {police.photoUrl ? (
+              <img src={police.photoUrl} alt={police.name} className="h-8 w-8 shrink-0 rounded-lg object-cover" />
+            ) : (
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-100">
+                <Shield className="h-4 w-4 text-rose-600" />
+              </div>
+            )}
             <span className="font-medium">{police.name}</span>
             {isSelf && (
               <Badge variant="secondary" className="text-[10px] px-1.5">You</Badge>
@@ -511,6 +607,12 @@ export default function OwnerAccountsPage() {
           <Badge variant="outline" className={`text-xs ${POLICE_RANK_BADGE[rank] || "bg-rose-100 text-rose-700 border-rose-200"}`}>
             {POLICE_RANK_LABEL[rank] || rank}
           </Badge>
+        </td>
+        <td className="px-4 py-3 text-muted-foreground text-xs">
+          {police.badgeNumber || "—"}
+        </td>
+        <td className="px-4 py-3 text-muted-foreground text-xs">
+          {police.stationName || "—"}
         </td>
         <td className="px-4 py-3 text-muted-foreground text-xs">
           {new Date(police.createdAt).toLocaleDateString()}
@@ -682,9 +784,13 @@ export default function OwnerAccountsPage() {
                   key={police.id}
                   className="flex items-center gap-4 rounded-lg border p-4 hover:bg-muted/30 transition-colors"
                 >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-rose-100">
-                    <Shield className="h-5 w-5 text-rose-600" />
-                  </div>
+                  {police.photoUrl ? (
+                    <img src={police.photoUrl} alt={police.name} className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                  ) : (
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-rose-100">
+                      <Shield className="h-5 w-5 text-rose-600" />
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="font-semibold text-sm">{police.name}</p>
@@ -693,7 +799,7 @@ export default function OwnerAccountsPage() {
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      <code className="font-mono">{police.username}</code> · Created {new Date(police.createdAt).toLocaleDateString()}
+                      <code className="font-mono">{police.username}</code> · {police.badgeNumber && <span>Badge: {police.badgeNumber} · </span>}{police.stationName || "No station"} · Created {new Date(police.createdAt).toLocaleDateString()}
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
@@ -844,6 +950,8 @@ export default function OwnerAccountsPage() {
                   <th className="px-4 py-3 text-left font-semibold">Name</th>
                   <th className="px-4 py-3 text-left font-semibold">Username</th>
                   <th className="px-4 py-3 text-left font-semibold">Rank</th>
+                  <th className="px-4 py-3 text-left font-semibold">Badge #</th>
+                  <th className="px-4 py-3 text-left font-semibold">Station</th>
                   <th className="px-4 py-3 text-left font-semibold">Created</th>
                   <th className="px-4 py-3 text-right font-semibold">Actions</th>
                 </tr>
@@ -932,7 +1040,7 @@ export default function OwnerAccountsPage() {
 
       {/* ── Add/Edit Police Dialog ── */}
       <Dialog open={policeDialogOpen} onOpenChange={setPoliceDialogOpen}>
-        <DialogContent className="mx-4 sm:mx-0 w-[calc(100%-2rem)] sm:w-full sm:max-w-md max-h-[85vh] overflow-y-auto">
+        <DialogContent className="mx-4 sm:mx-0 w-[calc(100%-2rem)] sm:w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-rose-600" />
@@ -941,58 +1049,169 @@ export default function OwnerAccountsPage() {
             <DialogDescription>
               {editMode
                 ? currentUser?.role === "SUPERUSER"
-                  ? "Update the Police Admin's name or password. Rank stays as ADMIN."
+                  ? "Update the Police Admin's details. Rank stays as ADMIN."
                   : "Update officer details. Change rank or name as needed."
                 : currentUser?.role === "SUPERUSER"
-                  ? "Create a new Police Admin account. Only ADMIN-rank officers can be created by the Superuser; lower ranks are managed by the Police Admin."
+                  ? "Create a new Police Admin account. Only ADMIN-rank officers can be created by the Superuser."
                   : `Create a new police officer with ${POLICE_RANK_LABEL[maxCreatableRank] || ""} rank or below.`}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handlePoliceSubmit} className="space-y-4">
-            {!editMode && (
-              <div className="space-y-2">
-                <Label htmlFor="police-username">Username *</Label>
-                <Input
-                  id="police-username"
-                  placeholder="e.g. officer-habtamu"
-                  value={policeUsername}
-                  onChange={(e) => setPoliceUsername(e.target.value)}
-                  autoFocus
+            {/* Photo Upload */}
+            <div className="flex justify-center">
+              <label className="relative cursor-pointer group">
+                {policePhoto ? (
+                  <img src={policePhoto} alt="Officer photo" className="h-24 w-24 rounded-xl object-cover border-2 border-dashed border-muted-foreground/30" />
+                ) : (
+                  <div className="h-24 w-24 rounded-xl border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-1 bg-muted/30 group-hover:bg-muted/50 transition-colors">
+                    {photoUploading ? (
+                      <Loader2 className="h-6 w-6 text-muted-foreground animate-spin" />
+                    ) : (
+                      <Camera className="h-6 w-6 text-muted-foreground" />
+                    )}
+                    <span className="text-[10px] text-muted-foreground">Upload Photo</span>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  onChange={handlePhotoUpload}
+                  disabled={photoUploading}
                 />
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="police-name">Full Name *</Label>
-              <Input
-                id="police-name"
-                placeholder="e.g. Officer Habtamu"
-                value={policeName}
-                onChange={(e) => setPoliceName(e.target.value)}
-              />
+              </label>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="police-rank">Rank *</Label>
-              <Select value={policeRank} onValueChange={setPoliceRank}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select rank" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableRanks.map((r) => (
-                    <SelectItem key={r} value={r}>
-                      <div className="flex items-center gap-2">
-                        <span>{POLICE_RANK_LABEL[r] || r}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {currentUser?.role === "SUPERUSER"
-                  ? "Superuser can only create and manage ADMIN-rank police accounts. Lower ranks (DETECTIVE, OFFICER, VIEWER) are managed by the Police Admin."
-                  : POLICE_RANK_DESC[policeRank] || ""}
-              </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {!editMode && (
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="police-username">Username *</Label>
+                  <Input
+                    id="police-username"
+                    placeholder="e.g. officer-habtamu"
+                    value={policeUsername}
+                    onChange={(e) => setPoliceUsername(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+              )}
+
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="police-name">Full Name *</Label>
+                <Input
+                  id="police-name"
+                  placeholder="e.g. Officer Habtamu"
+                  value={policeName}
+                  onChange={(e) => setPoliceName(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="police-rank">Rank *</Label>
+                <Select value={policeRank} onValueChange={setPoliceRank}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select rank" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableRanks.map((r) => (
+                      <SelectItem key={r} value={r}>
+                        <div className="flex items-center gap-2">
+                          <span>{POLICE_RANK_LABEL[r] || r}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {currentUser?.role === "SUPERUSER"
+                    ? "Superuser can only manage ADMIN-rank police accounts."
+                    : POLICE_RANK_DESC[policeRank] || ""}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="police-gender">Gender</Label>
+                <Select value={policeGender} onValueChange={setPoliceGender}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="police-age">Age</Label>
+                <Input
+                  id="police-age"
+                  placeholder="e.g. 32"
+                  value={policeAge}
+                  onChange={(e) => setPoliceAge(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="police-dob">Date of Birth</Label>
+                <Input
+                  id="police-dob"
+                  type="date"
+                  value={policeDOB}
+                  onChange={(e) => setPoliceDOB(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="police-phone">Phone</Label>
+                <Input
+                  id="police-phone"
+                  placeholder="e.g. +251911234567"
+                  value={policePhone}
+                  onChange={(e) => setPolicePhone(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="police-email">Email</Label>
+                <Input
+                  id="police-email"
+                  type="email"
+                  placeholder="e.g. officer@police.gov"
+                  value={policeEmail}
+                  onChange={(e) => setPoliceEmail(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="police-badge">Badge Number</Label>
+                <Input
+                  id="police-badge"
+                  placeholder="e.g. ETH-4521"
+                  value={policeBadge}
+                  onChange={(e) => setPoliceBadge(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="police-station">Station Name</Label>
+                <Input
+                  id="police-station"
+                  placeholder="e.g. Kirkos Sub-City"
+                  value={policeStation}
+                  onChange={(e) => setPoliceStation(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="police-joindate">Join Date</Label>
+                <Input
+                  id="police-joindate"
+                  type="date"
+                  value={policeJoinDate}
+                  onChange={(e) => setPoliceJoinDate(e.target.value)}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -1022,7 +1241,7 @@ export default function OwnerAccountsPage() {
               <Button type="button" variant="outline" onClick={() => setPoliceDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={policeSaving} className="gap-2">
+              <Button type="submit" disabled={policeSaving || photoUploading} className="gap-2">
                 {policeSaving ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
