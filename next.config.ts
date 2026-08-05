@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  output: "standalone",
   serverExternalPackages: ["@prisma/client", "@prisma/adapter-libsql", "pg", "bcryptjs"],
 };
 
