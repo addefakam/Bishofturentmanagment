@@ -78,7 +78,7 @@ export default function PoliceInvestigationPage() {
   // Fetch frequent stays
   const fetchFreq = useCallback(async () => {
     try { setFreqLoading(true); const d = await apiPoliceFrequentStays(); setFreqStays(Array.isArray(d) ? d : []); }
-    catch { toast.error("Failed to load frequent stays"); }
+    catch { setFreqStays([]); }
     finally { setFreqLoading(false); }
   }, []);
 

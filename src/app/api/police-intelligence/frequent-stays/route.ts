@@ -1,32 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sql } from "@prisma/client/runtime/library";
 import { getAuthContext, requirePolice, AuthError } from "@/lib/tenant";
 import { requirePoliceMinRank } from "@/lib/police-permissions";
 import { logAudit } from "@/lib/audit";
-
-// A guest is considered a "frequent stay" risk if they have reservations at
-// 2+ different providers within the last 30 days, with avg days between
-// check-ins < 30. We compute this with SQL GROUP BY instead of loading
-// every guest + every reservation into memory.
-
-interface DuplicateGuestRow {
-  link_key: string;       // lowercased phone or idNumber
-  link_type: "phone" | "idNumber";
-  guest_id: string;
-  guest_name: string;
-  guest_phone: string;
-  guest_idnumber: string;
-  provider_id: string;
-  provider_name: string;
-}
-
-interface ReservationRow {
-  link_key: string;
-  link_type: "phone" | "idNumber";
-  checkIn: string;
-  status: string;
-}
 
 export async function GET(req: NextRequest) {
   try {
@@ -41,12 +17,10 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.json(alerts);
   } catch (error: unknown) {
-        if (error instanceof AuthError) {
-          return NextResponse.json({ error: error.message }, { status: error.statusCode });
-        }
-    const message = error instanceof Error ? error.message : "Failed to fetch frequent stays";
-    const status = message.includes("Police") ? 403 : 500;
-    return NextResponse.json({ error: message }, { status });
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
+    return NextResponse.json({ error: "Failed to fetch data" }, { status: 500 });
   }
 }
 
@@ -56,132 +30,86 @@ export async function POST(req: NextRequest) {
     requirePolice(auth);
     requirePoliceMinRank(auth, "DETECTIVE");
 
-    // Step 1: Find guests who share a phone OR idNumber across multiple
-    // distinct providers. We use SQL UNION ALL + GROUP BY to do this in
-    // one query instead of loading every guest into memory.
-    //
-    // The inner query collects (link_key, link_type, guest, provider) tuples
-    // for every guest that has a non-empty phone or idNumber. The outer
-    // query groups by link_key and keeps only groups where the count of
-    // DISTINCT providers is >= 2.
-    const duplicates: DuplicateGuestRow[] = await db.$queryRaw(
-      sql`SELECT
-         link_key,
-         link_type,
-         g."id"        AS guest_id,
-         g."name"      AS guest_name,
-         g."phone"     AS guest_phone,
-         g."idNumber"  AS guest_idnumber,
-         p."id"        AS provider_id,
-         p."name"      AS provider_name
-       FROM (
-         SELECT LOWER(TRIM("phone"))    AS link_key, 'phone'    AS link_type, "id" AS guest_id, "providerId"
-         FROM "Guest"
-         WHERE "phone" IS NOT NULL AND "phone" != ''
-         UNION ALL
-         SELECT LOWER(TRIM("idNumber")) AS link_key, 'idNumber' AS link_type, "id" AS guest_id, "providerId"
-         FROM "Guest"
-         WHERE "idNumber" IS NOT NULL AND "idNumber" != ''
-       ) AS links
-       JOIN "Guest" g     ON g."id" = links.guest_id
-       JOIN "Provider" p  ON p."id" = g."providerId"
-       WHERE links.link_key IN (
-         SELECT link_key FROM (
-           SELECT LOWER(TRIM("phone")) AS link_key
-           FROM "Guest"
-           WHERE "phone" IS NOT NULL AND "phone" != ''
-           GROUP BY LOWER(TRIM("phone"))
-           HAVING COUNT(DISTINCT "providerId") >= 2
-           UNION
-           SELECT LOWER(TRIM("idNumber")) AS link_key
-           FROM "Guest"
-           WHERE "idNumber" IS NOT NULL AND "idNumber" != ''
-           GROUP BY LOWER(TRIM("idNumber"))
-           HAVING COUNT(DISTINCT "providerId") >= 2
-         ) AS dup_keys
-       )
-       ORDER BY links.link_key`
-    );
+    // Step 1: Find guests who share a phone OR idNumber across multiple providers
+    // Using pure Prisma queries instead of raw SQL for reliability.
+    const allGuests = await db.guest.findMany({
+      where: {
+        OR: [
+          { phone: { not: null, not: "" } },
+          { idNumber: { not: null, not: "" } },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        idNumber: true,
+        providerId: true,
+        provider: { select: { name: true } },
+        reservations: {
+          where: { status: { not: "CANCELLED" } },
+          select: { checkIn: true, status: true },
+          orderBy: { checkIn: "asc" },
+        },
+      },
+    });
 
-    if (duplicates.length === 0) {
+    // Step 2: Group guests by lowercased phone and idNumber
+    const phoneGroups = new Map<string, typeof allGuests>();
+    const idGroups = new Map<string, typeof allGuests>();
+
+    for (const guest of allGuests) {
+      if (guest.phone && guest.phone.trim()) {
+        const key = guest.phone.trim().toLowerCase();
+        if (!phoneGroups.has(key)) phoneGroups.set(key, []);
+        phoneGroups.get(key)!.push(guest);
+      }
+      if (guest.idNumber && guest.idNumber.trim()) {
+        const key = guest.idNumber.trim().toLowerCase();
+        if (!idGroups.has(key)) idGroups.set(key, []);
+        idGroups.get(key)!.push(guest);
+      }
+    }
+
+    // Step 3: Keep only groups with 2+ distinct providers
+    const duplicateGroups: { linkType: string; linkKey: string; guests: typeof allGuests }[] = [];
+    const seen = new Set<string>(); // deduplicate guests that appear in both phone and id groups
+
+    for (const [linkKey, guests] of phoneGroups) {
+      const uniqueProviders = new Set(guests.map(g => g.providerId));
+      if (uniqueProviders.size >= 2) {
+        const deduped = guests.filter(g => {
+          const k = g.id;
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
+        if (deduped.length >= 2) {
+          duplicateGroups.push({ linkType: "phone", linkKey, guests: deduped });
+        }
+      }
+    }
+    for (const [linkKey, guests] of idGroups) {
+      const uniqueProviders = new Set(guests.map(g => g.providerId));
+      if (uniqueProviders.size >= 2) {
+        const deduped = guests.filter(g => {
+          const k = g.id;
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
+        if (deduped.length >= 2) {
+          duplicateGroups.push({ linkType: "idNumber", linkKey, guests: deduped });
+        }
+      }
+    }
+
+    if (duplicateGroups.length === 0) {
       logAudit(req, { action: "FREQUENT_STAYS_ANALYSIS", details: "No duplicates found" });
       return NextResponse.json({ message: "Analysis complete. 0 new alerts created.", created: 0 });
     }
 
-    // Step 2: Group the duplicate rows by (link_key, link_type) in JS.
-    // This is bounded by the number of duplicates returned by SQL — not the
-    // total number of guests in the DB.
-    type GuestInfo = {
-      id: string;
-      name: string;
-      phone: string;
-      idNumber: string;
-      providerId: string;
-      providerName: string;
-    };
-    const groups = new Map<string, { linkType: "phone" | "idNumber"; guests: GuestInfo[] }>();
-    for (const row of duplicates) {
-      const key = `${row.link_type}:${row.link_key}`;
-      if (!groups.has(key)) {
-        groups.set(key, { linkType: row.link_type, guests: [] });
-      }
-      groups.get(key)!.guests.push({
-        id: row.guest_id,
-        name: row.guest_name,
-        phone: row.guest_phone,
-        idNumber: row.guest_idnumber,
-        providerId: row.provider_id,
-        providerName: row.provider_name,
-      });
-    }
-
-    // Step 3: For each group, fetch the reservations of all guest IDs in
-    // that group, in a single SQL query (IN clause). Compute the average
-    // days between check-ins.
-    const allGuestIds = Array.from(groups.values()).flatMap(g => g.guests.map(x => x.id));
-
-    // Cap to prevent a single huge query — if there are too many duplicate
-    // guests, we process the first N. (In practice this is unlikely.)
-    const GUEST_BATCH_CAP = 5000;
-    const guestIdsToQuery = allGuestIds.slice(0, GUEST_BATCH_CAP);
-
-    // Buggy original query kept for fallback — fixed with sql.join for PG compatibility
-    const reservations: ReservationRow[] = await db.$queryRaw(
-      sql`SELECT
-         CASE
-           WHEN LOWER(TRIM(g."phone")) IN (${sql.join(guestIdsToQuery.map(id => sql`${id}`), sql`, `)}) THEN LOWER(TRIM(g."phone"))
-           ELSE LOWER(TRIM(g."idNumber"))
-         END AS link_key_dummy,
-         r."checkIn", r."status", g."id" AS guest_id
-       FROM "Reservation" r
-       JOIN "Guest" g ON r."guestId" = g."id"
-       WHERE r."guestId" IN (${sql.join(guestIdsToQuery.map(id => sql`${id}`), sql`, `)})
-       ORDER BY r."checkIn" ASC`
-    );
-
-    // Actually the CASE/IN above is buggy — let me just fetch reservations
-    // directly and group them in JS by guest_id, then look up which group
-    // each guest belongs to.
-    const reservationsByGuest = new Map<string, { checkIn: string; status: string }[]>();
-    // The query above had a bad CASE — let me re-fetch with a simpler query.
-    // (We'll redo this below.)
-
-    // Simpler: fetch just checkIn + status + guestId
-    const reservationRows: { guestId: string; checkIn: string; status: string }[] = await db.$queryRaw(
-      sql`SELECT r."guestId", r."checkIn", r."status"
-       FROM "Reservation" r
-       WHERE r."guestId" IN (${sql.join(guestIdsToQuery.map(id => sql`${id}`), sql`, `)})
-       ORDER BY r."checkIn" ASC`
-    );
-    for (const r of reservationRows) {
-      if (!reservationsByGuest.has(r.guestId)) {
-        reservationsByGuest.set(r.guestId, []);
-      }
-      reservationsByGuest.get(r.guestId)!.push({ checkIn: r.checkIn, status: r.status });
-    }
-
-    // Step 4: For each group, compute risk metrics and create a FrequentStayAlert.
-    // Wipe existing alerts first so re-running analysis doesn't create duplicates.
+    // Step 4: Compute risk metrics and create alerts
     await db.frequentStayAlert.deleteMany({});
 
     const alertsToCreate: Array<{
@@ -194,51 +122,45 @@ export async function POST(req: NextRequest) {
       riskLevel: string;
     }> = [];
 
-    for (const [, group] of groups) {
-      const uniqueProviders = Array.from(new Set(group.guests.map(g => g.providerName)));
+    for (const group of duplicateGroups) {
+      const uniqueProviders = Array.from(new Set(group.guests.map(g => g.provider.name)));
       if (uniqueProviders.length < 2) continue;
 
-      // Combine all reservations across guests in the group, sorted by check-in date.
-      const allReservations = group.guests.flatMap(g =>
-        (reservationsByGuest.get(g.id) || []).map(r => ({ checkIn: r.checkIn, status: r.status }))
-      ).sort((a, b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime());
+      // Combine all reservations across guests in the group, sorted by check-in
+      const allReservations = group.guests
+        .flatMap(g => g.reservations.map(r => ({ checkIn: r.checkIn, status: r.status })))
+        .sort((a, b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime());
 
       if (allReservations.length < 2) continue;
 
-      // Only consider non-cancelled reservations
-      const activeReservations = allReservations.filter(r => r.status !== "CANCELLED");
-      if (activeReservations.length < 2) continue;
-
       // Average days between consecutive check-ins
       let totalDays = 0;
-      for (let i = 1; i < activeReservations.length; i++) {
+      for (let i = 1; i < allReservations.length; i++) {
         totalDays += Math.abs(
-          new Date(activeReservations[i].checkIn).getTime() -
-          new Date(activeReservations[i - 1].checkIn).getTime()
+          new Date(allReservations[i].checkIn).getTime() -
+          new Date(allReservations[i - 1].checkIn).getTime()
         ) / (1000 * 60 * 60 * 24);
       }
-      const avgDays = totalDays / (activeReservations.length - 1);
+      const avgDays = totalDays / (allReservations.length - 1);
 
-      // Only flag as suspicious if avg gap is < 30 days
+      // Only flag if avg gap < 30 days
       if (avgDays >= 30) continue;
 
       const riskLevel = avgDays < 7 ? "HIGH" : avgDays < 14 ? "MEDIUM" : "LOW";
       const firstGuest = group.guests[0];
       alertsToCreate.push({
         guestName: firstGuest.name,
-        guestPhone: firstGuest.phone,
-        guestIdNumber: firstGuest.idNumber,
+        guestPhone: firstGuest.phone || "",
+        guestIdNumber: firstGuest.idNumber || "",
         providerNames: JSON.stringify(uniqueProviders),
-        stayCount: activeReservations.length,
+        stayCount: allReservations.length,
         avgDaysBetween: Math.round(avgDays * 10) / 10,
         riskLevel,
       });
     }
 
-    // Step 5: Batch-create the alerts.
+    // Step 5: Batch-create alerts
     if (alertsToCreate.length > 0) {
-      // Prisma doesn't support createMany on SQLite without batching via raw SQL.
-      // Use individual creates in parallel with a cap on concurrency.
       const BATCH_SIZE = 50;
       for (let i = 0; i < alertsToCreate.length; i += BATCH_SIZE) {
         const batch = alertsToCreate.slice(i, i + BATCH_SIZE);
@@ -254,20 +176,18 @@ export async function POST(req: NextRequest) {
 
     logAudit(req, {
       action: "FREQUENT_STAYS_ANALYSIS",
-      details: `Created ${alertsToCreate.length} alerts from ${groups.size} duplicate groups`,
+      details: `Created ${alertsToCreate.length} alerts from ${duplicateGroups.length} duplicate groups`,
     });
 
     return NextResponse.json({
       message: `Analysis complete. ${alertsToCreate.length} new alerts created.`,
       created: alertsToCreate.length,
-      duplicateGroups: groups.size,
+      duplicateGroups: duplicateGroups.length,
     });
   } catch (error: unknown) {
-        if (error instanceof AuthError) {
-          return NextResponse.json({ error: error.message }, { status: error.statusCode });
-        }
-    const message = error instanceof Error ? error.message : "Failed to analyze frequent stays";
-    const status = message.includes("Police") ? 403 : 500;
-    return NextResponse.json({ error: message }, { status });
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode });
+    }
+    return NextResponse.json({ error: "Analysis failed" }, { status: 500 });
   }
 }
