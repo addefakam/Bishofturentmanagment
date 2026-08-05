@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
         { phone: { contains: q } },
         { idNumber: { contains: q } },
         { description: { contains: q } },
+        { caseNumber: { contains: q } },
       ];
     }
     if (severity) {
@@ -78,7 +79,11 @@ export async function POST(req: NextRequest) {
     await ensureSuspectTables();
 
     const body = await req.json();
-    const { name, phone, idNumber, idType, nationality, address, description, severity } = body;
+    const {
+      name, phone, idNumber, idType, nationality, gender, age, dateOfBirth,
+      occupation, address, lastSeenLocation, photoUrl, caseNumber, wantedDate,
+      description, severity,
+    } = body;
 
     if (!name) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -91,7 +96,15 @@ export async function POST(req: NextRequest) {
         idNumber: idNumber || "",
         idType: idType || "",
         nationality: nationality || "",
+        gender: gender || "",
+        age: age || "",
+        dateOfBirth: dateOfBirth || "",
+        occupation: occupation || "",
         address: address || "",
+        lastSeenLocation: lastSeenLocation || "",
+        photoUrl: photoUrl || "",
+        caseNumber: caseNumber || "",
+        wantedDate: wantedDate || "",
         description: description || "",
         severity: severity || "MEDIUM",
         registeredBy: auth.role,

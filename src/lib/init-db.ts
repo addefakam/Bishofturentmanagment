@@ -267,7 +267,15 @@ CREATE TABLE IF NOT EXISTS "SuspectedPerson" (
   "idNumber" TEXT NOT NULL DEFAULT '',
   "idType" TEXT NOT NULL DEFAULT '',
   "nationality" TEXT NOT NULL DEFAULT '',
+  "gender" TEXT NOT NULL DEFAULT '',
+  "age" TEXT NOT NULL DEFAULT '',
+  "dateOfBirth" TEXT NOT NULL DEFAULT '',
+  "occupation" TEXT NOT NULL DEFAULT '',
   "address" TEXT NOT NULL DEFAULT '',
+  "lastSeenLocation" TEXT NOT NULL DEFAULT '',
+  "photoUrl" TEXT NOT NULL DEFAULT '',
+  "caseNumber" TEXT NOT NULL DEFAULT '',
+  "wantedDate" TEXT NOT NULL DEFAULT '',
   "description" TEXT NOT NULL DEFAULT '',
   "severity" "SuspectSeverity" NOT NULL DEFAULT 'MEDIUM',
   "is_active" BOOLEAN NOT NULL DEFAULT true,
@@ -469,6 +477,38 @@ DO $$ BEGIN
   ALTER TABLE "Provider" ADD COLUMN "suspendedBy" TEXT NOT NULL DEFAULT '';
 EXCEPTION WHEN duplicate_column THEN null;
 END $$;
+DO $$ BEGIN
+  ALTER TABLE "SuspectedPerson" ADD COLUMN "gender" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "SuspectedPerson" ADD COLUMN "age" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "SuspectedPerson" ADD COLUMN "dateOfBirth" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "SuspectedPerson" ADD COLUMN "occupation" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "SuspectedPerson" ADD COLUMN "lastSeenLocation" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "SuspectedPerson" ADD COLUMN "photoUrl" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "SuspectedPerson" ADD COLUMN "caseNumber" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "SuspectedPerson" ADD COLUMN "wantedDate" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
 `;
 
 // ─── Indexes ───────────────────────────────────────────────────────────────
@@ -529,6 +569,7 @@ CREATE INDEX IF NOT EXISTS "SuspectedPerson_phone_idx" ON "SuspectedPerson" ("ph
 CREATE INDEX IF NOT EXISTS "SuspectedPerson_idNumber_idx" ON "SuspectedPerson" ("idNumber");
 CREATE INDEX IF NOT EXISTS "SuspectedPerson_severity_idx" ON "SuspectedPerson" ("severity");
 CREATE INDEX IF NOT EXISTS "SuspectedPerson_is_active_idx" ON "SuspectedPerson" ("is_active");
+CREATE INDEX IF NOT EXISTS "SuspectedPerson_caseNumber_idx" ON "SuspectedPerson" ("caseNumber");
 CREATE INDEX IF NOT EXISTS "SuspectMatch_suspectedPersonId_idx" ON "SuspectMatch" ("suspectedPersonId");
 CREATE INDEX IF NOT EXISTS "SuspectMatch_isRead_idx" ON "SuspectMatch" ("isRead");
 CREATE INDEX IF NOT EXISTS "SuspectMatch_createdAt_idx" ON "SuspectMatch" ("createdAt");

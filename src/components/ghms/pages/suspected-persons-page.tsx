@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef, type FormEvent } from "react";
+import { useState, useEffect, useCallback, useRef, type FormEvent } from "react";
 import { useAppStore } from "@/lib/store";
 import {
   apiGetSuspectedPersons,
@@ -63,6 +63,11 @@ import {
   CreditCard,
   ChevronLeft,
   ChevronRight,
+  Camera,
+  X,
+  Briefcase,
+  FolderSearch,
+  Clock,
 } from "lucide-react";
 
 interface SuspectedPerson {
@@ -72,7 +77,15 @@ interface SuspectedPerson {
   idNumber: string;
   idType: string;
   nationality: string;
+  gender: string;
+  age: string;
+  dateOfBirth: string;
+  occupation: string;
   address: string;
+  lastSeenLocation: string;
+  photoUrl: string;
+  caseNumber: string;
+  wantedDate: string;
   description: string;
   severity: string;
   is_active: boolean;
@@ -157,7 +170,15 @@ const emptyForm = {
   idNumber: "",
   idType: "",
   nationality: "",
+  gender: "",
+  age: "",
+  dateOfBirth: "",
+  occupation: "",
   address: "",
+  lastSeenLocation: "",
+  photoUrl: "",
+  caseNumber: "",
+  wantedDate: "",
   description: "",
   severity: "MEDIUM",
 };
@@ -203,6 +224,7 @@ export default function SuspectedPersonsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [formLoading, setFormLoading] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailPerson, setDetailPerson] = useState<PersonWithHistory | null>(null);
@@ -211,6 +233,8 @@ export default function SuspectedPersonsPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Debounce search (300ms) and reset to page 1 on new search
   useEffect(() => {
@@ -268,11 +292,65 @@ export default function SuspectedPersonsPage() {
       idNumber: person.idNumber,
       idType: person.idType,
       nationality: person.nationality,
+      gender: person.gender,
+      age: person.age,
+      dateOfBirth: person.dateOfBirth,
+      occupation: person.occupation,
       address: person.address,
+      lastSeenLocation: person.lastSeenLocation,
+      photoUrl: person.photoUrl,
+      caseNumber: person.caseNumber,
+      wantedDate: person.wantedDate,
       description: person.description,
       severity: person.severity,
     });
     setFormOpen(true);
+  };
+
+  // Photo upload handler
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Photo must be under 2MB");
+      return;
+    }
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Only JPG, PNG, WebP, and GIF images are allowed");
+      return;
+    }
+
+    setPhotoUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("photo", file);
+      const res = await fetch("/api/suspected-persons/photo", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setForm((f) => ({ ...f, photoUrl: data.photoUrl }));
+        toast.success("Photo uploaded");
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Upload failed");
+      }
+    } catch {
+      toast.error("Photo upload failed");
+    } finally {
+      setPhotoUploading(false);
+      // Reset file input
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const removePhoto = () => {
+    setForm((f) => ({ ...f, photoUrl: "" }));
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -308,7 +386,6 @@ export default function SuspectedPersonsPage() {
     setDetailOpen(true);
     setDetailLoading(true);
     try {
-      // Fetch full person with match history
       const res = await fetch(`/api/suspected-persons/${person.id}`, {
         headers: { "Content-Type": "application/json" },
       });
@@ -380,6 +457,31 @@ export default function SuspectedPersonsPage() {
     runScan(random);
   };
 
+  // ── Photo thumbnail component ──
+  const PersonPhoto = ({ photoUrl, name, size = "md" }: { photoUrl?: string; name: string; size?: "sm" | "md" | "lg" }) => {
+    const sizeClasses = {
+      sm: "h-8 w-8 text-xs",
+      md: "h-10 w-10 text-sm",
+      lg: "h-24 w-24 text-2xl",
+    }[size];
+
+    if (photoUrl) {
+      return (
+        <img
+          src={photoUrl}
+          alt={name}
+          className={`${sizeClasses[size]} rounded-full object-cover border-2 border-background shadow-sm`}
+        />
+      );
+    }
+    return (
+      <div className={`${sizeClasses[size]} rounded-full flex items-center justify-center font-semibold text-muted-foreground bg-muted`}
+        style={size === "lg" ? { fontSize: "2rem" } : {}}>
+        {name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4 p-3 sm:p-4 md:p-6">
       {/* Tab Switcher */}
@@ -426,7 +528,6 @@ export default function SuspectedPersonsPage() {
             </div>
           </div>
 
-          {/* Scanner Interface */}
           <Card>
             <CardContent className="py-6">
               {scannerMode === "scan" ? (
@@ -461,12 +562,10 @@ export default function SuspectedPersonsPage() {
             </CardContent>
           </Card>
 
-          {/* Results */}
           {scanLoading && <Skeleton className="h-32 w-full rounded-xl" />}
 
           {hasSearched && !scanLoading && (
             <>
-              {/* Alert if suspect found */}
               {scanMatches.length > 0 && (
                 <Card className="border-red-200 bg-red-50">
                   <CardHeader className="pb-2">
@@ -506,7 +605,6 @@ export default function SuspectedPersonsPage() {
                 </Card>
               )}
 
-              {/* Guest Info */}
               {scanGuests.length > 0 && (
                 <Card>
                   <CardHeader>
@@ -576,7 +674,6 @@ export default function SuspectedPersonsPage() {
             </>
           )}
 
-          {/* Offline Mode Info */}
           <Card className="bg-muted/30">
             <CardContent className="flex items-center gap-3 py-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100">
@@ -594,7 +691,6 @@ export default function SuspectedPersonsPage() {
       {/* ─── Watchlist Tab (default) ─── */}
       {activeTab === "watchlist" && (
         <>
-          {/* Header */}
           <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-base sm:text-lg font-semibold">Suspected Persons</h2>
@@ -606,7 +702,7 @@ export default function SuspectedPersonsPage() {
               <div className="relative flex-1 sm:w-64">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search name, phone, ID..."
+                  placeholder="Search name, phone, ID, case #..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-9 h-9 sm:h-10"
@@ -614,19 +710,17 @@ export default function SuspectedPersonsPage() {
               </div>
               <Button onClick={openAdd} className="h-9 sm:h-10 shrink-0">
                 <Plus className="mr-1 h-4 w-4" />
-                <span className="hidden sm:inline">Add</span>
+                <span className="hidden sm:inline">Register New</span>
               </Button>
             </div>
           </div>
 
-          {/* Count */}
           {!loading && persons.length > 0 && (
             <p className="text-xs text-muted-foreground px-1">
               {persons.length} person{persons.length !== 1 ? "s" : ""} registered
             </p>
           )}
 
-          {/* List */}
           <div className="rounded-xl border bg-card shadow-sm">
             {loading ? (
               <div className="space-y-3 p-4 sm:p-6">
@@ -651,13 +745,7 @@ export default function SuspectedPersonsPage() {
                   {paginatedPersons.map((person) => (
                     <div key={person.id} className="p-3 space-y-2">
                       <div className="flex items-start gap-3">
-                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                          !person.is_active ? "bg-slate-100" : person.severity === "CRITICAL" ? "bg-red-100" : person.severity === "HIGH" ? "bg-orange-100" : "bg-yellow-100"
-                        }`}>
-                          <UserX className={`h-4 w-4 ${
-                            !person.is_active ? "text-slate-400" : person.severity === "CRITICAL" ? "text-red-600" : person.severity === "HIGH" ? "text-orange-600" : "text-yellow-600"
-                          }`} />
-                        </div>
+                        <PersonPhoto photoUrl={person.photoUrl} name={person.name} size="md" />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
                             <p className={`truncate text-sm font-medium ${!person.is_active ? "text-muted-foreground line-through" : ""}`}>
@@ -672,8 +760,13 @@ export default function SuspectedPersonsPage() {
                               </Badge>
                             )}
                           </div>
-                          {person.phone && (
-                            <p className="text-xs text-muted-foreground font-mono">{person.phone}</p>
+                          <div className="flex gap-2 text-[10px] text-muted-foreground mt-0.5">
+                            {person.gender && <span>{person.gender}</span>}
+                            {person.age && <span>Age: {person.age}</span>}
+                            {person.phone && <span className="font-mono">{person.phone}</span>}
+                          </div>
+                          {person.caseNumber && (
+                            <p className="text-[10px] text-muted-foreground font-mono">Case: {person.caseNumber}</p>
                           )}
                           <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
                             {person.idNumber && (
@@ -693,12 +786,7 @@ export default function SuspectedPersonsPage() {
                         <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={() => openEdit(person)}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs px-2"
-                          onClick={() => toggleActive(person)}
-                        >
+                        <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={() => toggleActive(person)}>
                           {person.is_active ? "Deactivate" : "Activate"}
                         </Button>
                         <Button
@@ -719,10 +807,13 @@ export default function SuspectedPersonsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-12">Photo</TableHead>
                         <TableHead>Name</TableHead>
+                        <TableHead>Gender</TableHead>
+                        <TableHead>Age</TableHead>
                         <TableHead>Phone</TableHead>
                         <TableHead>ID Number</TableHead>
-                        <TableHead>Nationality</TableHead>
+                        <TableHead>Case #</TableHead>
                         <TableHead>Severity</TableHead>
                         <TableHead className="text-center">Matches</TableHead>
                         <TableHead>Status</TableHead>
@@ -733,10 +824,15 @@ export default function SuspectedPersonsPage() {
                     <TableBody>
                       {paginatedPersons.map((person) => (
                         <TableRow key={person.id} className={!person.is_active ? "opacity-60" : ""}>
+                          <TableCell>
+                            <PersonPhoto photoUrl={person.photoUrl} name={person.name} size="sm" />
+                          </TableCell>
                           <TableCell className="font-medium">{person.name}</TableCell>
+                          <TableCell>{person.gender || "—"}</TableCell>
+                          <TableCell>{person.age || "—"}</TableCell>
                           <TableCell className="font-mono text-sm">{person.phone || "—"}</TableCell>
                           <TableCell className="font-mono text-sm">{person.idNumber || "—"}</TableCell>
-                          <TableCell>{person.nationality || "—"}</TableCell>
+                          <TableCell className="font-mono text-sm">{person.caseNumber || "—"}</TableCell>
                           <TableCell>
                             <Badge variant="outline" className={SEVERITY_STYLES[person.severity] || ""}>
                               {person.severity}
@@ -798,35 +894,71 @@ export default function SuspectedPersonsPage() {
         </>
       )}
 
-      {/* Add/Edit Dialog */}
+      {/* ─── Register / Edit Dialog ─── */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto mx-4 sm:mx-0 w-[calc(100%-2rem)] sm:w-full">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4 sm:mx-0 w-[calc(100%-2rem)] sm:w-full">
           <DialogHeader>
-            <DialogTitle>{editingId ? "Edit Suspected Person" : "Register Suspected Person"}</DialogTitle>
+            <DialogTitle>{editingId ? "Edit Suspected Person" : "Register New Person"}</DialogTitle>
             <DialogDescription>
               {editingId ? "Update suspect details" : "Add a new person to monitor across all service providers"}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid gap-2">
-              <Label htmlFor="sp-name">Full Name *</Label>
-              <Input
-                id="sp-name"
-                placeholder="Full name of the suspected person"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                autoFocus
-              />
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Photo Upload Section */}
+            <div className="flex justify-center">
+              <div className="relative group">
+                {form.photoUrl ? (
+                  <div className="relative">
+                    <img
+                      src={form.photoUrl}
+                      alt="Photo"
+                      className="h-24 w-24 rounded-lg object-cover border-2 border-muted"
+                    />
+                    <button
+                      type="button"
+                      onClick={removePhoto}
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md hover:bg-red-600 transition-colors"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={photoUploading}
+                    className="h-24 w-24 rounded-lg border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-1.5 bg-muted/30 hover:bg-muted/50 hover:border-muted-foreground/50 transition-colors disabled:opacity-50"
+                  >
+                    {photoUploading ? (
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+                    ) : (
+                      <>
+                        <Camera className="h-6 w-6 text-muted-foreground/60" />
+                        <span className="text-[10px] text-muted-foreground/60">Add Photo</span>
+                      </>
+                    )}
+                  </button>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                />
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-2">
-                <Label htmlFor="sp-phone">Phone</Label>
+            {/* Row 1: Name + Severity */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid gap-2 sm:col-span-2">
+                <Label htmlFor="sp-name">Full Name *</Label>
                 <Input
-                  id="sp-phone"
-                  placeholder="Phone number"
-                  value={form.phone}
-                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                  id="sp-name"
+                  placeholder="Full name of the person"
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  autoFocus
                 />
               </div>
               <div className="grid gap-2">
@@ -845,7 +977,74 @@ export default function SuspectedPersonsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            {/* Row 2: Gender + Age + DOB */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid gap-2">
+                <Label htmlFor="sp-gender">Gender</Label>
+                <Select value={form.gender} onValueChange={(v) => setForm((f) => ({ ...f, gender: v }))}>
+                  <SelectTrigger id="sp-gender">
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="sp-age">Age</Label>
+                <Input
+                  id="sp-age"
+                  placeholder="e.g. 30"
+                  value={form.age}
+                  onChange={(e) => setForm((f) => ({ ...f, age: e.target.value }))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="sp-dob">Date of Birth</Label>
+                <Input
+                  id="sp-dob"
+                  type="date"
+                  value={form.dateOfBirth}
+                  onChange={(e) => setForm((f) => ({ ...f, dateOfBirth: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            {/* Row 3: Phone + Nationality + Occupation */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid gap-2">
+                <Label htmlFor="sp-phone">Phone</Label>
+                <Input
+                  id="sp-phone"
+                  placeholder="Phone number"
+                  value={form.phone}
+                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="sp-nationality">Nationality</Label>
+                <Input
+                  id="sp-nationality"
+                  placeholder="e.g. Ethiopian"
+                  value={form.nationality}
+                  onChange={(e) => setForm((f) => ({ ...f, nationality: e.target.value }))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="sp-occupation">Occupation</Label>
+                <Input
+                  id="sp-occupation"
+                  placeholder="e.g. Merchant"
+                  value={form.occupation}
+                  onChange={(e) => setForm((f) => ({ ...f, occupation: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            {/* Row 4: ID Type + ID Number */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="grid gap-2">
                 <Label htmlFor="sp-idtype">ID Type</Label>
                 <Select value={form.idType} onValueChange={(v) => setForm((f) => ({ ...f, idType: v }))}>
@@ -872,16 +1071,8 @@ export default function SuspectedPersonsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-2">
-                <Label htmlFor="sp-nationality">Nationality</Label>
-                <Input
-                  id="sp-nationality"
-                  placeholder="e.g. Ethiopian"
-                  value={form.nationality}
-                  onChange={(e) => setForm((f) => ({ ...f, nationality: e.target.value }))}
-                />
-              </div>
+            {/* Row 5: Address + Last Seen Location */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="grid gap-2">
                 <Label htmlFor="sp-address">Address</Label>
                 <Input
@@ -891,8 +1082,40 @@ export default function SuspectedPersonsPage() {
                   onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
                 />
               </div>
+              <div className="grid gap-2">
+                <Label htmlFor="sp-lastseen">Last Seen Location</Label>
+                <Input
+                  id="sp-lastseen"
+                  placeholder="Where was the person last seen?"
+                  value={form.lastSeenLocation}
+                  onChange={(e) => setForm((f) => ({ ...f, lastSeenLocation: e.target.value }))}
+                />
+              </div>
             </div>
 
+            {/* Row 6: Case Number + Wanted Date */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label htmlFor="sp-case">Case Number</Label>
+                <Input
+                  id="sp-case"
+                  placeholder="e.g. CR-2026-001"
+                  value={form.caseNumber}
+                  onChange={(e) => setForm((f) => ({ ...f, caseNumber: e.target.value }))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="sp-wanted">Wanted Since</Label>
+                <Input
+                  id="sp-wanted"
+                  type="date"
+                  value={form.wantedDate}
+                  onChange={(e) => setForm((f) => ({ ...f, wantedDate: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            {/* Description */}
             <div className="grid gap-2">
               <Label htmlFor="sp-description">Description / Reason</Label>
               <Textarea
@@ -908,20 +1131,30 @@ export default function SuspectedPersonsPage() {
               <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={formLoading} className="bg-red-600 hover:bg-red-700 text-white">
-                {formLoading ? "Saving..." : editingId ? "Update" : "Register Suspect"}
+              <Button type="submit" disabled={formLoading || photoUploading} className="bg-red-600 hover:bg-red-700 text-white">
+                {formLoading ? "Saving..." : editingId ? "Update" : "Register Person"}
               </Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Detail / History Dialog */}
+      {/* ─── Detail / History Dialog ─── */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto mx-4 sm:mx-0 w-[calc(100%-2rem)] sm:w-full">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserX className="h-5 w-5 text-red-600" />
+            <DialogTitle className="flex items-center gap-3">
+              {detailPerson?.photoUrl ? (
+                <img
+                  src={detailPerson.photoUrl}
+                  alt={detailPerson?.name}
+                  className="h-12 w-12 rounded-full object-cover border-2 border-muted"
+                />
+              ) : (
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-red-100">
+                  <UserX className="h-6 w-6 text-red-600" />
+                </div>
+              )}
               {detailPerson?.name}
             </DialogTitle>
             <DialogDescription className="flex items-center gap-2">
@@ -936,36 +1169,111 @@ export default function SuspectedPersonsPage() {
           {detailPerson && (
             <div className="space-y-4">
               <div className="space-y-3 text-sm">
-                {detailPerson.phone && (
-                  <div className="flex items-center gap-2.5">
-                    <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <div>
-                      <p className="text-[10px] text-muted-foreground">Phone</p>
-                      <p className="font-mono font-medium">{detailPerson.phone}</p>
+                {/* Photo */}
+                {detailPerson.photoUrl && (
+                  <div className="flex justify-center">
+                    <img
+                      src={detailPerson.photoUrl}
+                      alt={detailPerson.name}
+                      className="h-32 w-32 rounded-xl object-cover border-2 border-muted shadow-sm"
+                    />
+                  </div>
+                )}
+
+                {/* Info Grid */}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                  {detailPerson.caseNumber && (
+                    <div className="flex items-center gap-2">
+                      <FolderSearch className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground">Case Number</p>
+                        <p className="font-mono font-medium text-xs">{detailPerson.caseNumber}</p>
+                      </div>
                     </div>
-                  </div>
-                )}
-                {detailPerson.idNumber && (
-                  <div className="flex items-center gap-2.5">
-                    <FileWarning className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <div>
-                      <p className="text-[10px] text-muted-foreground">{detailPerson.idType || "ID Number"}</p>
-                      <p className="font-mono font-medium">{detailPerson.idNumber}</p>
+                  )}
+                  {detailPerson.wantedDate && (
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground">Wanted Since</p>
+                        <p className="font-medium text-xs">{detailPerson.wantedDate}</p>
+                      </div>
                     </div>
-                  </div>
-                )}
-                {detailPerson.nationality && (
-                  <div className="flex items-center gap-2.5">
-                    <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <p className="font-medium">{detailPerson.nationality}</p>
-                  </div>
-                )}
-                {detailPerson.address && (
-                  <div className="flex items-center gap-2.5">
-                    <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <p className="font-medium">{detailPerson.address}</p>
-                  </div>
-                )}
+                  )}
+                  {(detailPerson.gender || detailPerson.age) && (
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground">Gender / Age</p>
+                        <p className="font-medium text-xs">{[detailPerson.gender, detailPerson.age ? `Age ${detailPerson.age}` : null].filter(Boolean).join(" / ")}</p>
+                      </div>
+                    </div>
+                  )}
+                  {detailPerson.occupation && (
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground">Occupation</p>
+                        <p className="font-medium text-xs">{detailPerson.occupation}</p>
+                      </div>
+                    </div>
+                  )}
+                  {detailPerson.phone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground">Phone</p>
+                        <p className="font-mono font-medium">{detailPerson.phone}</p>
+                      </div>
+                    </div>
+                  )}
+                  {detailPerson.idNumber && (
+                    <div className="flex items-center gap-2">
+                      <FileWarning className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground">{detailPerson.idType || "ID Number"}</p>
+                        <p className="font-mono font-medium">{detailPerson.idNumber}</p>
+                      </div>
+                    </div>
+                  )}
+                  {detailPerson.nationality && (
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground">Nationality</p>
+                        <p className="font-medium">{detailPerson.nationality}</p>
+                      </div>
+                    </div>
+                  )}
+                  {detailPerson.address && (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground">Address</p>
+                        <p className="font-medium">{detailPerson.address}</p>
+                      </div>
+                    </div>
+                  )}
+                  {detailPerson.lastSeenLocation && (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 shrink-0 text-orange-500" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground">Last Seen</p>
+                        <p className="font-medium text-orange-700">{detailPerson.lastSeenLocation}</p>
+                      </div>
+                    </div>
+                  )}
+                  {detailPerson.dateOfBirth && (
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground">Date of Birth</p>
+                        <p className="font-medium">{detailPerson.dateOfBirth}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {detailPerson.description && (
                   <div className="rounded-lg bg-muted/50 p-3 text-xs">{detailPerson.description}</div>
                 )}

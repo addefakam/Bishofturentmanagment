@@ -467,7 +467,15 @@ model SuspectedPerson {
   idNumber      String           @default("")
   idType        String           @default("")
   nationality   String           @default("")
+  gender        String           @default("")
+  age           String           @default("")
+  dateOfBirth   String           @default("")
+  occupation    String           @default("")
   address       String           @default("")
+  lastSeenLocation String        @default("")
+  photoUrl      String           @default("")
+  caseNumber    String           @default("")
+  wantedDate    String           @default("")
   description   String           @default("")
   severity      SuspectSeverity  @default(MEDIUM)
   is_active     Boolean          @default(true)
@@ -482,6 +490,7 @@ model SuspectedPerson {
   @@index([idNumber])
   @@index([severity])
   @@index([is_active])
+  @@index([caseNumber])
 }
 
 model SuspectMatch {

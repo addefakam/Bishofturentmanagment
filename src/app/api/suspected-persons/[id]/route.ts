@@ -51,7 +51,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await req.json();
-    const { name, phone, idNumber, idType, nationality, address, description, severity, is_active } = body;
+    const { name, phone, idNumber, idType, nationality, gender, age, dateOfBirth, occupation, address, lastSeenLocation, photoUrl, caseNumber, wantedDate, description, severity, is_active } = body;
 
     const person = await db.suspectedPerson.update({
       where: { id },
@@ -61,7 +61,15 @@ export async function PUT(
         ...(idNumber !== undefined ? { idNumber: idNumber } : {}),
         ...(idType !== undefined ? { idType: idType } : {}),
         ...(nationality !== undefined ? { nationality: nationality } : {}),
+        ...(gender !== undefined ? { gender: gender } : {}),
+        ...(age !== undefined ? { age: age } : {}),
+        ...(dateOfBirth !== undefined ? { dateOfBirth: dateOfBirth } : {}),
+        ...(occupation !== undefined ? { occupation: occupation } : {}),
         ...(address !== undefined ? { address: address } : {}),
+        ...(lastSeenLocation !== undefined ? { lastSeenLocation: lastSeenLocation } : {}),
+        ...(photoUrl !== undefined ? { photoUrl: photoUrl } : {}),
+        ...(caseNumber !== undefined ? { caseNumber: caseNumber } : {}),
+        ...(wantedDate !== undefined ? { wantedDate: wantedDate } : {}),
         ...(description !== undefined ? { description: description } : {}),
         ...(severity !== undefined ? { severity: severity } : {}),
         ...(is_active !== undefined ? { is_active: is_active } : {}),
