@@ -5,7 +5,7 @@ import { useAppStore } from "@/lib/store";
 import LoginPage from "@/components/ghms/login-page";
 import Sidebar from "@/components/ghms/sidebar";
 import PageRenderer from "@/components/ghms/page-renderer";
-import { apiGetNotifications } from "@/lib/api";
+import { apiGetUnreadCount } from "@/lib/api";
 import { Bell } from "lucide-react";
 
 export default function Home() {
@@ -14,8 +14,8 @@ export default function Home() {
 
   const fetchUnreadCount = useCallback(async () => {
     try {
-      const data = await apiGetNotifications();
-      const count = (data as { isRead: boolean }[]).filter((n) => !n.isRead).length;
+      const data = await apiGetUnreadCount();
+      const count = (data as { unreadCount: number }).unreadCount ?? 0;
       setUnreadCount(count);
     } catch {
       // silent - non-critical

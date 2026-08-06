@@ -6,9 +6,18 @@ export async function GET(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);
 
+    const { searchParams } = new URL(req.url);
+    const countOnly = searchParams.get("count") === "true";
+
+    // Police/SUPERUSER: just return unread count (much faster than full fetch)
+    if (countOnly && (auth.role === "POLICE" || auth.role === "SUPERUSER")) {
+      const unreadCount = await db.notification.count({ where: { isRead: false } });
+      return NextResponse.json({ unreadCount });
+    }
+
     // Police users see ALL notifications (they have cross-provider visibility)
     let notifications;
-    if (auth.role === "POLICE") {
+    if (auth.role === "POLICE" || auth.role === "SUPERUSER") {
       notifications = await db.notification.findMany({
         orderBy: { createdAt: "desc" },
       });

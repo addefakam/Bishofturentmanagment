@@ -17,11 +17,42 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const providers = await db.provider.findMany({
-      orderBy: { createdAt: "desc" },
-    });
+    const { searchParams } = new URL(req.url);
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get("pageSize") || "50", 10)));
+    const status = searchParams.get("status") || undefined;
+    const search = searchParams.get("search") || undefined;
 
-    return NextResponse.json(providers);
+    const where: Record<string, unknown> = {};
+    if (status) where.status = status;
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { ownerName: { contains: search, mode: "insensitive" } },
+        { phone: { contains: search } },
+        { licenseNo: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const [providers, total] = await Promise.all([
+      db.provider.findMany({
+        where,
+        select: {
+          id: true, name: true, ownerName: true, phone: true, email: true,
+          address: true, subcity: true, woreda: true, type: true, licenseNo: true,
+          status: true, latitude: true, longitude: true,
+          approvedBy: true, approvedAt: true, rejectionReason: true,
+          suspensionReason: true, suspendedAt: true, suspendedBy: true,
+          createdAt: true, updatedAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      db.provider.count({ where }),
+    ]);
+
+    return NextResponse.json({ providers, total, page, pageSize });
   } catch (error: unknown) {
         if (error instanceof AuthError) {
           return NextResponse.json({ error: error.message }, { status: error.statusCode });

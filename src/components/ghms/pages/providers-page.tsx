@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { usePagination } from "@/hooks/use-pagination";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import { useAppStore } from "@/lib/store";
@@ -81,7 +81,6 @@ interface Provider {
   address: string;
   type: string;
   licenseNo: string;
-  licenseFile: string;
   status: string;
   approvedBy: string | null;
   approvedAt: string | null;
@@ -192,25 +191,47 @@ export default function ProvidersPage() {
   const [providerMessage, setProviderMessage] = useState("");
   const [suspending, setSuspending] = useState(false);
 
-  const pagination = usePagination({ totalItems: providers.length, initialPageSize: 5, pageSizeOptions: [5, 10, 20, 50] });
-  const paginatedProviders = useMemo(() => pagination.paginate(providers), [providers, pagination]);
+  const pagination = usePagination({ totalItems: 0, initialPageSize: 50, pageSizeOptions: [10, 20, 50, 100] });
+  const [serverPage, setServerPage] = useState(1);
+  const [serverPageSize, setServerPageSize] = useState(50);
 
+  // Stable fetch — always uses the current serverPage/serverPageSize from refs
   const fetchProviders = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await apiGetProviders();
-      setProviders(Array.isArray(data) ? data : []);
+      const data = await apiGetProviders({ page: serverPage, pageSize: serverPageSize });
+      if (data && typeof data === 'object' && 'providers' in data) {
+        const resp = data as { providers: Provider[]; total: number; page: number; pageSize: number };
+        setProviders(resp.providers);
+        pagination.setTotalItems(resp.total);
+      } else {
+        setProviders(Array.isArray(data) ? data : []);
+        pagination.setTotalItems(Array.isArray(data) ? data.length : 0);
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to load providers";
       toast.error(message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [serverPage, serverPageSize, pagination]);
 
+  // Initial load + refresh
   useEffect(() => {
     fetchProviders();
   }, [fetchProviders, refreshKey]);
+
+  // Sync pagination controls → server fetch
+  const handlePageChange = useCallback((page: number) => {
+    setServerPage(page);
+    pagination.goToPage(page);
+  }, [pagination]);
+
+  const handlePageSizeChange = useCallback((size: number) => {
+    setServerPage(1);
+    setServerPageSize(size);
+    pagination.goToPage(1);
+  }, [pagination]);
 
   const openDetail = (provider: Provider) => {
     setSelectedProvider(provider);
@@ -490,7 +511,7 @@ export default function ProvidersPage() {
           <>
             {/* Mobile/Tablet: Card layout */}
             <div className="divide-y lg:hidden">
-              {paginatedProviders.map((provider) => (
+              {providers.map((provider) => (
                 <div key={provider.id} className={`p-3 sm:p-4 ${provider.status === "SUSPENDED" ? "bg-orange-50/60" : ""}`}>
                   <div className="flex items-start justify-between gap-2">
                     <button className="min-w-0 flex-1 text-left" onClick={() => openDetail(provider)}>
@@ -567,7 +588,7 @@ export default function ProvidersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedProviders.map((provider) => (
+                  {providers.map((provider) => (
                     <TableRow key={provider.id} className={`cursor-pointer hover:bg-muted/50 ${provider.status === "SUSPENDED" ? "bg-orange-50/70 hover:bg-orange-100/60" : ""}`} onClick={() => openDetail(provider)}>
                       <TableCell className="font-medium">{provider.name}</TableCell>
                       <TableCell className="max-w-[150px] truncate text-xs">{provider.address || "—"}</TableCell>
@@ -619,12 +640,12 @@ export default function ProvidersPage() {
       <PaginationControls
         currentPage={pagination.currentPage}
         totalPages={pagination.totalPages}
-        pageSize={pagination.pageSize}
+        pageSize={serverPageSize}
         pageSizeOptions={pagination.pageSizeOptions}
-        totalItems={providers.length}
+        totalItems={pagination.rangeInfo.total}
         rangeInfo={pagination.rangeInfo}
-        goToPage={pagination.goToPage}
-        setPageSize={pagination.setPageSize}
+        goToPage={handlePageChange}
+        setPageSize={handlePageSizeChange}
       />
 
       {/* Provider Detail Dialog */}

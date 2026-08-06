@@ -168,6 +168,7 @@ export const apiUpdateSettings = (data: Record<string, unknown>) =>
 
 // Notifications
 export const apiGetNotifications = () => req("/api/notifications");
+export const apiGetUnreadCount = () => req("/api/notifications?count=true");
 export const apiCreateNotification = (data: Record<string, unknown>) =>
   req("/api/notifications", { method: "POST", body: JSON.stringify(data) });
 export const apiMarkNotificationRead = (id: string) =>
@@ -185,7 +186,15 @@ export const apiImportData = (data: Record<string, unknown>) =>
   req("/api/data", { method: "POST", body: JSON.stringify(data) });
 
 // Providers (Police)
-export const apiGetProviders = () => req("/api/providers");
+export const apiGetProviders = (params?: { page?: number; pageSize?: number; status?: string; search?: string }) => {
+  const sp = new URLSearchParams();
+  if (params?.page) sp.set('page', String(params.page));
+  if (params?.pageSize) sp.set('pageSize', String(params.pageSize));
+  if (params?.status) sp.set('status', params.status);
+  if (params?.search) sp.set('search', params.search);
+  const qs = sp.toString();
+  return req(`/api/providers${qs ? `?${qs}` : ''}`);
+};
 export const apiUpdateProvider = (id: string, data: Record<string, unknown>) =>
   req(`/api/providers/${id}`, { method: "PUT", body: JSON.stringify(data) });
 export const apiRegisterProvider = async (data: FormData) => {
