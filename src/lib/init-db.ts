@@ -312,12 +312,17 @@ CREATE TABLE IF NOT EXISTS "SuspectMatch" (
 );
 CREATE TABLE IF NOT EXISTS "AuditLog" (
   "id" TEXT NOT NULL PRIMARY KEY,
+  "userId" TEXT NOT NULL DEFAULT '',
+  "userName" TEXT NOT NULL DEFAULT '',
+  "userRole" TEXT NOT NULL DEFAULT '',
+  "providerName" TEXT NOT NULL DEFAULT '',
   "officerName" TEXT NOT NULL DEFAULT '',
   "action" TEXT NOT NULL,
   "targetId" TEXT,
   "targetType" TEXT DEFAULT '',
   "details" TEXT,
   "ipAddress" TEXT DEFAULT '',
+  "userAgent" TEXT DEFAULT '',
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS "Geofence" (
@@ -569,6 +574,27 @@ DO $$ BEGIN
   ALTER TABLE "User" ADD COLUMN "photoUrl" TEXT NOT NULL DEFAULT '';
 EXCEPTION WHEN duplicate_column THEN null;
 END $$;
+-- AuditLog missing columns (added for super user audit log feature)
+DO $$ BEGIN
+  ALTER TABLE "AuditLog" ADD COLUMN "userId" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "AuditLog" ADD COLUMN "userName" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "AuditLog" ADD COLUMN "userRole" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "AuditLog" ADD COLUMN "providerName" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "AuditLog" ADD COLUMN "userAgent" TEXT DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
 `;
 
 // ─── Indexes ───────────────────────────────────────────────────────────────
@@ -639,6 +665,9 @@ CREATE INDEX IF NOT EXISTS "SuspectMatch_providerId_idx" ON "SuspectMatch" ("pro
 CREATE INDEX IF NOT EXISTS "AuditLog_action_idx" ON "AuditLog" ("action");
 CREATE INDEX IF NOT EXISTS "AuditLog_createdAt_idx" ON "AuditLog" ("createdAt");
 CREATE INDEX IF NOT EXISTS "AuditLog_officerName_idx" ON "AuditLog" ("officerName");
+CREATE INDEX IF NOT EXISTS "AuditLog_userId_idx" ON "AuditLog" ("userId");
+CREATE INDEX IF NOT EXISTS "AuditLog_userRole_idx" ON "AuditLog" ("userRole");
+CREATE INDEX IF NOT EXISTS "AuditLog_userName_idx" ON "AuditLog" ("userName");
 CREATE INDEX IF NOT EXISTS "Geofence_isActive_idx" ON "Geofence" ("isActive");
 CREATE INDEX IF NOT EXISTS "Geofence_severity_idx" ON "Geofence" ("severity");
 CREATE INDEX IF NOT EXISTS "FrequentStayAlert_createdAt_idx" ON "FrequentStayAlert" ("createdAt");
