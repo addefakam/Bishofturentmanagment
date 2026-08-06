@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { usePagination } from "@/hooks/use-pagination";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import { useAppStore } from "@/lib/store";
-import { req, apiGetProviders, apiUpdateProvider, apiGeocodeAddress, apiGeocodeBatch, apiPoliceSuspendProvider, apiSuperCreateProvider } from "@/lib/api";
+import { req, apiGetProviders, apiUpdateProvider, apiDeleteProvider, apiGeocodeAddress, apiGeocodeBatch, apiPoliceSuspendProvider, apiSuperCreateProvider } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -64,6 +64,7 @@ import {
   Upload,
   X,
   RotateCcw,
+  Trash2,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -185,6 +186,11 @@ export default function ProvidersPage() {
   const [confirmAction, setConfirmAction] = useState<{ provider: Provider; action: string } | null>(null);
   const [actioning, setActioning] = useState(false);
 
+  // Delete dialog (with reason + notification)
+  const [deleteDialog, setDeleteDialog] = useState<Provider | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
   // Suspension dialog (with reason + notification)
   const [suspendDialog, setSuspendDialog] = useState<Provider | null>(null);
   const [suspensionReason, setSuspensionReason] = useState("");
@@ -233,6 +239,24 @@ export default function ProvidersPage() {
   const openDetail = (provider: Provider) => {
     setSelectedProvider(provider);
     setDetailOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteDialog) return;
+    try {
+      setDeleting(true);
+      await apiDeleteProvider(deleteDialog.id, deleteReason.trim() || "Removed by administration");
+      toast.success(`"${deleteDialog.name}" has been deleted. A notification was sent to the provider.`);
+      setDeleteDialog(null);
+      setDeleteReason("");
+      setDetailOpen(false);
+      triggerRefresh();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to delete provider";
+      toast.error(message);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const openReject = (provider: Provider) => {
@@ -565,6 +589,9 @@ export default function ProvidersPage() {
                         <Ban className="h-3.5 w-3.5" /> Suspend
                       </button>
                     )}
+                    <button className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50" onClick={() => setDeleteDialog(provider)}>
+                      <Trash2 className="h-3.5 w-3.5" /> Delete
+                    </button>
                   </div>
                 </div>
               ))}
@@ -623,6 +650,9 @@ export default function ProvidersPage() {
                               <RotateCcw className="mr-1 h-4 w-4" /> Reactivate
                             </Button>
                           )}
+                          <Button size="sm" variant="ghost" className="h-8 text-red-700 hover:bg-red-50" onClick={(e) => { e.stopPropagation(); setDeleteDialog(provider); }}>
+                            <Trash2 className="mr-1 h-4 w-4" /> Delete
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -745,6 +775,9 @@ export default function ProvidersPage() {
                     <FileText className="h-4 w-4" /> View License
                   </a>
                 )}
+                <Button size="sm" variant="destructive" className="gap-1.5" onClick={() => { setDetailOpen(false); setDeleteDialog(selectedProvider); }}>
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                </Button>
               </div>
               {selectedProvider.rejectionReason && (
                 <>
@@ -1295,6 +1328,63 @@ export default function ProvidersPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Provider Dialog */}
+      <Dialog open={!!deleteDialog} onOpenChange={(open) => { if (!open) setDeleteDialog(null); }}>
+        <DialogContent className="max-w-md mx-4 sm:mx-0 w-[calc(100%-2rem)] sm:w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" /> Delete Provider
+            </DialogTitle>
+            <DialogDescription>
+              Permanently remove <strong>{deleteDialog?.name}</strong> and all associated data (rooms, guests, reservations, etc.). This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+                <p className="text-xs text-red-800">
+                  This will permanently delete the guesthouse, all its users, rooms, guests, reservations, and expenses. The provider will be notified with the reason.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="delete-reason">Reason for deletion</Label>
+              <Textarea
+                id="delete-reason"
+                placeholder="Enter the reason for deleting this provider..."
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button variant="outline" onClick={() => setDeleteDialog(null)} disabled={deleting} className="w-full sm:w-auto">
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="gap-1.5 w-full sm:w-auto"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4" />
+                  Delete &amp; Notify Provider
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
