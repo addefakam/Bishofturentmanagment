@@ -534,18 +534,26 @@ model SuspectMatch {
 // ─── Police Intelligence & Security ─────────────────────────────────────
 
 model AuditLog {
-  id          String   @id @default(cuid())
-  officerName String   @default("")
-  action      String   // VIEW_GUEST, VIEW_MATCH, EXPORT_DATA, LOGIN, etc.
-  targetId    String?
-  targetType  String?  @default("")
-  details     String?
-  ipAddress   String?  @default("")
-  createdAt   DateTime @default(now())
+  id            String   @id @default(cuid())
+  userId        String   @default("")
+  userName      String   @default("")
+  userRole      String   @default("")
+  providerName  String   @default("")
+  officerName   String   @default("")
+  action        String   // LOGIN, LOGOUT, VIEW_GUEST, CREATE, UPDATE, DELETE, etc.
+  targetId      String?
+  targetType    String?  @default("")
+  details       String?  @default("")
+  ipAddress     String?  @default("")
+  userAgent     String?  @default("")
+  createdAt     DateTime @default(now())
 
   @@index([action])
   @@index([createdAt])
   @@index([officerName])
+  @@index([userId])
+  @@index([userRole])
+  @@index([userName])
 }
 
 model Geofence {

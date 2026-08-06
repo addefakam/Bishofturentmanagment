@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ensureDatabase } from "@/lib/init-db";
 import { db } from "@/lib/db";
-import { logAudit } from "@/lib/audit";
+import { logAudit, logAuditUnauthenticated } from "@/lib/audit";
 import { hashPassword, verifyPassword, createToken, type JWTPayload } from "@/lib/auth-utils";
 
 export async function POST(req: NextRequest) {
@@ -30,6 +30,10 @@ export async function POST(req: NextRequest) {
     });
 
     if (!user) {
+      logAuditUnauthenticated(req, {
+        action: "LOGIN_FAILED",
+        details: `Failed login attempt for username: ${username}`,
+      });
       return NextResponse.json(
         { error: "Invalid username or password" },
         { status: 401 }
@@ -39,6 +43,14 @@ export async function POST(req: NextRequest) {
     // Verify password (supports both hashed and plain text for backward compat)
     const valid = await verifyPassword(password, user.password);
     if (!valid) {
+      logAuditUnauthenticated(req, {
+        action: "LOGIN_FAILED",
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        providerName: user.provider?.name || "",
+        details: `Failed login (wrong password) for: ${user.username}`,
+      });
       return NextResponse.json(
         { error: "Invalid username or password" },
         { status: 401 }
@@ -71,9 +83,20 @@ export async function POST(req: NextRequest) {
       permissions = [];
     }
 
-    if (user.role === "POLICE") {
-      logAudit(req, { action: "LOGIN", targetId: user.id, targetType: "User", details: `Police login: ${user.username}` });
-    }
+    // Audit log login for ALL roles (using unauthenticated version since JWT isn't set yet)
+    logAuditUnauthenticated(req, {
+      action: "LOGIN",
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+      providerName: user.provider?.name || "",
+      targetId: user.id,
+      targetType: "User",
+      details: `Login: ${user.username} (${user.role}${user.policeRank ? "/" + user.policeRank : ""})`,
+    });
+
+    // Update last login
+    db.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } }).catch(() => {});
 
     // ── Create JWT token ──
     const tokenPayload: JWTPayload = {
@@ -125,8 +148,30 @@ export async function POST(req: NextRequest) {
 }
 
 // ── Logout endpoint ──
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
   const isProduction = process.env.NODE_ENV === "production";
+
+  // Audit log logout for ALL authenticated users
+  try {
+    const { verifyToken } = await import("@/lib/auth-utils");
+    const token = req.cookies.get("ghms_token")?.value;
+    if (token) {
+      const payload = await verifyToken(token);
+      if (payload) {
+        logAuditUnauthenticated(req, {
+          action: "LOGOUT",
+          userId: payload.userId,
+          userName: payload.name,
+          userRole: payload.role,
+          providerName: payload.providerName || "",
+          details: `Logout: ${payload.username} (${payload.role})`,
+        });
+      }
+    }
+  } catch {
+    // Logout audit is best-effort
+  }
+
   const response = NextResponse.json({ success: true });
   // Clear primary session
   response.cookies.set("ghms_token", "", {
