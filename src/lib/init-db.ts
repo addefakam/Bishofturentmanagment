@@ -610,6 +610,22 @@ DO $$ BEGIN
   ALTER TABLE "AuditLog" ADD COLUMN "userAgent" TEXT DEFAULT '';
 EXCEPTION WHEN duplicate_column THEN null;
 END $$;
+-- AnomalyRecord table (may not exist on older databases)
+CREATE TABLE IF NOT EXISTS "AnomalyRecord" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "type" TEXT NOT NULL,
+  "severity" TEXT NOT NULL,
+  "riskScore" INTEGER NOT NULL DEFAULT 0,
+  "guestName" TEXT NOT NULL DEFAULT '',
+  "guestPhone" TEXT NOT NULL DEFAULT '',
+  "guestIdNumber" TEXT NOT NULL DEFAULT '',
+  "providerId" TEXT NOT NULL DEFAULT '',
+  "providerName" TEXT NOT NULL DEFAULT '',
+  "description" TEXT NOT NULL DEFAULT '',
+  "metadata" TEXT NOT NULL DEFAULT '',
+  "isReviewed" BOOLEAN NOT NULL DEFAULT false,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 `;
 
 // ─── Indexes ───────────────────────────────────────────────────────────────
