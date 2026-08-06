@@ -24,8 +24,10 @@ interface UsePaginationReturn {
   goToPage: (page: number) => void;
   /** Change the number of items per page (resets to page 1) */
   setPageSize: (size: number) => void;
-  /** Update total items count dynamically */
+  /** Update total items count dynamically (resets to page 1) */
   setTotalItems: (count: number) => void;
+  /** Update total items count without changing current page */
+  setTotalOnly: (count: number) => void;
   /** Slice an array to the current page items */
   paginate: <T>(items: T[]) => T[];
   /** Current page range info: "Showing X to Y of Z" */
@@ -73,6 +75,10 @@ export function usePagination({
     setCurrentPage(1);
   }, []);
 
+  const setTotalOnly = useCallback((count: number) => {
+    setTotalItemsState(count);
+  }, []);
+
   const paginate = useCallback(
     <T>(items: T[]): T[] => {
       const start = (currentPage - 1) * pageSize;
@@ -91,6 +97,7 @@ export function usePagination({
     setTotalItems,
     paginate,
     rangeInfo,
+    setTotalOnly,
     resetToFirst,
   };
 }

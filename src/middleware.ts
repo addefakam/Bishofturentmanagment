@@ -72,11 +72,15 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const ip = getClientIp(request);
   const method = request.method;
-
-  // Write operations get stricter limits
   const isWrite = method === "POST" || method === "PUT" || method === "DELETE" || method === "PATCH";
+
+  // Skip rate limiting for authenticated GET requests (JWT-protected, no abuse risk)
+  if (!isWrite && (request.headers.get("authorization") || request.cookies.has("token"))) {
+    return NextResponse.next();
+  }
+
+  const ip = getClientIp(request);
   const config = getLimitConfig(pathname);
   const limit = isWrite ? Math.min(config.limit, 30) : config.limit;
   const windowMs = config.windowSeconds * 1000;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { usePagination } from "@/hooks/use-pagination";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import { useAppStore } from "@/lib/store";
@@ -195,25 +195,17 @@ export default function ProvidersPage() {
   const [serverPage, setServerPage] = useState(1);
   const [serverPageSize, setServerPageSize] = useState(50);
 
-  // Use refs to avoid pagination object in dependency array (prevents infinite loop)
-  const paginationRef = useRef(pagination);
-  paginationRef.current = pagination;
-  const pageRef = useRef(serverPage);
-  pageRef.current = serverPage;
-  const pageSizeRef = useRef(serverPageSize);
-  pageSizeRef.current = serverPageSize;
-
   const fetchProviders = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await apiGetProviders({ page: pageRef.current, pageSize: pageSizeRef.current });
+      const data = await apiGetProviders({ page: serverPage, pageSize: serverPageSize });
       if (data && typeof data === 'object' && 'providers' in data) {
         const resp = data as { providers: Provider[]; total: number; page: number; pageSize: number };
         setProviders(resp.providers);
-        paginationRef.current.setTotalItems(resp.total);
+        pagination.setTotalOnly(resp.total);
       } else {
         setProviders(Array.isArray(data) ? data : []);
-        paginationRef.current.setTotalItems(Array.isArray(data) ? data.length : 0);
+        pagination.setTotalOnly(Array.isArray(data) ? data.length : 0);
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to load providers";
@@ -221,17 +213,12 @@ export default function ProvidersPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [serverPage, serverPageSize, pagination.setTotalOnly]);
 
-  // Initial load + refresh
+  // Single effect: initial load + refresh + page/pageSize changes
   useEffect(() => {
     fetchProviders();
   }, [fetchProviders, refreshKey]);
-
-  // Re-fetch when page or pageSize changes
-  useEffect(() => {
-    fetchProviders();
-  }, [serverPage, serverPageSize]);
 
   // Sync pagination controls → server fetch
   const handlePageChange = useCallback((page: number) => {
