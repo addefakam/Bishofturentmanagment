@@ -55,7 +55,8 @@ function getLimitConfig(pathname: string): { limit: number; windowSeconds: numbe
   ) {
     return { limit: 8, windowSeconds: 60 };
   }
-  return { limit: 80, windowSeconds: 60 };
+  // Default: generous for normal page usage (multiple API calls per page load)
+  return { limit: 200, windowSeconds: 60 };
 }
 
 export function middleware(request: NextRequest) {
