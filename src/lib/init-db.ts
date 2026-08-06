@@ -325,6 +325,21 @@ CREATE TABLE IF NOT EXISTS "AuditLog" (
   "userAgent" TEXT DEFAULT '',
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS "AnomalyRecord" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "type" TEXT NOT NULL,
+  "severity" TEXT NOT NULL,
+  "riskScore" INTEGER NOT NULL DEFAULT 0,
+  "guestName" TEXT NOT NULL DEFAULT '',
+  "guestPhone" TEXT NOT NULL DEFAULT '',
+  "guestIdNumber" TEXT NOT NULL DEFAULT '',
+  "providerId" TEXT NOT NULL DEFAULT '',
+  "providerName" TEXT NOT NULL DEFAULT '',
+  "description" TEXT NOT NULL DEFAULT '',
+  "metadata" TEXT NOT NULL DEFAULT '',
+  "isReviewed" BOOLEAN NOT NULL DEFAULT false,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 CREATE TABLE IF NOT EXISTS "Geofence" (
   "id" TEXT NOT NULL PRIMARY KEY,
   "name" TEXT NOT NULL,
@@ -668,6 +683,12 @@ CREATE INDEX IF NOT EXISTS "AuditLog_officerName_idx" ON "AuditLog" ("officerNam
 CREATE INDEX IF NOT EXISTS "AuditLog_userId_idx" ON "AuditLog" ("userId");
 CREATE INDEX IF NOT EXISTS "AuditLog_userRole_idx" ON "AuditLog" ("userRole");
 CREATE INDEX IF NOT EXISTS "AuditLog_userName_idx" ON "AuditLog" ("userName");
+CREATE INDEX IF NOT EXISTS "AnomalyRecord_type_idx" ON "AnomalyRecord" ("type");
+CREATE INDEX IF NOT EXISTS "AnomalyRecord_severity_idx" ON "AnomalyRecord" ("severity");
+CREATE INDEX IF NOT EXISTS "AnomalyRecord_createdAt_idx" ON "AnomalyRecord" ("createdAt");
+CREATE INDEX IF NOT EXISTS "AnomalyRecord_isReviewed_idx" ON "AnomalyRecord" ("isReviewed");
+CREATE INDEX IF NOT EXISTS "AnomalyRecord_providerId_idx" ON "AnomalyRecord" ("providerId");
+CREATE INDEX IF NOT EXISTS "AnomalyRecord_riskScore_idx" ON "AnomalyRecord" ("riskScore");
 CREATE INDEX IF NOT EXISTS "Geofence_isActive_idx" ON "Geofence" ("isActive");
 CREATE INDEX IF NOT EXISTS "Geofence_severity_idx" ON "Geofence" ("severity");
 CREATE INDEX IF NOT EXISTS "FrequentStayAlert_createdAt_idx" ON "FrequentStayAlert" ("createdAt");
