@@ -119,6 +119,9 @@ const PoliceRoomAvailabilityPage = lazyPage(
 const AnomalyDetectionPage = lazyPage(
   () => import("@/components/ghms/pages/anomalies-page")
 );
+const PoliceReportsPage = lazyPage(
+  () => import("@/components/ghms/pages/police-reports-page")
+);
 const SuperAdminDashboardPage = lazyPage(
   () => import("@/components/ghms/pages/super-admin-dashboard-page")
 );
@@ -188,6 +191,7 @@ const PAGE_MAP: Record<string, React.LazyExoticComponent<React.ComponentType>> =
     "subscription-lockout": SubscriptionLockoutPage,
     "police-room-availability": PoliceRoomAvailabilityPage,
     "anomaly-detection": AnomalyDetectionPage,
+    "police-reports": PoliceReportsPage,
     "super-admin-dashboard": SuperAdminDashboardPage,
     "super-system-config": SuperSystemConfigPage,
     "super-audit-logs": SuperAuditLogsPage,

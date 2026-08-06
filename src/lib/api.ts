@@ -341,6 +341,17 @@ export const apiPoliceRoomAvailability = () => req("/api/police-room-availabilit
 export const apiPoliceSuspendProvider = (data: Record<string, unknown>) =>
   req("/api/police-suspend-provider", { method: "POST", body: JSON.stringify(data) });
 
+// Police Reports (statistics & analytics)
+export const apiPoliceReports = (params: {
+  type: string;
+  dateFrom?: string;
+  dateTo?: string;
+  providerId?: string;
+}) => {
+  const q = new URLSearchParams(params as Record<string, string>).toString();
+  return req(`/api/police-reports?${q}`);
+};
+
 // ── Superuser User Management ──
 export const apiSuperGetUsers = (params?: {
   search?: string;
