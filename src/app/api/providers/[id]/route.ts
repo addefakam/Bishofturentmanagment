@@ -69,6 +69,18 @@ export async function PUT(
       data: updateData,
     });
 
+    // Send notification to provider on rejection
+    if (status === "REJECTED") {
+      await db.notification.create({
+        data: {
+          title: "Registration Rejected",
+          message: "Your guesthouse registration has been rejected. Please contact the police office for more information.",
+          type: "ALERT",
+          providerId: id,
+        },
+      });
+    }
+
     return NextResponse.json(provider);
   } catch (error: unknown) {
         if (error instanceof AuthError) {
