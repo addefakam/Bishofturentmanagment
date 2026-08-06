@@ -47,40 +47,6 @@ export function haversineDistance(
   return R * c;
 }
 
-// ─── Geofence Check ───────────────────────────────────────────────────────────
-
-/**
- * Check if the given coordinates are within any active geofence.
- * Returns an array of breached geofence names (empty if none).
- */
-async function checkGeofences(
-  providerLat: number,
-  providerLon: number
-): Promise<string[]> {
-  try {
-    const geofences = await db.geofence.findMany({
-      where: { isActive: true },
-    });
-
-    const breached: string[] = [];
-    for (const gf of geofences) {
-      const distance = haversineDistance(
-        providerLat,
-        providerLon,
-        gf.latitude,
-        gf.longitude
-      );
-      if (distance <= gf.radius) {
-        breached.push(`${gf.name} (${Math.round(distance)}m inside ${Math.round(gf.radius)}m radius)`);
-      }
-    }
-    return breached;
-  } catch (error) {
-    console.error("[alert-dispatcher] Geofence check failed:", error);
-    return [];
-  }
-}
-
 // ─── Notification Creation ────────────────────────────────────────────────────
 
 /**
@@ -164,11 +130,10 @@ function safeJsonParse<T>(str: string, fallback: T): T {
  * Flow:
  * 1. Read PoliceAlertConfig from DB
  * 2. Determine severity from the SuspectedPerson
- * 3. Check geofences and annotate breach info
- * 4. For CRITICAL + criticalImmediate → dispatch immediately
- * 5. For HIGH → log escalation delay (no cron on Vercel free tier)
- * 6. Create in-app Notification record
- * 7. If email/SMS enabled, dispatch via stubs
+ * 3. For CRITICAL + criticalImmediate → dispatch immediately
+ * 4. For HIGH → log escalation delay (no cron on Vercel free tier)
+ * 5. Create in-app Notification record
+ * 6. If email/SMS enabled, dispatch via stubs
  *
  * This function is designed to be called fire-and-forget.
  * It never throws — all errors are caught and logged internally.
@@ -200,7 +165,6 @@ export async function dispatchAlertForMatch(
       config = await db.policeAlertConfig.findFirst();
     } catch (error) {
       console.error("[alert-dispatcher] Failed to read PoliceAlertConfig:", error);
-      // Fall back to defaults
       config = {
         emailEnabled: false,
         emailRecipients: "[]",
@@ -222,79 +186,47 @@ export async function dispatchAlertForMatch(
       };
     }
 
-    // ── 2. Check geofences ──────────────────────────────────────────────────
-    let providerLat = 0;
-    let providerLon = 0;
-
-    try {
-      const provider = await db.provider.findUnique({
-        where: { id: matchData.providerId },
-        select: { latitude: true, longitude: true },
-      });
-      if (provider) {
-        providerLat = provider.latitude;
-        providerLon = provider.longitude;
-      }
-    } catch (error) {
-      console.error("[alert-dispatcher] Failed to fetch provider coords:", error);
-    }
-
-    const breachedGeofences = await checkGeofences(providerLat, providerLon);
-
-    // ── 3. Build alert content ──────────────────────────────────────────────
-    const geofenceTag =
-      breachedGeofences.length > 0
-        ? ` | GEOFENCE BREACH: ${breachedGeofences.join("; ")}`
-        : "";
-
-    const title = `[${severity}] Suspect Match Alert${breachedGeofences.length > 0 ? " — GEOFENCE BREACH" : ""}`;
+    // ── 2. Build alert content ──────────────────────────────────────────────
+    const title = `[${severity}] Suspect Match Alert`;
 
     const message =
       `Suspect "${suspect.name}" (${severity}) matched at provider "${matchData.providerName}".\n` +
       `Guest: ${matchData.guestName} | Phone: ${matchData.guestPhone || "N/A"} | ID: ${matchData.guestIdNumber || "N/A"}\n` +
       `Match type: ${matchData.matchType} | Match ID: ${matchData.matchId}\n` +
       `Provider: ${matchData.providerName} (ID: ${matchData.providerId})\n` +
-      (breachedGeofences.length > 0
-        ? `⚠ GEOFENCE BREACH DETECTED: ${breachedGeofences.join("; ")}\n`
-        : "") +
       `Details: ${matchData.details}`;
 
-    // ── 4. Severity-based dispatch logic ────────────────────────────────────
+    // ── 3. Severity-based dispatch logic ────────────────────────────────────
 
     if (severity === "CRITICAL") {
-      // CRITICAL — send immediately if criticalImmediate is enabled
       if (config.criticalImmediate) {
         console.log(
           `[alert-dispatcher] CRITICAL match ${matchData.matchId} — dispatching immediately`
         );
 
-        // Create in-app notification
         await createNotification({
           title,
           message,
           providerId: matchData.providerId,
         });
 
-        // Dispatch email if enabled
         if (config.emailEnabled) {
           const recipients = safeJsonParse<string[]>(config.emailRecipients, []);
           if (recipients.length > 0) {
             await dispatchEmail(
               recipients,
-              `🚨 CRITICAL Suspect Match: ${suspect.name} at ${matchData.providerName}${geofenceTag}`,
+              `🚨 CRITICAL Suspect Match: ${suspect.name} at ${matchData.providerName}`,
               message
             );
           }
         }
 
-        // Dispatch SMS if enabled
         if (config.smsEnabled) {
           const recipients = safeJsonParse<string[]>(config.smsRecipients, []);
           if (recipients.length > 0) {
             const smsMessage =
               `CRITICAL: Suspect "${suspect.name}" matched at "${matchData.providerName}". ` +
-              `Guest: ${matchData.guestName}. Match ID: ${matchData.matchId}.` +
-              (breachedGeofences.length > 0 ? ` GEOFENCE BREACH: ${breachedGeofences.join("; ")}` : "");
+              `Guest: ${matchData.guestName}. Match ID: ${matchData.matchId}.`;
             await dispatchSMS(recipients, smsMessage);
           }
         }
@@ -304,32 +236,27 @@ export async function dispatchAlertForMatch(
         );
       }
     } else if (severity === "HIGH") {
-      // HIGH — log escalation delay (no cron available on Vercel free tier)
       console.log(
-        `[alert-dispatcher] HIGH match ${matchData.matchId} — escalation delay of ${config.escalationDelayMins} minutes (no cron; log-only)` +
-          (breachedGeofences.length > 0 ? ` | GEOFENCE BREACH detected` : "")
+        `[alert-dispatcher] HIGH match ${matchData.matchId} — escalation delay of ${config.escalationDelayMins} minutes (no cron; log-only)`
       );
 
-      // Still create in-app notification for HIGH severity
       await createNotification({
         title,
         message,
         providerId: matchData.providerId,
       });
 
-      // Dispatch email if enabled for HIGH
       if (config.emailEnabled) {
         const recipients = safeJsonParse<string[]>(config.emailRecipients, []);
         if (recipients.length > 0) {
           await dispatchEmail(
             recipients,
-            `⚠ HIGH Suspect Match: ${suspect.name} at ${matchData.providerName}${geofenceTag}`,
+            `⚠ HIGH Suspect Match: ${suspect.name} at ${matchData.providerName}`,
             message
           );
         }
       }
 
-      // Dispatch SMS if enabled for HIGH
       if (config.smsEnabled) {
         const recipients = safeJsonParse<string[]>(config.smsRecipients, []);
         if (recipients.length > 0) {
@@ -340,10 +267,8 @@ export async function dispatchAlertForMatch(
         }
       }
     } else {
-      // LOW / MEDIUM — create notification but don't trigger external channels
       console.log(
-        `[alert-dispatcher] ${severity} match ${matchData.matchId} — in-app notification only` +
-          (breachedGeofences.length > 0 ? ` | GEOFENCE BREACH detected` : "")
+        `[alert-dispatcher] ${severity} match ${matchData.matchId} — in-app notification only`
       );
 
       await createNotification({
@@ -353,7 +278,6 @@ export async function dispatchAlertForMatch(
       });
     }
   } catch (error) {
-    // Top-level catch — this function must NEVER throw
     console.error(
       `[alert-dispatcher] Unhandled error dispatching alert for match ${matchData.matchId}:`,
       error

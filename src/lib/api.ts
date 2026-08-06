@@ -290,9 +290,6 @@ export const apiPoliceGuestLinking = (params?: { page?: number; pageSize?: numbe
   return req(`/api/police-intelligence/linking${qs ? `?${qs}` : ""}`);
 };
 export const apiPoliceAuditLogs = (q?: string) => req(`/api/police-audit${q ? `?${q}` : ""}`);
-export const apiPoliceGeofences = () => req("/api/police-geofences");
-export const apiPoliceCreateGeofence = (data: Record<string, unknown>) => req("/api/police-geofences", { method: "POST", body: JSON.stringify(data) });
-export const apiPoliceDeleteGeofence = (id: string) => req(`/api/police-geofences?id=${id}`, { method: "DELETE" });
 export const apiPoliceAlertConfig = () => req("/api/police-alert-config");
 export const apiPoliceUpdateAlertConfig = (data: Record<string, unknown>) => req("/api/police-alert-config", { method: "PUT", body: JSON.stringify(data) });
 export const apiPoliceExport = (q: string) => req(`/api/police-export?${q}`);

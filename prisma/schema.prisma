@@ -560,21 +560,6 @@ model AuditLog {
   @@index([userName])
 }
 
-model Geofence {
-  id          String   @id @default(cuid())
-  name        String
-  address     String   @default("")
-  latitude    Float    @default(0)
-  longitude   Float    @default(0)
-  radius      Float    @default(1000) // meters
-  severity    String   @default("HIGH")
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([isActive])
-  @@index([severity])
-}
 
 model FrequentStayAlert {
   id             String   @id @default(cuid())

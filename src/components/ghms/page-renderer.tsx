@@ -91,9 +91,6 @@ const PoliceIntelligencePage = lazyPage(
 const PoliceInvestigationPage = lazyPage(
   () => import("@/components/ghms/pages/police-investigation-page")
 );
-const PoliceSecurityPage = lazyPage(
-  () => import("@/components/ghms/pages/police-security-page")
-);
 const ReviewsPage = lazyPage(
   () => import("@/components/ghms/pages/reviews-page")
 );
@@ -182,7 +179,6 @@ const PAGE_MAP: Record<string, React.LazyExoticComponent<React.ComponentType>> =
     "suspect-management": SuspectManagementPage,
     "police-intelligence": PoliceIntelligencePage,
     "police-investigation": PoliceInvestigationPage,
-    "police-security": PoliceSecurityPage,
     reviews: ReviewsPage,
     "owner-accounts": OwnerAccountsPage,
     "joint-operations": JointOperationsPage,

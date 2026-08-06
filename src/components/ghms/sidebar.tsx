@@ -122,11 +122,6 @@ const POLICE_JOINT_ONLY_ITEMS: NavItem[] = [
     icon: Search,
   },
   {
-    page: "police-security",
-    label: "Security",
-    icon: Shield,
-  },
-  {
     page: "anomaly-detection",
     label: "Anomaly Detection",
     icon: BrainCircuit,
@@ -451,7 +446,7 @@ function SidebarContent({
   // Redirect police ADMIN away from joint-only pages if joint session ends
   const JOINT_ONLY_PAGES = new Set([
     "police-guests", "suspected-persons", "police-investigation",
-    "police-security", "anomaly-detection", "police-reports", "owner-accounts",
+    "anomaly-detection", "police-reports", "owner-accounts",
   ]);
   useEffect(() => {
     if (user.role === "POLICE" && user.policeRank === "ADMIN" && !jointSession.active && JOINT_ONLY_PAGES.has(useAppStore.getState().currentPage)) {

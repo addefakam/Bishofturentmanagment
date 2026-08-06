@@ -101,10 +101,7 @@ export async function GET(req: NextRequest) {
       where: { createdAt: { gte: startDate, lte: endDate } },
     });
 
-    // 6. Active Geofences
-    const geofences = await db.geofence.findMany({ where: { isActive: true } });
-
-    // 7. System-wide stats
+    // 6. System-wide stats
     const totalProviders = await db.provider.count({ where: { status: "APPROVED" } });
     const totalGuests = await db.guest.count();
     const totalRooms = await db.room.count();
@@ -156,20 +153,6 @@ export async function GET(req: NextRequest) {
       }).join("")
       : `<tr><td colspan="6" style="padding:24px;text-align:center;color:#9ca3af">No frequent stay patterns detected this month</td></tr>`;
 
-    // Build geofence rows
-    const geofenceRows = geofences.length > 0
-      ? geofences.map((g) => `
-      <tr>
-        <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-weight:500">${escHtml(g.name)}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px">${escHtml(g.address)}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:center">${g.radius}m</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">${riskBadge(g.severity)}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:center">
-          <span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:600;color:#fff;background:#16a34a">ACTIVE</span>
-        </td>
-      </tr>`).join("")
-      : `<tr><td colspan="5" style="padding:24px;text-align:center;color:#9ca3af">No active geofences configured</td></tr>`;
-
     // Determine threat assessment level
     let threatLevel = "LOW";
     let threatColor = "#16a34a";
@@ -189,9 +172,6 @@ export async function GET(req: NextRequest) {
       if (highRisk > 0) {
         recommendations.push(`<li><strong>${highRisk} high-risk frequent stay patterns</strong> identified. Cross-reference with known networks and consider flagging for enhanced monitoring.</li>`);
       }
-    }
-    if (geofences.length === 0) {
-      recommendations.push(`<li>No geofences are currently active. Establishing geofences around high-priority zones will improve automated alerting.</li>`);
     }
     if (totalMatches === 0 && newReservations > 0) {
       recommendations.push(`<li>While no suspect matches were detected, ${newReservations} new reservations were processed. Continue routine monitoring.</li>`);
@@ -305,8 +285,8 @@ export async function GET(req: NextRequest) {
       <div class="kpi-label">Stay Alerts</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-value">${geofences.length}</div>
-      <div class="kpi-label">Active Geofences</div>
+      <div class="kpi-value">${totalProviders}</div>
+      <div class="kpi-label">Active Providers</div>
     </div>
   </div>
   <p style="font-size:13px;color:#4b5563;line-height:1.7">
@@ -392,25 +372,7 @@ export async function GET(req: NextRequest) {
 </div>
 
 <div class="section">
-  <div class="section-title">5. Geofence Configuration</div>
-  <table>
-    <thead>
-      <tr>
-        <th>Geofence Name</th>
-        <th>Address</th>
-        <th style="text-align:center">Radius</th>
-        <th>Severity</th>
-        <th style="text-align:center">Status</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${geofenceRows}
-    </tbody>
-  </table>
-</div>
-
-<div class="section">
-  <div class="section-title">6. Recommendations &amp; Action Items</div>
+  <div class="section-title">5. Recommendations &amp; Action Items</div>
   <ul class="rec-list">
     ${recommendations.join("")}
   </ul>

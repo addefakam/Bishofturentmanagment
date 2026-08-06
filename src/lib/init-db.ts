@@ -342,18 +342,6 @@ CREATE TABLE IF NOT EXISTS "AnomalyRecord" (
   "isReviewed" BOOLEAN NOT NULL DEFAULT false,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-CREATE TABLE IF NOT EXISTS "Geofence" (
-  "id" TEXT NOT NULL PRIMARY KEY,
-  "name" TEXT NOT NULL,
-  "address" TEXT NOT NULL DEFAULT '',
-  "latitude" DOUBLE PRECISION NOT NULL DEFAULT 0,
-  "longitude" DOUBLE PRECISION NOT NULL DEFAULT 0,
-  "radius" DOUBLE PRECISION NOT NULL DEFAULT 1000,
-  "severity" TEXT NOT NULL DEFAULT 'HIGH',
-  "isActive" BOOLEAN NOT NULL DEFAULT true,
-  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
 CREATE TABLE IF NOT EXISTS "FrequentStayAlert" (
   "id" TEXT NOT NULL PRIMARY KEY,
   "guestName" TEXT NOT NULL,
@@ -717,8 +705,6 @@ CREATE INDEX IF NOT EXISTS "AnomalyRecord_createdAt_idx" ON "AnomalyRecord" ("cr
 CREATE INDEX IF NOT EXISTS "AnomalyRecord_isReviewed_idx" ON "AnomalyRecord" ("isReviewed");
 CREATE INDEX IF NOT EXISTS "AnomalyRecord_providerId_idx" ON "AnomalyRecord" ("providerId");
 CREATE INDEX IF NOT EXISTS "AnomalyRecord_riskScore_idx" ON "AnomalyRecord" ("riskScore");
-CREATE INDEX IF NOT EXISTS "Geofence_isActive_idx" ON "Geofence" ("isActive");
-CREATE INDEX IF NOT EXISTS "Geofence_severity_idx" ON "Geofence" ("severity");
 CREATE INDEX IF NOT EXISTS "FrequentStayAlert_createdAt_idx" ON "FrequentStayAlert" ("createdAt");
 CREATE INDEX IF NOT EXISTS "FrequentStayAlert_isReviewed_idx" ON "FrequentStayAlert" ("isReviewed");
 CREATE INDEX IF NOT EXISTS "FrequentStayAlert_riskLevel_idx" ON "FrequentStayAlert" ("riskLevel");
