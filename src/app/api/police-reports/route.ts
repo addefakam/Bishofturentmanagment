@@ -6,16 +6,6 @@ import { Prisma } from "@prisma/client";
 
 /**
  * GET /api/police-reports?type=...&dateFrom=...&dateTo=...&providerId=...
- *
- * Police Admin reports endpoint. Generates statistics across the system.
- *
- * Report types:
- *  - guest-registration: Guest registration trends by provider, nationality, gender
- *  - occupancy: Room occupancy rates, check-in/out trends
- *  - revenue: Payment analysis by method, cash anomalies
- *  - provider-compliance: Provider status, license compliance
- *  - suspicious-activity: Anomaly records, suspect matches, severity breakdown
- *  - guest-movement: Cross-provider guests, frequent stayers, short-stay patterns
  */
 
 export async function GET(req: NextRequest) {
@@ -29,9 +19,11 @@ export async function GET(req: NextRequest) {
     const dateTo = searchParams.get("dateTo") || "";
     const providerId = searchParams.get("providerId") || "";
 
-    const dateFilter = buildDateFilter(dateFrom, dateTo);
     const providerFilter = providerId
       ? Prisma.sql`AND p."id" = ${providerId}`
+      : Prisma.sql``;
+    const providerFilterR = providerId
+      ? Prisma.sql`AND r."providerId" = ${providerId}`
       : Prisma.sql``;
     const providerFilterDirect = providerId
       ? Prisma.sql`AND "providerId" = ${providerId}`
@@ -41,22 +33,22 @@ export async function GET(req: NextRequest) {
 
     switch (type) {
       case "guest-registration":
-        data = await guestRegistrationReport(dateFilter, providerFilter);
+        data = await guestRegistrationReport(dateFrom, dateTo, providerFilter);
         break;
       case "occupancy":
-        data = await occupancyReport(dateFilter, providerFilter);
+        data = await occupancyReport(dateFrom, dateTo, providerFilter, providerFilterR);
         break;
       case "revenue":
-        data = await revenueReport(dateFilter, providerFilter);
+        data = await revenueReport(providerFilter);
         break;
       case "provider-compliance":
         data = await providerComplianceReport();
         break;
       case "suspicious-activity":
-        data = await suspiciousActivityReport(dateFilter, providerFilterDirect);
+        data = await suspiciousActivityReport(providerFilterDirect);
         break;
       case "guest-movement":
-        data = await guestMovementReport(dateFilter, providerFilter);
+        data = await guestMovementReport(dateFrom, dateTo, providerFilter, providerFilterR);
         break;
       default:
         return NextResponse.json({ error: "Unknown report type" }, { status: 400 });
@@ -74,43 +66,54 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// ── Date filter helper ──
-function buildDateFilter(dateFrom: string, dateTo: string): Prisma.Sql {
+// ── Date filter builders per table alias ──
+function guestDateFilter(dateFrom: string, dateTo: string): Prisma.Sql {
   const parts: Prisma.Sql[] = [];
   if (dateFrom) parts.push(Prisma.sql`g."createdAt" >= ${dateFrom}::date`);
   if (dateTo) {
-    const toDate = new Date(dateTo);
-    toDate.setDate(toDate.getDate() + 1);
-    parts.push(Prisma.sql`g."createdAt" < ${toDate.toISOString().split("T")[0]}::date`);
+    const end = new Date(dateTo);
+    end.setDate(end.getDate() + 1);
+    parts.push(Prisma.sql`g."createdAt" < ${end.toISOString().split("T")[0]}::date`);
   }
-  return parts.length > 0
-    ? Prisma.sql`AND ${Prisma.join(parts, Prisma.sql` AND `)}`
-    : Prisma.sql``;
+  return parts.length > 0 ? Prisma.sql`AND ${Prisma.join(parts, Prisma.sql` AND `)}` : Prisma.sql``;
+}
+
+function reservationDateFilter(dateFrom: string, dateTo: string): Prisma.Sql {
+  const parts: Prisma.Sql[] = [];
+  if (dateFrom) parts.push(Prisma.sql`r."createdAt" >= ${dateFrom}::date`);
+  if (dateTo) {
+    const end = new Date(dateTo);
+    end.setDate(end.getDate() + 1);
+    parts.push(Prisma.sql`r."createdAt" < ${end.toISOString().split("T")[0]}::date`);
+  }
+  return parts.length > 0 ? Prisma.sql`AND ${Prisma.join(parts, Prisma.sql` AND `)}` : Prisma.sql``;
 }
 
 // ── 1. Guest Registration Report ──
 async function guestRegistrationReport(
-  dateFilter: Prisma.Sql,
+  dateFrom: string,
+  dateTo: string,
   providerFilter: Prisma.Sql
 ): Promise<Record<string, unknown>> {
+  const df = guestDateFilter(dateFrom, dateTo);
   const [byProvider, byNationality, byGender, dailyTrend, total, todayNew] =
     await Promise.all([
       db.$queryRaw<{ providerName: string; count: bigint }[]>(
         Prisma.sql`SELECT p."name" as "providerName", COUNT(*)::bigint as count
           FROM "Guest" g JOIN "Provider" p ON p."id" = g."providerId"
-          WHERE 1=1 ${dateFilter} ${providerFilter}
+          WHERE 1=1 ${df} ${providerFilter}
           GROUP BY p."name" ORDER BY count DESC LIMIT 30`
       ),
       db.$queryRaw<{ nationality: string; count: bigint }[]>(
         Prisma.sql`SELECT COALESCE(NULLIF(g."nationality", ''), 'Unknown') as "nationality", COUNT(*)::bigint as count
           FROM "Guest" g JOIN "Provider" p ON p."id" = g."providerId"
-          WHERE 1=1 ${dateFilter} ${providerFilter}
+          WHERE 1=1 ${df} ${providerFilter}
           GROUP BY g."nationality" ORDER BY count DESC LIMIT 20`
       ),
       db.$queryRaw<{ gender: string; count: bigint }[]>(
         Prisma.sql`SELECT COALESCE(NULLIF(g."gender", ''), 'Unknown') as "gender", COUNT(*)::bigint as count
           FROM "Guest" g JOIN "Provider" p ON p."id" = g."providerId"
-          WHERE 1=1 ${dateFilter} ${providerFilter}
+          WHERE 1=1 ${df} ${providerFilter}
           GROUP BY g."gender" ORDER BY count DESC`
       ),
       db.$queryRaw<{ date: string; count: bigint }[]>(
@@ -121,7 +124,7 @@ async function guestRegistrationReport(
       ),
       db.$queryRaw<{ c: bigint }[]>(
         Prisma.sql`SELECT COUNT(*)::bigint as c FROM "Guest" g JOIN "Provider" p ON p."id" = g."providerId"
-          WHERE 1=1 ${dateFilter} ${providerFilter}`
+          WHERE 1=1 ${df} ${providerFilter}`
       ),
       db.$queryRaw<{ c: bigint }[]>(
         Prisma.sql`SELECT COUNT(*)::bigint as c FROM "Guest" g JOIN "Provider" p ON p."id" = g."providerId"
@@ -130,53 +133,41 @@ async function guestRegistrationReport(
     ]);
 
   return {
-    summary: {
-      total: Number(total[0]?.c || 0),
-      todayNew: Number(todayNew[0]?.c || 0),
-    },
-    byProvider: byProvider.map((r) => ({
-      name: r.providerName,
-      value: Number(r.count),
-    })),
-    byNationality: byNationality.map((r) => ({
-      name: r.nationality,
-      value: Number(r.count),
-    })),
-    byGender: byGender.map((r) => ({
-      name: r.gender,
-      value: Number(r.count),
-    })),
-    dailyTrend: dailyTrend.map((r) => ({
-      date: String(r.date),
-      count: Number(r.count),
-    })),
+    summary: { total: Number(total[0]?.c || 0), todayNew: Number(todayNew[0]?.c || 0) },
+    byProvider: byProvider.map((r) => ({ name: r.providerName, value: Number(r.count) })),
+    byNationality: byNationality.map((r) => ({ name: r.nationality, value: Number(r.count) })),
+    byGender: byGender.map((r) => ({ name: r.gender, value: Number(r.count) })),
+    dailyTrend: dailyTrend.map((r) => ({ date: String(r.date), count: Number(r.count) })),
   };
 }
 
 // ── 2. Occupancy Report ──
 async function occupancyReport(
-  dateFilter: Prisma.Sql,
-  providerFilter: Prisma.Sql
+  dateFrom: string,
+  dateTo: string,
+  providerFilter: Prisma.Sql,
+  providerFilterR: Prisma.Sql
 ): Promise<Record<string, unknown>> {
+  const df = reservationDateFilter(dateFrom, dateTo);
   const [statusBreakdown, checkinTrend, checkoutTrend, roomStatusByProvider, avgNights, avgOccupancy] =
     await Promise.all([
       db.$queryRaw<{ status: string; count: bigint }[]>(
         Prisma.sql`SELECT r."status", COUNT(*)::bigint as count
           FROM "Reservation" r JOIN "Provider" p ON p."id" = r."providerId"
-          WHERE 1=1 ${dateFilter} ${providerFilter}
+          WHERE 1=1 ${df} ${providerFilterR}
           GROUP BY r."status" ORDER BY count DESC`
       ),
       db.$queryRaw<{ date: string; count: bigint }[]>(
-        Prisma.sql`SELECT DATE(r."checkIn") as "date", COUNT(*)::bigint as count
+        Prisma.sql`SELECT (r."checkIn")::date as "date", COUNT(*)::bigint as count
           FROM "Reservation" r JOIN "Provider" p ON p."id" = r."providerId"
-          WHERE r."checkIn" >= CURRENT_DATE - INTERVAL '30 days' AND r."status" != 'CANCELLED' ${providerFilter}
-          GROUP BY DATE(r."checkIn") ORDER BY "date" ASC`
+          WHERE r."checkIn" >= (CURRENT_DATE - INTERVAL '30 days')::text AND r."status" != 'CANCELLED' ${providerFilterR}
+          GROUP BY (r."checkIn")::date ORDER BY "date" ASC`
       ),
       db.$queryRaw<{ date: string; count: bigint }[]>(
-        Prisma.sql`SELECT DATE(r."checkOut") as "date", COUNT(*)::bigint as count
+        Prisma.sql`SELECT (r."checkOut")::date as "date", COUNT(*)::bigint as count
           FROM "Reservation" r JOIN "Provider" p ON p."id" = r."providerId"
-          WHERE r."checkOut" >= CURRENT_DATE - INTERVAL '30 days' AND r."status" != 'CANCELLED' ${providerFilter}
-          GROUP BY DATE(r."checkOut") ORDER BY "date" ASC`
+          WHERE r."checkOut" >= (CURRENT_DATE - INTERVAL '30 days')::text AND r."status" != 'CANCELLED' ${providerFilterR}
+          GROUP BY (r."checkOut")::date ORDER BY "date" ASC`
       ),
       db.$queryRaw<{
         providerName: string; total: bigint; available: bigint; occupied: bigint; maintenance: bigint; reserved: bigint;
@@ -192,8 +183,8 @@ async function occupancyReport(
           GROUP BY p."name" ORDER BY total DESC LIMIT 30`
       ),
       db.$queryRaw<{ avg: number }[]>(
-        Prisma.sql`SELECT AVG(r."nights") as avg FROM "Reservation" r JOIN "Provider" p ON p."id" = r."providerId"
-          WHERE r."status" NOT IN ('CANCELLED') ${dateFilter} ${providerFilter}`
+        Prisma.sql`SELECT AVG(r."nights") as avg FROM "Reservation" r
+          WHERE r."status" NOT IN ('CANCELLED') ${df} ${providerFilterR}`
       ),
       db.$queryRaw<{ rate: number }[]>(
         Prisma.sql`SELECT
@@ -208,41 +199,22 @@ async function occupancyReport(
   return {
     summary: {
       avgNights: Math.round(Number(avgNights[0]?.avg || 0) * 10) / 10,
-      occupancyRate:
-        Math.round(Number(avgOccupancy[0]?.rate || 0) * 10) / 10,
+      occupancyRate: Math.round(Number(avgOccupancy[0]?.rate || 0) * 10) / 10,
     },
-    statusBreakdown: statusBreakdown.map((r) => ({
-      name: r.status,
-      value: Number(r.count),
-    })),
-    checkinTrend: checkinTrend.map((r) => ({
-      date: String(r.date),
-      count: Number(r.count),
-    })),
-    checkoutTrend: checkoutTrend.map((r) => ({
-      date: String(r.date),
-      count: Number(r.count),
-    })),
+    statusBreakdown: statusBreakdown.map((r) => ({ name: r.status, value: Number(r.count) })),
+    checkinTrend: checkinTrend.map((r) => ({ date: String(r.date), count: Number(r.count) })),
+    checkoutTrend: checkoutTrend.map((r) => ({ date: String(r.date), count: Number(r.count) })),
     roomStatusByProvider: roomStatusByProvider.map((r) => ({
-      providerName: r.providerName,
-      total: Number(r.total),
-      available: Number(r.available),
-      occupied: Number(r.occupied),
-      maintenance: Number(r.maintenance),
-      reserved: Number(r.reserved),
+      providerName: r.providerName, total: Number(r.total), available: Number(r.available),
+      occupied: Number(r.occupied), maintenance: Number(r.maintenance), reserved: Number(r.reserved),
     })),
   };
 }
 
 // ── 3. Revenue / Payment Report ──
 async function revenueReport(
-  dateFilter: Prisma.Sql,
   providerFilter: Prisma.Sql
 ): Promise<Record<string, unknown>> {
-  // For revenue we filter on payment createdAt, not guest
-  const payDateFrom = "";
-  const payDateTo = "";
-  // Re-use dateFilter for joined queries; use raw for payment-specific
   const [byMethod, byProvider, dailyRevenue, totalRevenue, avgPayment, largeCashPayments] =
     await Promise.all([
       db.$queryRaw<{ method: string; total: number; count: bigint }[]>(
@@ -251,9 +223,7 @@ async function revenueReport(
           WHERE 1=1 ${providerFilter}
           GROUP BY pm."method" ORDER BY total DESC`
       ),
-      db.$queryRaw<{
-        providerName: string; total: number; count: bigint;
-      }[]>(
+      db.$queryRaw<{ providerName: string; total: number; count: bigint }[]>(
         Prisma.sql`SELECT p."name" as "providerName", COALESCE(SUM(pm."amount"), 0)::float as total, COUNT(*)::bigint as count
           FROM "Payment" pm JOIN "Provider" p ON p."id" = pm."providerId"
           WHERE 1=1 ${providerFilter}
@@ -287,24 +257,11 @@ async function revenueReport(
       totalRevenue: Math.round(Number(totalRevenue[0]?.total || 0)),
       avgPayment: Math.round(Number(avgPayment[0]?.avg || 0)),
       largeCashCount: Number(largeCashPayments[0]?.count || 0),
-      largeCashTotal: Math.round(
-        Number(largeCashPayments[0]?.total || 0)
-      ),
+      largeCashTotal: Math.round(Number(largeCashPayments[0]?.total || 0)),
     },
-    byMethod: byMethod.map((r) => ({
-      name: r.method,
-      value: Math.round(r.total),
-      count: Number(r.count),
-    })),
-    byProvider: byProvider.map((r) => ({
-      name: r.providerName,
-      value: Math.round(r.total),
-      count: Number(r.count),
-    })),
-    dailyTrend: dailyRevenue.map((r) => ({
-      date: String(r.date),
-      total: Math.round(r.total),
-    })),
+    byMethod: byMethod.map((r) => ({ name: r.method, value: Math.round(r.total), count: Number(r.count) })),
+    byProvider: byProvider.map((r) => ({ name: r.providerName, value: Math.round(r.total), count: Number(r.count) })),
+    dailyTrend: dailyRevenue.map((r) => ({ date: String(r.date), total: Math.round(r.total) })),
   };
 }
 
@@ -317,8 +274,7 @@ async function providerComplianceReport(): Promise<Record<string, unknown>> {
       ),
       db.$queryRaw<{
         id: string; name: string; status: string; phone: string; address: string;
-        licenseNo: string; roomCount: bigint; guestCount: bigint; userCount: bigint;
-        createdAt: string;
+        licenseNo: string; roomCount: bigint; guestCount: bigint; userCount: bigint; createdAt: string;
       }[]>(
         Prisma.sql`SELECT p."id", p."name", p."status", p."phone", p."address", p."licenseNo",
           (SELECT COUNT(*)::bigint FROM "Room" r WHERE r."providerId" = p."id") as "roomCount",
@@ -327,12 +283,8 @@ async function providerComplianceReport(): Promise<Record<string, unknown>> {
           p."createdAt"
           FROM "Provider" p ORDER BY p."createdAt" DESC`
       ),
-      db.$queryRaw<{ c: bigint }[]>(
-        Prisma.sql`SELECT COUNT(*)::bigint as c FROM "Room"`
-      ),
-      db.$queryRaw<{ c: bigint }[]>(
-        Prisma.sql`SELECT COUNT(*)::bigint as c FROM "Guest"`
-      ),
+      db.$queryRaw<{ c: bigint }[]>(Prisma.sql`SELECT COUNT(*)::bigint as c FROM "Room"`),
+      db.$queryRaw<{ c: bigint }[]>(Prisma.sql`SELECT COUNT(*)::bigint as c FROM "Guest"`),
       db.$queryRaw<{
         id: string; name: string; suspensionReason: string; suspendedAt: string; suspendedBy: string;
       }[]>(
@@ -348,68 +300,49 @@ async function providerComplianceReport(): Promise<Record<string, unknown>> {
       totalGuests: Number(totalGuests[0]?.c || 0),
       suspendedCount: suspendedProviders.length,
     },
-    statusBreakdown: statusBreakdown.map((r) => ({
-      name: r.status,
-      value: Number(r.count),
-    })),
+    statusBreakdown: statusBreakdown.map((r) => ({ name: r.status, value: Number(r.count) })),
     providers: providers.map((r) => ({
-      id: r.id,
-      name: r.name,
-      status: r.status,
-      phone: r.phone,
-      address: r.address,
-      licenseNo: r.licenseNo,
-      roomCount: Number(r.roomCount),
-      guestCount: Number(r.guestCount),
-      userCount: Number(r.userCount),
-      createdAt: r.createdAt,
+      id: r.id, name: r.name, status: r.status, phone: r.phone, address: r.address,
+      licenseNo: r.licenseNo, roomCount: Number(r.roomCount), guestCount: Number(r.guestCount),
+      userCount: Number(r.userCount), createdAt: r.createdAt,
     })),
     suspendedProviders: suspendedProviders.map((r) => ({
-      id: r.id,
-      name: r.name,
-      reason: r.suspensionReason,
-      suspendedAt: r.suspendedAt,
-      suspendedBy: r.suspendedBy,
+      id: r.id, name: r.name, reason: r.suspensionReason, suspendedAt: r.suspendedAt, suspendedBy: r.suspendedBy,
     })),
   };
 }
 
 // ── 5. Suspicious Activity Report ──
 async function suspiciousActivityReport(
-  _dateFilter: Prisma.Sql,
-  providerFilter: Prisma.Sql
+  providerFilterDirect: Prisma.Sql
 ): Promise<Record<string, unknown>> {
   const [anomalyBySeverity, anomalyByType, recentAnomalies, suspectMatches, unreviewedCount, suspectStats] =
     await Promise.all([
       db.$queryRaw<{ severity: string; count: bigint }[]>(
         Prisma.sql`SELECT "severity", COUNT(*)::bigint as count FROM "AnomalyRecord"
-          WHERE 1=1 ${providerFilter}
+          WHERE 1=1 ${providerFilterDirect}
           GROUP BY "severity" ORDER BY count DESC`
       ),
       db.$queryRaw<{ type: string; count: bigint }[]>(
         Prisma.sql`SELECT "type", COUNT(*)::bigint as count FROM "AnomalyRecord"
-          WHERE 1=1 ${providerFilter}
+          WHERE 1=1 ${providerFilterDirect}
           GROUP BY "type" ORDER BY count DESC`
       ),
       db.$queryRaw<Record<string, unknown>[]>(
         Prisma.sql`SELECT * FROM "AnomalyRecord"
-          WHERE 1=1 ${providerFilter}
+          WHERE 1=1 ${providerFilterDirect}
           ORDER BY "riskScore" DESC, "createdAt" DESC LIMIT 50`
       ),
       db.$queryRaw<{
-        id: string; guestName: string; matchType: string; providerName: string;
-        isRead: boolean; createdAt: string;
+        id: string; guestName: string; matchType: string; providerName: string; isRead: boolean; createdAt: string;
       }[]>(
         Prisma.sql`SELECT sm."id", sm."guestName", sm."matchType", sm."providerName", sm."isRead", sm."createdAt"
-          FROM "SuspectMatch" sm
-          ORDER BY sm."createdAt" DESC LIMIT 50`
+          FROM "SuspectMatch" sm ORDER BY sm."createdAt" DESC LIMIT 50`
       ),
       db.$queryRaw<{ c: bigint }[]>(
         Prisma.sql`SELECT COUNT(*)::bigint as c FROM "AnomalyRecord" WHERE "isReviewed" = false`
       ),
-      db.$queryRaw<{
-        total: bigint; active: bigint; highCritical: bigint;
-      }[]>(
+      db.$queryRaw<{ total: bigint; active: bigint; highCritical: bigint }[]>(
         Prisma.sql`SELECT
           COUNT(*)::bigint as total,
           SUM(CASE WHEN "is_active" = true THEN 1 ELSE 0 END)::bigint as active,
@@ -420,24 +353,15 @@ async function suspiciousActivityReport(
 
   return {
     summary: {
-      totalAnomalies: anomalyBySeverity.reduce(
-        (s, r) => s + Number(r.count),
-        0
-      ),
+      totalAnomalies: anomalyBySeverity.reduce((s, r) => s + Number(r.count), 0),
       unreviewedAnomalies: Number(unreviewedCount[0]?.c || 0),
       totalSuspectMatches: suspectMatches.length,
       totalSuspects: Number(suspectStats[0]?.total || 0),
       activeSuspects: Number(suspectStats[0]?.active || 0),
       highCriticalSuspects: Number(suspectStats[0]?.highCritical || 0),
     },
-    anomalyBySeverity: anomalyBySeverity.map((r) => ({
-      name: r.severity,
-      value: Number(r.count),
-    })),
-    anomalyByType: anomalyByType.map((r) => ({
-      name: r.type,
-      value: Number(r.count),
-    })),
+    anomalyBySeverity: anomalyBySeverity.map((r) => ({ name: r.severity, value: Number(r.count) })),
+    anomalyByType: anomalyByType.map((r) => ({ name: r.type, value: Number(r.count) })),
     recentAnomalies,
     suspectMatches,
   };
@@ -445,63 +369,53 @@ async function suspiciousActivityReport(
 
 // ── 6. Guest Movement Report ──
 async function guestMovementReport(
-  dateFilter: Prisma.Sql,
-  providerFilter: Prisma.Sql
+  dateFrom: string,
+  dateTo: string,
+  providerFilter: Prisma.Sql,
+  providerFilterR: Prisma.Sql
 ): Promise<Record<string, unknown>> {
+  const df = guestDateFilter(dateFrom, dateTo);
   const [crossProviderGuests, frequentStayers, shortStayGuests, byRegion, byProvider] =
     await Promise.all([
-      // Guests registered at multiple providers
-      db.$queryRaw<{
-        phone: string; name: string; providerCount: bigint; providerNames: string;
-      }[]>(
+      db.$queryRaw<{ phone: string; name: string; providerCount: bigint; providerNames: string }[]>(
         Prisma.sql`SELECT g."phone", MAX(g."name") as "name",
           COUNT(DISTINCT g."providerId")::bigint as "providerCount",
           STRING_AGG(DISTINCT p."name", ', ') as "providerNames"
           FROM "Guest" g JOIN "Provider" p ON p."id" = g."providerId"
-          WHERE g."phone" != '' AND g."phone" IS NOT NULL ${dateFilter}
+          WHERE g."phone" != '' AND g."phone" IS NOT NULL ${df}
           GROUP BY g."phone" HAVING COUNT(DISTINCT g."providerId") >= 2
           ORDER BY "providerCount" DESC LIMIT 50`
       ),
-      // Frequent stayers (3+ reservations)
-      db.$queryRaw<{
-        guestName: string; guestPhone: string; stayCount: bigint; providerNames: string;
-      }[]>(
+      db.$queryRaw<{ guestName: string; guestPhone: string; stayCount: bigint; providerNames: string }[]>(
         Prisma.sql`SELECT g."name" as "guestName", g."phone" as "guestPhone",
           COUNT(r."id")::bigint as "stayCount",
           STRING_AGG(DISTINCT p."name", ', ') as "providerNames"
           FROM "Reservation" r JOIN "Guest" g ON r."guestId" = g."id"
           JOIN "Provider" p ON p."id" = r."providerId"
-          WHERE r."status" != 'CANCELLED' ${dateFilter} ${providerFilter}
+          WHERE r."status" != 'CANCELLED' ${providerFilterR}
           GROUP BY g."name", g."phone"
-          HAVING COUNT(r."id") >= 3
-          ORDER BY "stayCount" DESC LIMIT 50`
+          HAVING COUNT(r."id") >= 3 ORDER BY "stayCount" DESC LIMIT 50`
       ),
-      // Short-stay patterns (1-night stays, 3+)
-      db.$queryRaw<{
-        guestName: string; guestPhone: string; stayCount: bigint; providerNames: string;
-      }[]>(
+      db.$queryRaw<{ guestName: string; guestPhone: string; stayCount: bigint; providerNames: string }[]>(
         Prisma.sql`SELECT g."name" as "guestName", g."phone" as "guestPhone",
           COUNT(r."id")::bigint as "stayCount",
           STRING_AGG(DISTINCT p."name", ', ') as "providerNames"
           FROM "Reservation" r JOIN "Guest" g ON r."guestId" = g."id"
           JOIN "Provider" p ON p."id" = r."providerId"
-          WHERE r."nights" <= 1 AND r."status" != 'CANCELLED' ${dateFilter} ${providerFilter}
+          WHERE r."nights" <= 1 AND r."status" != 'CANCELLED' ${providerFilterR}
           GROUP BY g."name", g."phone"
-          HAVING COUNT(r."id") >= 3
-          ORDER BY "stayCount" DESC LIMIT 50`
+          HAVING COUNT(r."id") >= 3 ORDER BY "stayCount" DESC LIMIT 50`
       ),
-      // By region
       db.$queryRaw<{ region: string; count: bigint }[]>(
         Prisma.sql`SELECT COALESCE(NULLIF(g."region", ''), 'Unknown') as "region", COUNT(*)::bigint as count
           FROM "Guest" g JOIN "Provider" p ON p."id" = g."providerId"
-          WHERE 1=1 ${dateFilter} ${providerFilter}
+          WHERE 1=1 ${df} ${providerFilter}
           GROUP BY g."region" ORDER BY count DESC LIMIT 15`
       ),
-      // By provider
       db.$queryRaw<{ providerName: string; count: bigint }[]>(
         Prisma.sql`SELECT p."name" as "providerName", COUNT(*)::bigint as count
           FROM "Guest" g JOIN "Provider" p ON p."id" = g."providerId"
-          WHERE 1=1 ${dateFilter} ${providerFilter}
+          WHERE 1=1 ${df} ${providerFilter}
           GROUP BY p."name" ORDER BY count DESC LIMIT 15`
       ),
     ]);
@@ -512,25 +426,10 @@ async function guestMovementReport(
       frequentStayers: frequentStayers.length,
       shortStayPatterns: shortStayGuests.length,
     },
-    crossProviderGuests: crossProviderGuests.map((r) => ({
-      ...r,
-      providerCount: Number(r.providerCount),
-    })),
-    frequentStayers: frequentStayers.map((r) => ({
-      ...r,
-      stayCount: Number(r.stayCount),
-    })),
-    shortStayGuests: shortStayGuests.map((r) => ({
-      ...r,
-      stayCount: Number(r.stayCount),
-    })),
-    byRegion: byRegion.map((r) => ({
-      name: r.region,
-      value: Number(r.count),
-    })),
-    byProvider: byProvider.map((r) => ({
-      name: r.providerName,
-      value: Number(r.count),
-    })),
+    crossProviderGuests: crossProviderGuests.map((r) => ({ ...r, providerCount: Number(r.providerCount) })),
+    frequentStayers: frequentStayers.map((r) => ({ ...r, stayCount: Number(r.stayCount) })),
+    shortStayGuests: shortStayGuests.map((r) => ({ ...r, stayCount: Number(r.stayCount) })),
+    byRegion: byRegion.map((r) => ({ name: r.region, value: Number(r.count) })),
+    byProvider: byProvider.map((r) => ({ name: r.providerName, value: Number(r.count) })),
   };
 }
