@@ -67,24 +67,26 @@ export async function GET(req: NextRequest) {
 }
 
 // ── Date filter builders per table alias ──
+// Cast the TIMESTAMP column to date (not the parameter) so Prisma sends
+// the string param as-is and PostgreSQL handles date >= text implicitly.
 function guestDateFilter(dateFrom: string, dateTo: string): Prisma.Sql {
   const parts: Prisma.Sql[] = [];
-  if (dateFrom) parts.push(Prisma.sql`g."createdAt" >= ${dateFrom}::date`);
+  if (dateFrom) parts.push(Prisma.sql`g."createdAt"::date >= ${dateFrom}`);
   if (dateTo) {
     const end = new Date(dateTo);
     end.setDate(end.getDate() + 1);
-    parts.push(Prisma.sql`g."createdAt" < ${end.toISOString().split("T")[0]}::date`);
+    parts.push(Prisma.sql`g."createdAt"::date < ${end.toISOString().split("T")[0]}`);
   }
   return parts.length > 0 ? Prisma.sql`AND ${Prisma.join(parts, Prisma.sql` AND `)}` : Prisma.sql``;
 }
 
 function reservationDateFilter(dateFrom: string, dateTo: string): Prisma.Sql {
   const parts: Prisma.Sql[] = [];
-  if (dateFrom) parts.push(Prisma.sql`r."createdAt" >= ${dateFrom}::date`);
+  if (dateFrom) parts.push(Prisma.sql`r."createdAt"::date >= ${dateFrom}`);
   if (dateTo) {
     const end = new Date(dateTo);
     end.setDate(end.getDate() + 1);
-    parts.push(Prisma.sql`r."createdAt" < ${end.toISOString().split("T")[0]}::date`);
+    parts.push(Prisma.sql`r."createdAt"::date < ${end.toISOString().split("T")[0]}`);
   }
   return parts.length > 0 ? Prisma.sql`AND ${Prisma.join(parts, Prisma.sql` AND `)}` : Prisma.sql``;
 }
@@ -160,13 +162,13 @@ async function occupancyReport(
       db.$queryRaw<{ date: string; count: bigint }[]>(
         Prisma.sql`SELECT (r."checkIn")::date as "date", COUNT(*)::bigint as count
           FROM "Reservation" r JOIN "Provider" p ON p."id" = r."providerId"
-          WHERE r."checkIn" >= (CURRENT_DATE - INTERVAL '30 days')::text AND r."status" != 'CANCELLED' ${providerFilterR}
+          WHERE (r."checkIn")::date >= CURRENT_DATE - INTERVAL '30 days' AND r."status" != 'CANCELLED' ${providerFilterR}
           GROUP BY (r."checkIn")::date ORDER BY "date" ASC`
       ),
       db.$queryRaw<{ date: string; count: bigint }[]>(
         Prisma.sql`SELECT (r."checkOut")::date as "date", COUNT(*)::bigint as count
           FROM "Reservation" r JOIN "Provider" p ON p."id" = r."providerId"
-          WHERE r."checkOut" >= (CURRENT_DATE - INTERVAL '30 days')::text AND r."status" != 'CANCELLED' ${providerFilterR}
+          WHERE (r."checkOut")::date >= CURRENT_DATE - INTERVAL '30 days' AND r."status" != 'CANCELLED' ${providerFilterR}
           GROUP BY (r."checkOut")::date ORDER BY "date" ASC`
       ),
       db.$queryRaw<{
