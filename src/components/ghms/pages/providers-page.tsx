@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { usePagination } from "@/hooks/use-pagination";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import { useAppStore } from "@/lib/store";
@@ -195,18 +195,25 @@ export default function ProvidersPage() {
   const [serverPage, setServerPage] = useState(1);
   const [serverPageSize, setServerPageSize] = useState(50);
 
-  // Stable fetch — always uses the current serverPage/serverPageSize from refs
+  // Use refs to avoid pagination object in dependency array (prevents infinite loop)
+  const paginationRef = useRef(pagination);
+  paginationRef.current = pagination;
+  const pageRef = useRef(serverPage);
+  pageRef.current = serverPage;
+  const pageSizeRef = useRef(serverPageSize);
+  pageSizeRef.current = serverPageSize;
+
   const fetchProviders = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await apiGetProviders({ page: serverPage, pageSize: serverPageSize });
+      const data = await apiGetProviders({ page: pageRef.current, pageSize: pageSizeRef.current });
       if (data && typeof data === 'object' && 'providers' in data) {
         const resp = data as { providers: Provider[]; total: number; page: number; pageSize: number };
         setProviders(resp.providers);
-        pagination.setTotalItems(resp.total);
+        paginationRef.current.setTotalItems(resp.total);
       } else {
         setProviders(Array.isArray(data) ? data : []);
-        pagination.setTotalItems(Array.isArray(data) ? data.length : 0);
+        paginationRef.current.setTotalItems(Array.isArray(data) ? data.length : 0);
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to load providers";
@@ -214,24 +221,27 @@ export default function ProvidersPage() {
     } finally {
       setLoading(false);
     }
-  }, [serverPage, serverPageSize, pagination]);
+  }, []);
 
   // Initial load + refresh
   useEffect(() => {
     fetchProviders();
   }, [fetchProviders, refreshKey]);
 
+  // Re-fetch when page or pageSize changes
+  useEffect(() => {
+    fetchProviders();
+  }, [serverPage, serverPageSize]);
+
   // Sync pagination controls → server fetch
   const handlePageChange = useCallback((page: number) => {
     setServerPage(page);
-    pagination.goToPage(page);
-  }, [pagination]);
+  }, []);
 
   const handlePageSizeChange = useCallback((size: number) => {
     setServerPage(1);
     setServerPageSize(size);
-    pagination.goToPage(1);
-  }, [pagination]);
+  }, []);
 
   const openDetail = (provider: Provider) => {
     setSelectedProvider(provider);
@@ -638,7 +648,7 @@ export default function ProvidersPage() {
       </div>
 
       <PaginationControls
-        currentPage={pagination.currentPage}
+        currentPage={serverPage}
         totalPages={pagination.totalPages}
         pageSize={serverPageSize}
         pageSizeOptions={pagination.pageSizeOptions}
