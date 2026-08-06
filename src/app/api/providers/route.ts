@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       }
 
       const body = await req.json();
-      const { name, ownerName, phone, email, address, type, licenseNo, licenseFile, username, password } = body;
+      const { name, ownerName, phone, email, address, subcity, woreda, type, licenseNo, licenseFile, username, password } = body;
 
       if (!name?.trim() || !ownerName?.trim() || !phone?.trim()) {
         return NextResponse.json(
@@ -96,7 +96,9 @@ export async function POST(req: NextRequest) {
             ownerName: ownerName.trim(),
             phone: phone.trim(),
             email: email?.trim() || "",
-            address: addr,
+            address: address?.trim() || "",
+            subcity: subcity?.trim() || "",
+            woreda: woreda?.trim() || "",
             ...(geoLat !== undefined && geoLng !== undefined ? { latitude: geoLat, longitude: geoLng } : {}),
             type: type || "GUEST_HOUSE",
             licenseNo: licenseNo?.trim() || "",
@@ -136,6 +138,8 @@ export async function POST(req: NextRequest) {
     const phone = formData.get("phone") as string;
     const email = (formData.get("email") as string) || "";
     const address = (formData.get("address") as string) || "";
+    const subcity = (formData.get("subcity") as string) || "";
+    const woreda = (formData.get("woreda") as string) || "";
     const type = (formData.get("type") as string) || "GUEST_HOUSE";
     const licenseNo = (formData.get("licenseNo") as string) || "";
     const licenseFile = formData.get("licenseFile") as File | null;
@@ -195,6 +199,8 @@ export async function POST(req: NextRequest) {
           phone,
           email,
           address,
+          subcity,
+          woreda,
           ...(latitude !== null && longitude !== null ? { latitude, longitude } : {}),
           type,
           licenseNo,

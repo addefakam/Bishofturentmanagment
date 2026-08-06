@@ -93,6 +93,8 @@ model Provider {
   phone       String
   email       String          @default("")
   address     String          @default("")
+  subcity     String          @default("")
+  woreda      String          @default("")
   type        String          @default("GUEST_HOUSE")
   licenseNo   String          @default("")
   licenseFile String          @default("")
@@ -123,6 +125,8 @@ model Provider {
 
   @@index([status])
   @@index([createdAt])
+  @@index([subcity])
+  @@index([woreda])
 }
 
 model User {

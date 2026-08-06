@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS "Provider" (
   "phone" TEXT NOT NULL,
   "email" TEXT NOT NULL DEFAULT '',
   "address" TEXT NOT NULL DEFAULT '',
+  "subcity" TEXT NOT NULL DEFAULT '',
+  "woreda" TEXT NOT NULL DEFAULT '',
   "type" TEXT NOT NULL DEFAULT 'GUEST_HOUSE',
   "licenseNo" TEXT NOT NULL DEFAULT '',
   "licenseFile" TEXT NOT NULL DEFAULT '',
@@ -510,6 +512,14 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_column THEN null;
 END $$;
 DO $$ BEGIN
+  ALTER TABLE "Provider" ADD COLUMN "subcity" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "Provider" ADD COLUMN "woreda" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
   ALTER TABLE "SuspectedPerson" ADD COLUMN "gender" TEXT NOT NULL DEFAULT '';
 EXCEPTION WHEN duplicate_column THEN null;
 END $$;
@@ -632,6 +642,8 @@ CREATE TABLE IF NOT EXISTS "AnomalyRecord" (
 const INDEXES_SQL = `
 CREATE INDEX IF NOT EXISTS "Provider_status_idx" ON "Provider" ("status");
 CREATE INDEX IF NOT EXISTS "Provider_createdAt_idx" ON "Provider" ("createdAt");
+CREATE INDEX IF NOT EXISTS "Provider_subcity_idx" ON "Provider" ("subcity");
+CREATE INDEX IF NOT EXISTS "Provider_woreda_idx" ON "Provider" ("woreda");
 CREATE INDEX IF NOT EXISTS "User_providerId_idx" ON "User" ("providerId");
 CREATE INDEX IF NOT EXISTS "User_role_idx" ON "User" ("role");
 CREATE INDEX IF NOT EXISTS "User_isActive_idx" ON "User" ("isActive");

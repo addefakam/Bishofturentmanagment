@@ -2,10 +2,15 @@
 
 import { useState, useRef, type FormEvent } from "react";
 import { toast } from "sonner";
-import { Building2, KeyRound, UserPlus, LogIn, Upload } from "lucide-react";
+import { Building2, KeyRound, UserPlus, LogIn, Upload, MapPin } from "lucide-react";
 
 import { useAppStore } from "@/lib/store";
 import { apiAuth, apiRegisterProvider } from "@/lib/api";
+import {
+  BISHOFTU_SUBCITIES,
+  getWoredas,
+  composeBishoftuAddress,
+} from "@/lib/bishoftu-admin-divisions";
 
 import {
   Card,
@@ -46,8 +51,9 @@ export default function LoginPage() {
   const [regPhone, setRegPhone] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regGuestHouseName, setRegGuestHouseName] = useState("");
+  const [regSubcity, setRegSubcity] = useState("");
+  const [regWoreda, setRegWoreda] = useState("");
   const [regAddress, setRegAddress] = useState("");
-
   const [regType, setRegType] = useState("");
   const [regLicenseNo, setRegLicenseNo] = useState("");
   const [regLicenseFile, setRegLicenseFile] = useState<File | null>(null);
@@ -55,6 +61,9 @@ export default function LoginPage() {
   const [regPassword, setRegPassword] = useState("");
   const [regLoading, setRegLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Derived: woredas for the selected sub-city
+  const availableWoredas = regSubcity ? getWoredas(regSubcity) : [];
 
   // ── Login handler ──
   async function handleLogin(e: FormEvent) {
@@ -92,6 +101,8 @@ export default function LoginPage() {
       !regPhone.trim() ||
       !regEmail.trim() ||
       !regGuestHouseName.trim() ||
+      !regSubcity ||
+      !regWoreda ||
       !regType ||
       !regLicenseNo.trim() ||
       !regUsername.trim() ||
@@ -107,7 +118,11 @@ export default function LoginPage() {
       formData.append("ownerName", regName.trim());         // backend 'ownerName' = owner full name
       formData.append("phone", regPhone.trim());
       formData.append("email", regEmail.trim());
-      if (regAddress.trim()) formData.append("address", regAddress.trim());
+      // Compose a readable full address from the dropdowns + optional street detail
+      const fullAddress = composeBishoftuAddress(regSubcity, regWoreda) + (regAddress.trim() ? `, ${regAddress.trim()}` : "");
+      formData.append("address", fullAddress);
+      formData.append("subcity", regSubcity);
+      formData.append("woreda", regWoreda);
       formData.append("type", regType);
       formData.append("licenseNo", regLicenseNo.trim());
       formData.append("username", regUsername.trim());
@@ -125,6 +140,8 @@ export default function LoginPage() {
       setRegPhone("");
       setRegEmail("");
       setRegGuestHouseName("");
+      setRegSubcity("");
+      setRegWoreda("");
       setRegAddress("");
       setRegType("");
       setRegLicenseNo("");
@@ -141,26 +158,6 @@ export default function LoginPage() {
       toast.error(message);
     } finally {
       setRegLoading(false);
-    }
-  }
-
-  // ── Normalize address via geocoding on blur (silent, no user action needed) ──
-  async function handleAddressBlur() {
-    const query = regAddress.trim();
-    if (!query) return;
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ", Ethiopia")}&limit=1`,
-        { headers: { "User-Agent": "GHMS-Registration/1.0" } }
-      );
-      const data = await res.json();
-      if (data && data.length > 0) {
-        // Normalize: replace user-typed address with the structured geocoded result
-        const normalized = data[0].display_name;
-        setRegAddress(normalized);
-      }
-    } catch {
-      // Silently ignore geocoding failures — user's original address is preserved
     }
   }
 
@@ -384,23 +381,79 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                {/* Location (Optional) */}
+                {/* Location — Bishoftu Address */}
                 <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
                   <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Location <span className="text-slate-400 font-normal normal-case">(optional)</span>
+                    Location <span className="text-red-400">*</span>
                   </p>
-                  <div className="grid gap-2">
-                    <Label htmlFor="reg-address">Address</Label>
-                    <Input
-                      id="reg-address"
-                      placeholder="Street address, city, or area"
-                      value={regAddress}
-                      onChange={(e) => setRegAddress(e.target.value)}
-                      onBlur={handleAddressBlur}
-                    />
-                    <p className="text-[11px] text-slate-400">
-                      Address will be auto-normalized when you click away.
-                    </p>
+                  <div className="grid gap-3">
+                    {/* City (fixed) */}
+                    <div className="grid gap-2">
+                      <Label>City</Label>
+                      <div className="flex h-9 items-center rounded-md border border-slate-200 bg-slate-100 px-3 text-sm font-medium text-slate-600">
+                        <MapPin className="mr-2 size-3.5 text-emerald-500" />
+                        Bishoftu
+                      </div>
+                    </div>
+
+                    {/* Sub-city dropdown */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="grid gap-2">
+                        <Label htmlFor="reg-subcity">Sub-City *</Label>
+                        <Select
+                          value={regSubcity}
+                          onValueChange={(val) => {
+                            setRegSubcity(val);
+                            setRegWoreda(""); // reset woreda when sub-city changes
+                          }}
+                        >
+                          <SelectTrigger id="reg-subcity" className="w-full">
+                            <SelectValue placeholder="Select sub-city" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {BISHOFTU_SUBCITIES.map((sc) => (
+                              <SelectItem key={sc.name} value={sc.name}>
+                                {sc.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Woreda dropdown (cascading) */}
+                      <div className="grid gap-2">
+                        <Label htmlFor="reg-woreda">Woreda *</Label>
+                        <Select
+                          value={regWoreda}
+                          onValueChange={setRegWoreda}
+                          disabled={!regSubcity}
+                        >
+                          <SelectTrigger id="reg-woreda" className="w-full">
+                            <SelectValue
+                              placeholder={regSubcity ? "Select woreda" : "Select sub-city first"}
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableWoredas.map((w) => (
+                              <SelectItem key={w.name} value={w.name}>
+                                {w.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Street address (optional detail) */}
+                    <div className="grid gap-2">
+                      <Label htmlFor="reg-address">Street / Additional Detail</Label>
+                      <Input
+                        id="reg-address"
+                        placeholder="House number, street name, landmark (optional)"
+                        value={regAddress}
+                        onChange={(e) => setRegAddress(e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
 
