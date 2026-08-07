@@ -41,6 +41,7 @@ export async function GET(request: Request) {
           type: true,
           phone: true,
           email: true,
+          website: true,
           address: true,
           subcity: true,
           woreda: true,

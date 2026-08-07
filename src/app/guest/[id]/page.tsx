@@ -22,6 +22,7 @@ interface HouseDetail {
   type: string;
   phone: string;
   email: string;
+  website: string;
   address: string;
   subcity: string;
   woreda: string;
@@ -147,6 +148,31 @@ export default function GuestHouseDetailPage({
 
       {/* Contact & Report Section */}
       <div className="grid grid-cols-1 gap-3">
+        {/* Visit Website */}
+        {house.website && (
+          <a
+            href={house.website.startsWith('http') ? house.website : `https://${house.website}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm hover:shadow-md transition-all active:scale-[0.98]"
+          >
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-100">
+              <svg xmlns="http://www.w3.org/2000/svg" className="size-5 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+            </div>
+            <div>
+              <p className="font-semibold text-emerald-800">Visit Website</p>
+              <p className="text-sm text-emerald-600 truncate max-w-[200px]">{house.website}</p>
+            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" className="size-5 text-emerald-400 ml-auto shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </a>
+        )}
+
         {/* Contact Guest House */}
         {house.phone && (
           <a
@@ -288,13 +314,31 @@ export default function GuestHouseDetailPage({
                   >
                     {room.status}
                   </span>
-                  {room.status === 'AVAILABLE' && (
-                    <button
-                      onClick={() => setShowCallConfirm(true)}
-                      className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 transition-colors"
+                  {room.status === 'AVAILABLE' && house.website && (
+                    <a
+                      href={house.website.startsWith('http') ? house.website : `https://${house.website}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 transition-colors inline-flex items-center gap-1"
                     >
-                      Report Issue
-                    </button>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                        <polyline points="15 3 21 3 21 9" />
+                        <line x1="10" y1="14" x2="21" y2="3" />
+                      </svg>
+                      Visit Website
+                    </a>
+                  )}
+                  {room.status === 'AVAILABLE' && !house.website && house.phone && (
+                    <a
+                      href={`tel:${house.phone}`}
+                      className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 transition-colors inline-flex items-center gap-1"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                      </svg>
+                      Contact
+                    </a>
                   )}
                 </div>
               </div>

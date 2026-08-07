@@ -92,6 +92,7 @@ model Provider {
   ownerName   String
   phone       String
   email       String          @default("")
+  website     String          @default("")
   address     String          @default("")
   subcity     String          @default("")
   woreda      String          @default("")

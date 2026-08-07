@@ -21,6 +21,7 @@ export async function GET(
         type: true,
         phone: true,
         email: true,
+        website: true,
         address: true,
         subcity: true,
         woreda: true,
