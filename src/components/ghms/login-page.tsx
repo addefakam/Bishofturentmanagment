@@ -106,6 +106,7 @@ export default function LoginPage() {
       !regGuestHouseName.trim() ||
       !regSubcity ||
       !regWoreda ||
+      !regAddress.trim() ||
       !regType ||
       !regLicenseNo.trim() ||
       !regUsername.trim() ||
@@ -454,10 +455,10 @@ export default function LoginPage() {
 
                     {/* Street address (optional detail) */}
                     <div className="grid gap-2">
-                      <Label htmlFor="reg-address">Street / Additional Detail</Label>
+                      <Label htmlFor="reg-address">Street / Additional Detail *</Label>
                       <Input
                         id="reg-address"
-                        placeholder="House number, street name, landmark (optional)"
+                        placeholder="House number, street name, landmark"
                         value={regAddress}
                         onChange={(e) => setRegAddress(e.target.value)}
                       />
@@ -534,7 +535,7 @@ export default function LoginPage() {
                   )}
                 </Button>
 
-                <p className="text-center text-xs text-slate-400">
+                <p className="text-center text-xs text-red-500 animate-pulse font-medium">
                   Your registration will be reviewed by an administrator before
                   activation.
                 </p>
