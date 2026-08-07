@@ -8,8 +8,6 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
-  // Removed output: "standalone" - Vercel manages its own output format
-  // standalone output causes .nft.json trace failures on Vercel with Next.js 16
   serverExternalPackages: ["@prisma/client", "@prisma/adapter-libsql", "pg", "bcryptjs"],
 };
 
