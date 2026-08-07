@@ -2,7 +2,7 @@
 
 import { useState, useRef, type FormEvent } from "react";
 import { toast } from "sonner";
-import { Building2, KeyRound, UserPlus, LogIn, Upload, MapPin } from "lucide-react";
+import { Building2, KeyRound, UserPlus, LogIn, Upload, MapPin, FileText } from "lucide-react";
 
 import { useAppStore } from "@/lib/store";
 import { apiAuth, apiRegisterProvider } from "@/lib/api";
@@ -22,6 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tabs,
   TabsContent,
@@ -60,6 +61,8 @@ export default function LoginPage() {
   const [regUsername, setRegUsername] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regLoading, setRegLoading] = useState(false);
+  const [regAgreed, setRegAgreed] = useState(false);
+  const [showAgreement, setShowAgreement] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Derived: woredas for the selected sub-city
@@ -111,6 +114,10 @@ export default function LoginPage() {
       toast.error("Please fill in all required fields.");
       return;
     }
+    if (!regAgreed) {
+      toast.error("Please accept the Guest House Service Registration and Time Use Agreement to continue.");
+      return;
+    }
     setRegLoading(true);
     try {
       const formData = new FormData();
@@ -147,6 +154,7 @@ export default function LoginPage() {
       setRegLicenseNo("");
       setRegUsername("");
       setRegPassword("");
+      setRegAgreed(false);
       setRegLicenseFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       setActiveTab("login");
@@ -485,6 +493,29 @@ export default function LoginPage() {
                   </div>
                 </div>
 
+                {/* Agreement Acceptance */}
+                <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="reg-agree"
+                      checked={regAgreed}
+                      onCheckedChange={(checked) => setRegAgreed(checked === true)}
+                      className="mt-0.5"
+                    />
+                    <Label htmlFor="reg-agree" className="text-sm leading-relaxed text-slate-600 cursor-pointer">
+                      I have read and agree to the{" "}
+                      <button
+                        type="button"
+                        onClick={() => setShowAgreement(true)}
+                        className="inline-flex items-center gap-1 font-semibold text-emerald-700 underline decoration-emerald-300 underline-offset-2 hover:text-emerald-800 hover:decoration-emerald-500"
+                      >
+                        <FileText className="size-3.5" />
+                        Guest House Service Registration and Time Use Agreement
+                      </button>
+                    </Label>
+                  </div>
+                </div>
+
                 <Button
                   type="submit"
                   className="mt-1 w-full bg-gradient-to-r from-emerald-600 to-teal-600 font-semibold text-white shadow-lg shadow-emerald-500/25 hover:from-emerald-700 hover:to-teal-700"
@@ -507,6 +538,55 @@ export default function LoginPage() {
                   Your registration will be reviewed by an administrator before
                   activation.
                 </p>
+
+                {/* Agreement Modal */}
+                {showAgreement && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-xl bg-white shadow-2xl">
+                      <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                        <h3 className="text-lg font-bold text-slate-900">Guest House Service Registration and Time Use Agreement</h3>
+                        <button
+                          type="button"
+                          onClick={() => setShowAgreement(false)}
+                          className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
+                      </div>
+                      <div className="overflow-y-auto px-6 py-4" style={{ maxHeight: "calc(85vh - 140px)" }}>
+                        <div className="prose prose-sm max-w-none text-slate-700">
+                          <p className="mb-3"><strong>Article 1 — Definitions:</strong> "Platform" means the Guest House Management System. "Establishment" means your guest house. "Service Period" means your active subscription duration. "Trial Period" means the 15-day free access. "Grace Period" means 2 extra days after expiry for renewal.</p>
+                          <p className="mb-3"><strong>Article 2 — Scope:</strong> The Platform provides room management, guest reservation and check-in/check-out tracking, guest registration, daytime service booking, expense tracking, housekeeping scheduling, and regulatory reporting. Minimum 95% uptime is guaranteed.</p>
+                          <p className="mb-3"><strong>Article 3 — Registration:</strong> You must provide accurate business details and a valid license. Applications are reviewed by the regulatory authority. Rejected applications may be resubmitted within 30 days.</p>
+                          <p className="mb-3"><strong>Article 4 — Subscription & Time of Use:</strong> After the 15-day trial, you must select a subscription cycle (Monthly, Quarterly, Semi-Annual, or Yearly) and pay the applicable fee. Renewal reminders are sent 7 days before expiry. Late renewal follows a phased restriction: Warning (7 days) > Grace (2 days) > Suspension.</p>
+                          <p className="mb-3"><strong>Article 5 — Fees:</strong> Fees are in ETB. A 10% per-week late penalty may apply. Fee changes require 30 days notice.</p>
+                          <p className="mb-3"><strong>Article 6 — Platform Operator Obligations:</strong> Maintain system availability, security, and technical support. Provide subscription status warnings.</p>
+                          <p className="mb-3"><strong>Article 7 — Provider Obligations:</strong> Use the platform lawfully. Maintain a valid business license. Record all guest data accurately. Default check-in time is 14:00 and check-out time is 12:00.</p>
+                          <p className="mb-3"><strong>Article 8 — Expiration & Suspension:</strong> Unrenewed subscriptions progress through Warning > Grace > full Suspension. Immediate suspension applies for unlawful use, license revocation, or regulatory directive. Data is deleted 90 days after permanent termination.</p>
+                          <p className="mb-3"><strong>Article 9 — Data & Privacy:</strong> Guest data is processed per applicable law. No sharing except to regulatory authorities or by court order. Anonymized analytics may be used for platform improvement and police intelligence.</p>
+                          <p className="mb-3"><strong>Article 10 — Liability:</strong> Downtime exceeding 2 months/month earns proportional credit. Total liability is capped at 12 months of fees. No consequential damages.</p>
+                          <p className="mb-3"><strong>Article 11 — Force Majeure:</strong> Neither party is liable for events beyond reasonable control. 60+ day events allow termination without liability.</p>
+                          <p className="mb-3"><strong>Article 12 — Intellectual Property:</strong> Platform IP belongs to the operator. You retain ownership of your operational data.</p>
+                          <p className="mb-3"><strong>Article 13 — Confidentiality:</strong> Both parties must keep confidential information secret for 3 years after termination.</p>
+                          <p className="mb-3"><strong>Article 14 — Dispute Resolution:</strong> Negotiation > Mediation > Court. Costs are shared equally during mediation.</p>
+                          <p className="mb-3"><strong>Articles 15–16 — Notices & Miscellaneous:</strong> Written notices via email, mail, or platform. This is the entire agreement. Amendments require written consent. Governing law applies per jurisdiction.</p>
+                        </div>
+                      </div>
+                      <div className="border-t border-slate-200 px-6 py-4">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRegAgreed(true);
+                            setShowAgreement(false);
+                          }}
+                          className="w-full rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/25 hover:from-emerald-700 hover:to-teal-700"
+                        >
+                          I Agree & Close
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </form>
             </TabsContent>
           </Tabs>
