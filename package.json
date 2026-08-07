@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3001",
-    "build": "prisma generate && next build",
+    "build": "next build",
     "postinstall": "prisma generate",
     "start": "NODE_ENV=production HOSTNAME=0.0.0.0 DATABASE_URL=\"file:/home/z/my-project/db/custom.db\" node .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
