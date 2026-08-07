@@ -5,6 +5,10 @@ export const metadata: Metadata = {
   description:
     "Browse licensed guest houses in Bishoftu (Debre Zeit). View rooms, prices, and contact police for assistance.",
   manifest: "/guest/manifest.json",
+  icons: {
+    icon: "/guest/icon-192.png",
+    apple: "/guest/icon-192.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
