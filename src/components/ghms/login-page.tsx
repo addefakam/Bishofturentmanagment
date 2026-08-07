@@ -390,7 +390,7 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                {/* Location — Bishoftu Address */}
+                {/* Location - Bishoftu Address */}
                 <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
                   <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
                     Location <span className="text-red-400">*</span>
@@ -556,21 +556,21 @@ export default function LoginPage() {
                       </div>
                       <div className="overflow-y-auto px-6 py-4" style={{ maxHeight: "calc(85vh - 140px)" }}>
                         <div className="prose prose-sm max-w-none text-slate-700">
-                          <p className="mb-3"><strong>Article 1 — Definitions:</strong> "Platform" means the Guest House Management System. "Establishment" means your guest house. "Service Period" means your active subscription duration. "Trial Period" means the 15-day free access. "Grace Period" means 2 extra days after expiry for renewal.</p>
-                          <p className="mb-3"><strong>Article 2 — Scope:</strong> The Platform provides room management, guest reservation and check-in/check-out tracking, guest registration, daytime service booking, expense tracking, housekeeping scheduling, and regulatory reporting. Minimum 95% uptime is guaranteed.</p>
-                          <p className="mb-3"><strong>Article 3 — Registration:</strong> You must provide accurate business details and a valid license. Applications are reviewed by the regulatory authority. Rejected applications may be resubmitted within 30 days.</p>
-                          <p className="mb-3"><strong>Article 4 — Subscription & Time of Use:</strong> After the 15-day trial, you must select a subscription cycle (Monthly, Quarterly, Semi-Annual, or Yearly) and pay the applicable fee. Renewal reminders are sent 7 days before expiry. Late renewal follows a phased restriction: Warning (7 days) > Grace (2 days) > Suspension.</p>
-                          <p className="mb-3"><strong>Article 5 — Fees:</strong> Fees are in ETB. A 10% per-week late penalty may apply. Fee changes require 30 days notice.</p>
-                          <p className="mb-3"><strong>Article 6 — Platform Operator Obligations:</strong> Maintain system availability, security, and technical support. Provide subscription status warnings.</p>
-                          <p className="mb-3"><strong>Article 7 — Provider Obligations:</strong> Use the platform lawfully. Maintain a valid business license. Record all guest data accurately. Default check-in time is 14:00 and check-out time is 12:00.</p>
-                          <p className="mb-3"><strong>Article 8 — Expiration & Suspension:</strong> Unrenewed subscriptions progress through Warning > Grace > full Suspension. Immediate suspension applies for unlawful use, license revocation, or regulatory directive. Data is deleted 90 days after permanent termination.</p>
-                          <p className="mb-3"><strong>Article 9 — Data & Privacy:</strong> Guest data is processed per applicable law. No sharing except to regulatory authorities or by court order. Anonymized analytics may be used for platform improvement and police intelligence.</p>
-                          <p className="mb-3"><strong>Article 10 — Liability:</strong> Downtime exceeding 2 months/month earns proportional credit. Total liability is capped at 12 months of fees. No consequential damages.</p>
-                          <p className="mb-3"><strong>Article 11 — Force Majeure:</strong> Neither party is liable for events beyond reasonable control. 60+ day events allow termination without liability.</p>
-                          <p className="mb-3"><strong>Article 12 — Intellectual Property:</strong> Platform IP belongs to the operator. You retain ownership of your operational data.</p>
-                          <p className="mb-3"><strong>Article 13 — Confidentiality:</strong> Both parties must keep confidential information secret for 3 years after termination.</p>
-                          <p className="mb-3"><strong>Article 14 — Dispute Resolution:</strong> Negotiation > Mediation > Court. Costs are shared equally during mediation.</p>
-                          <p className="mb-3"><strong>Articles 15–16 — Notices & Miscellaneous:</strong> Written notices via email, mail, or platform. This is the entire agreement. Amendments require written consent. Governing law applies per jurisdiction.</p>
+                          <p className="mb-3"><strong>Article 1 - Definitions:</strong> "Platform" means the Guest House Management System. "Establishment" means your guest house. "Service Period" means your active subscription duration. "Trial Period" means the 15-day free access. "Grace Period" means 2 extra days after expiry for renewal.</p>
+                          <p className="mb-3"><strong>Article 2 - Scope:</strong> The Platform provides room management, guest reservation and check-in/check-out tracking, guest registration, daytime service booking, expense tracking, housekeeping scheduling, and regulatory reporting. Minimum 95% uptime is guaranteed.</p>
+                          <p className="mb-3"><strong>Article 3 - Registration:</strong> You must provide accurate business details and a valid license. Applications are reviewed by the regulatory authority. Rejected applications may be resubmitted within 30 days.</p>
+                          <p className="mb-3"><strong>Article 4 - Subscription & Time of Use:</strong> After the 15-day trial, you must select a subscription cycle (Monthly, Quarterly, Semi-Annual, or Yearly) and pay the applicable fee. Renewal reminders are sent 7 days before expiry. Late renewal follows a phased restriction: Warning (7 days) → Grace (2 days) → Suspension.</p>
+                          <p className="mb-3"><strong>Article 5 - Fees:</strong> Fees are in ETB. A 10% per-week late penalty may apply. Fee changes require 30 days notice.</p>
+                          <p className="mb-3"><strong>Article 6 - Platform Operator Obligations:</strong> Maintain system availability, security, and technical support. Provide subscription status warnings.</p>
+                          <p className="mb-3"><strong>Article 7 - Provider Obligations:</strong> Use the platform lawfully. Maintain a valid business license. Record all guest data accurately. Default check-in time is 14:00 and check-out time is 12:00.</p>
+                          <p className="mb-3"><strong>Article 8 - Expiration & Suspension:</strong> Unrenewed subscriptions progress through Warning → Grace → full Suspension. Immediate suspension applies for unlawful use, license revocation, or regulatory directive. Data is deleted 90 days after permanent termination.</p>
+                          <p className="mb-3"><strong>Article 9 - Data & Privacy:</strong> Guest data is processed per applicable law. No sharing except to regulatory authorities or by court order. Anonymized analytics may be used for platform improvement and police intelligence.</p>
+                          <p className="mb-3"><strong>Article 10 - Liability:</strong> Downtime exceeding 2 months/month earns proportional credit. Total liability is capped at 12 months of fees. No consequential damages.</p>
+                          <p className="mb-3"><strong>Article 11 - Force Majeure:</strong> Neither party is liable for events beyond reasonable control. 60+ day events allow termination without liability.</p>
+                          <p className="mb-3"><strong>Article 12 - Intellectual Property:</strong> Platform IP belongs to the operator. You retain ownership of your operational data.</p>
+                          <p className="mb-3"><strong>Article 13 - Confidentiality:</strong> Both parties must keep confidential information secret for 3 years after termination.</p>
+                          <p className="mb-3"><strong>Article 14 - Dispute Resolution:</strong> Negotiation → Mediation → Court. Costs are shared equally during mediation.</p>
+                          <p className="mb-3"><strong>Articles 15-16 - Notices & Miscellaneous:</strong> Written notices via email, mail, or platform. This is the entire agreement. Amendments require written consent. Governing law applies per jurisdiction.</p>
                         </div>
                       </div>
                       <div className="border-t border-slate-200 px-6 py-4">
