@@ -46,7 +46,7 @@ const ROOM_STATUS_COLORS: Record<string, string> = {
 };
 
 // Police office phone - update this to the actual Bishoftu police number
-const POLICE_PHONE = '+251911000000';
+const POLICE_PHONE = '+251913169652';
 
 export default function GuestHouseDetailPage({
   params,

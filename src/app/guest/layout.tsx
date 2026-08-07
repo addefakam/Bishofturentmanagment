@@ -45,7 +45,7 @@ export default function GuestLayout({
             <span>Bishoftu GH</span>
           </a>
           <a
-            href="tel:+251911000000"
+            href="tel:+251913169652"
             className="flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-sm font-medium backdrop-blur-sm hover:bg-white/30 transition-colors"
           >
             <svg
@@ -82,7 +82,7 @@ export default function GuestLayout({
             Browse
           </a>
           <a
-            href="tel:+251911000000"
+            href="tel:+251913169652"
             className="flex flex-col items-center gap-0.5 text-red-600 font-medium text-xs"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
