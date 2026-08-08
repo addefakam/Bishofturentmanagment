@@ -13,7 +13,7 @@ import { Prisma } from "@prisma/client";
 export async function GET(req: NextRequest) {
   try {
     await ensureDatabase();
-    const auth = getAuthContext(req);
+    const auth = await getAuthContext(req);
     if (auth.role !== "SUPERUSER") {
       return NextResponse.json({ error: "Superuser access required" }, { status: 403 });
     }
