@@ -57,15 +57,22 @@ import {
 import { Plus, MoreVertical, Pencil, Trash2, Users } from "lucide-react";
 
 const PERMISSION_OPTIONS = [
-  { value: "reservations", label: "Reservations" },
-  { value: "guests", label: "Guests" },
-  { value: "rooms", label: "Rooms" },
-  { value: "housekeeping", label: "Housekeeping" },
-  { value: "daytime", label: "Daytime Services" },
+  { value: "rooms",         label: "Rooms" },
+  { value: "guests",        label: "Guests" },
+  { value: "reservations",  label: "Reservations" },
+  { value: "housekeeping",  label: "Housekeeping" },
+  { value: "daytime",       label: "Daytime Services" },
+  { value: "expenses",      label: "Expenses" },
+  { value: "resources",     label: "Resources" },
+  { value: "reports",       label: "Reports" },
+  { value: "reviews",       label: "Reviews" },
+  { value: "notifications", label: "Notifications" },
+  { value: "settings",      label: "Settings" },
 ];
 
 const ROLE_COLORS: Record<string, string> = {
-  SUPERUSER: "bg-purple-100 text-purple-700 border-purple-200",
+  SYSTEM_ADMIN: "bg-violet-100 text-violet-700 border-violet-200",
+  SUPERUSER: "bg-amber-100 text-amber-700 border-amber-200",
   OPERATOR: "bg-blue-100 text-blue-700 border-blue-200",
   STAFF: "bg-green-100 text-green-700 border-green-200",
   POLICE: "bg-red-100 text-red-700 border-red-200",
@@ -101,9 +108,18 @@ export default function UsersPage() {
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const visibleUsers = users.filter(
-    (u) => currentUser?.role !== "OPERATOR" || u.role === "STAFF"
-  );
+  const visibleUsers = users.filter((u) => {
+    if (currentUser?.role === "SYSTEM_ADMIN") return true; // see all
+    if (currentUser?.role === "OPERATOR") return u.role === "STAFF";
+    return true;
+  });
+
+  // Whether we are editing the owner (SUPERUSER) row — lock role/permissions
+  const isEditingOwner = !!editingUser && editingUser.role === "SUPERUSER" && currentUser?.role !== "SYSTEM_ADMIN";
+  // Whether we are editing a SYSTEM_ADMIN — fully locked (only name/password editable)
+  const isEditingSystemAdmin = !!editingUser && editingUser.role === "SYSTEM_ADMIN";
+  // Convenience alias
+  const effectiveRole = form.role;
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -169,6 +185,12 @@ export default function UsersPage() {
         payload.permissions = [];
       }
       if (form.password) payload.password = form.password;
+
+      // Never allow changing the owner's role or permissions
+      if (isEditingOwner) {
+        delete payload.role;
+        delete payload.permissions;
+      }
 
       if (editingUser) {
         await apiUpdateUser(editingUser.id, payload);
@@ -293,26 +315,32 @@ export default function UsersPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEdit(user)}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={() => setDeleteTarget(user)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        {user.role === "SYSTEM_ADMIN" ? (
+                          <span className="text-xs font-medium text-violet-600 px-2">System Admin</span>
+                        ) : user.role === "SUPERUSER" ? (
+                          <span className="text-xs text-muted-foreground px-2">Owner</span>
+                        ) : (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEdit(user)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => setDeleteTarget(user)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
@@ -365,12 +393,45 @@ export default function UsersPage() {
                 placeholder="Full name"
               />
             </div>
-            {currentUser?.role === "SUPERUSER" ? (
+            {/* Role selector — context-aware per current user's role */}
+            {isEditingSystemAdmin ? (
+              <div className="grid gap-2">
+                <Label>Role</Label>
+                <div className="flex h-9 w-full rounded-md border border-input bg-muted px-3 py-1 text-sm shadow-sm items-center text-muted-foreground">
+                  System Admin (cannot be changed)
+                </div>
+              </div>
+            ) : isEditingOwner ? (
+              <div className="grid gap-2">
+                <Label>Role</Label>
+                <div className="flex h-9 w-full rounded-md border border-input bg-muted px-3 py-1 text-sm shadow-sm items-center text-muted-foreground">
+                  Owner (cannot be changed)
+                </div>
+              </div>
+            ) : currentUser?.role === "SYSTEM_ADMIN" ? (
               <div className="grid gap-2">
                 <Label htmlFor="role">Role</Label>
                 <Select
                   value={form.role}
-                  onValueChange={(v) => setForm((f) => ({ ...f, role: v }))}
+                  onValueChange={(v) => setForm((f) => ({ ...f, role: v, permissions: [] }))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="POLICE">Police</SelectItem>
+                    <SelectItem value="SUPERUSER">Owner (Superuser)</SelectItem>
+                    <SelectItem value="OPERATOR">Operator</SelectItem>
+                    <SelectItem value="STAFF">Staff</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : currentUser?.role === "SUPERUSER" ? (
+              <div className="grid gap-2">
+                <Label htmlFor="role">Role</Label>
+                <Select
+                  value={form.role}
+                  onValueChange={(v) => setForm((f) => ({ ...f, role: v, permissions: [] }))}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select role" />
@@ -389,7 +450,8 @@ export default function UsersPage() {
                 </div>
               </div>
             )}
-            {form.role === "STAFF" && (
+            {/* Permissions — only for STAFF role and not when editing owner/system_admin */}
+            {!isEditingOwner && !isEditingSystemAdmin && effectiveRole === "STAFF" && (
               <div className="grid gap-2">
                 <Label>Permissions</Label>
                 <div className="grid grid-cols-2 gap-2 pt-1">

@@ -12,6 +12,7 @@ export async function GET(req: NextRequest) {
 
     const where: Record<string, unknown> = {};
     if (isPolice) {
+      // SYSTEM_ADMIN and POLICE see all; optionally filter by provider
       if (providerFilter) where.providerId = providerFilter;
     } else {
       where.providerId = providerId;
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest) {
         name: true,
         permissions: true,
         providerId: true,
+        disabled: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -55,9 +57,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // OPERATOR can only create STAFF
     if (auth.role === "OPERATOR" && role !== "STAFF") {
       return NextResponse.json(
         { error: "Operators are only permitted to manage and create Staff accounts" },
+        { status: 403 }
+      );
+    }
+
+    // SUPERUSER can only create OPERATOR or STAFF — not POLICE or SYSTEM_ADMIN
+    if (auth.role === "SUPERUSER" && (role === "POLICE" || role === "SYSTEM_ADMIN")) {
+      return NextResponse.json(
+        { error: "Owners cannot create Police or System Admin accounts" },
         { status: 403 }
       );
     }
@@ -86,4 +97,4 @@ export async function POST(req: NextRequest) {
       message.includes("permission") || message.includes("cannot") ? 403 : 500;
     return NextResponse.json({ error: message }, { status });
   }
-}
+}

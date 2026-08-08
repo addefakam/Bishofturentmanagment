@@ -10,6 +10,7 @@ datasource db {
 // ─── Enums ───────────────────────────────────────────────────────────────────
 
 enum UserRole {
+  SYSTEM_ADMIN
   POLICE
   SUPERUSER
   OPERATOR
@@ -116,6 +117,7 @@ model User {
   role        UserRole        @default(STAFF)
   name        String
   permissions String          @default("[\"reservations\",\"guests\"]")  // JSON array of allowed pages for STAFF
+  disabled    Boolean         @default(false)
   providerId  String?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt

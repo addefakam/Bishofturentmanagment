@@ -20,14 +20,17 @@ export function getAuthContext(req: NextRequest): AuthContext {
 }
 
 export function getProviderFilter(auth: AuthContext) {
-  if (auth.role === "POLICE") {
+  // SYSTEM_ADMIN and POLICE see all providers
+  if (auth.role === "SYSTEM_ADMIN" || auth.role === "POLICE") {
     return { isPolice: true, providerId: undefined as undefined };
   }
   return { isPolice: false, providerId: auth.providerId || "" };
 }
 
 export function requirePolice(auth: AuthContext): void {
-  if (auth.role !== "POLICE") throw new Error("Police access required");
+  if (auth.role !== "POLICE" && auth.role !== "SYSTEM_ADMIN") {
+    throw new Error("Police access required");
+  }
 }
 
 export function blockPoliceWrites(auth: AuthContext): void {
@@ -46,6 +49,9 @@ export function checkWritePermission(
   auth: AuthContext,
   opts: PermissionOptions = {}
 ): void {
+  // SYSTEM_ADMIN can do anything
+  if (auth.role === "SYSTEM_ADMIN") return;
+
   if (auth.role === "POLICE") throw new Error("Police cannot perform this action");
 
   if (opts.requireSuperuserOrOperator) {
@@ -74,4 +80,4 @@ export function checkWritePermission(
       throw new Error("Staff cannot perform this action");
     }
   }
-}
+}

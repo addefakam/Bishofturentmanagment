@@ -25,8 +25,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // POLICE users can login regardless of provider status
-    if (user.role !== "POLICE") {
+    if (user.disabled) {
+      return NextResponse.json(
+        { error: "Your account is disabled" },
+        { status: 403 }
+      );
+    }
+
+    // SYSTEM_ADMIN and POLICE can login without a provider
+    if (user.role !== "SYSTEM_ADMIN" && user.role !== "POLICE") {
       if (!user.provider || user.provider.status !== "APPROVED") {
         return NextResponse.json(
           { error: "Provider account is not approved" },

@@ -152,10 +152,9 @@ export default function ReservationsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [loading, setLoading] = useState(true);
 
-  // Create dialog — 2-step wizard
+  // Create dialog
   const [createOpen, setCreateOpen] = useState(false);
-  const [wizardStep, setWizardStep] = useState<1 | 2>(1);
-
+  
   // Step 1 — guest selection / creation
   const [guestMode, setGuestMode] = useState<"existing" | "new">("existing");
   const [selectedGuestId, setSelectedGuestId] = useState("");
@@ -348,7 +347,6 @@ export default function ReservationsPage() {
 
   const closeCreateDialog = () => {
     setCreateOpen(false);
-    setWizardStep(1);
     setGuestMode("existing");
     setSelectedGuestId("");
     setNewGuestForm({ name: "", phone: "", email: "", idNumber: "", idType: "National ID", nationality: "", address: "", notes: "" });
@@ -812,97 +810,192 @@ export default function ReservationsPage() {
         )}
       </div>
 
-      {/* New Reservation Wizard Dialog */}
+       {/* ── Unified Guest Registration + Room Reservation Dialog ── */}
       <Dialog open={createOpen} onOpenChange={closeCreateDialog}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {wizardStep === 1 ? (
-                <><User className="h-5 w-5 text-violet-500" /> Step 1 of 2 — Guest Information</>
-              ) : (
-                <><BedDouble className="h-5 w-5 text-emerald-500" /> Step 2 of 2 — Booking Details</>
-              )}
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Plus className="h-5 w-5 text-emerald-600" />
+              New Guest Registration &amp; Room Reservation
             </DialogTitle>
             <DialogDescription>
-              {wizardStep === 1
-                ? "Select an existing guest or register a new one."
-                : "Choose a room and set the dates for this reservation."}
+              Register a new guest and book a room in one step, or look up a returning guest by ID / phone.
             </DialogDescription>
           </DialogHeader>
 
-          {/* Step indicator */}
-          <div className="flex items-center gap-2 py-1">
-            <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${ wizardStep === 1 ? "bg-violet-600 text-white" : "bg-emerald-100 text-emerald-700" }`}>1</div>
-            <div className={`h-0.5 flex-1 rounded ${ wizardStep === 2 ? "bg-emerald-400" : "bg-gray-200" }`} />
-            <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${ wizardStep === 2 ? "bg-emerald-600 text-white" : "bg-gray-200 text-gray-400" }`}>2</div>
+          {/* ── Guest Mode Toggle ── */}
+          <div className="grid grid-cols-2 gap-2 mb-2">
+            <button
+              onClick={() => { setGuestMode("new"); setSelectedGuestId(""); }}
+              className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
+                guestMode === "new"
+                  ? "border-violet-400 bg-violet-50 text-violet-700"
+                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <UserPlus className="h-4 w-4" />
+              New Guest
+            </button>
+            <button
+              onClick={() => { setGuestMode("existing"); setNewGuestForm({ name: "", phone: "", email: "", idNumber: "", idType: "National ID", nationality: "", address: "", notes: "" }); }}
+              className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
+                guestMode === "existing"
+                  ? "border-violet-400 bg-violet-50 text-violet-700"
+                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <UserCheck className="h-4 w-4" />
+              Returning Guest
+            </button>
           </div>
 
-          {/* ── STEP 1: Guest ── */}
-          {wizardStep === 1 && (
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-              {/* Mode toggle */}
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setGuestMode("existing")}
-                  className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${ guestMode === "existing" ? "border-violet-400 bg-violet-50 text-violet-700" : "border-gray-200 text-gray-600 hover:bg-gray-50" }`}
-                >
-                  <UserCheck className="h-4 w-4" />
-                  Existing Guest
-                </button>
-                <button
-                  onClick={() => setGuestMode("new")}
-                  className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${ guestMode === "new" ? "border-violet-400 bg-violet-50 text-violet-700" : "border-gray-200 text-gray-600 hover:bg-gray-50" }`}
-                >
-                  <UserPlus className="h-4 w-4" />
-                  New Guest
-                </button>
+          {/* ── Two-column layout ── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            {/* ══ LEFT: Guest Information ══ */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 pb-1 border-b">
+                <User className="h-4 w-4 text-violet-500" />
+                <h3 className="text-sm font-semibold text-gray-800">Guest Information</h3>
               </div>
 
               {guestMode === "existing" ? (
-                <div className="space-y-2">
-                  <Label>Select Guest <span className="text-rose-500">*</span></Label>
-                  <Select value={selectedGuestId} onValueChange={setSelectedGuestId}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Search and select a guest..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allGuests.map((g) => (
-                        <SelectItem key={g.id} value={g.id}>
-                          <span className="flex items-center gap-2">
-                            <User className="h-3.5 w-3.5 text-gray-400" />
-                            {g.name} — {g.phone}
-                          </span>
-                        </SelectItem>
-                      ))}
-                      {allGuests.length === 0 && (
-                        <SelectItem value="__none" disabled>No guests found — create a new one</SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
+                /* Returning guest — search by ID or phone */
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label>Search by ID Number or Phone</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Enter ID number or phone..."
+                        value={newGuestForm.idNumber}
+                        onChange={(e) => setNewGuestForm({ ...newGuestForm, idNumber: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            const q = newGuestForm.idNumber.toLowerCase();
+                            const found = allGuests.find(
+                              (g) =>
+                                g.phone.toLowerCase().includes(q) ||
+                                ("idNumber" in g && String((g as {idNumber?: string}).idNumber).toLowerCase().includes(q))
+                            ) || allGuests.find((g) =>
+                              g.name.toLowerCase().includes(q)
+                            );
+                            if (found) {
+                              setSelectedGuestId(found.id);
+                              const full = allGuests.find(x => x.id === found.id);
+                              if (full) setNewGuestForm({ name: full.name, phone: full.phone, email: "", idNumber: newGuestForm.idNumber, idType: "National ID", nationality: "", address: "", notes: "" });
+                              toast.success(`Found: ${found.name}`);
+                            } else {
+                              toast.error("No guest found with that ID / phone");
+                            }
+                          }
+                        }}
+                        className="flex-1"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const q = newGuestForm.idNumber.toLowerCase();
+                          const found = allGuests.find(
+                            (g) => g.phone.toLowerCase().includes(q) || g.name.toLowerCase().includes(q)
+                          );
+                          if (found) {
+                            setSelectedGuestId(found.id);
+                            setNewGuestForm({ name: found.name, phone: found.phone, email: "", idNumber: newGuestForm.idNumber, idType: "National ID", nationality: "", address: "", notes: "" });
+                            toast.success(`Found: ${found.name}`);
+                          } else {
+                            toast.error("No guest found — check ID or phone");
+                          }
+                        }}
+                      >
+                        <Search className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-400">Press Enter or click Search, then confirm the details below</p>
+                  </div>
+
+                  {/* Guest dropdown fallback */}
+                  <div className="space-y-1.5">
+                    <Label>Or Pick from List</Label>
+                    {allGuests.length === 0 ? (
+                      <div className="rounded-lg border border-dashed border-gray-200 py-3 text-center text-xs text-gray-400">
+                        No guests on file yet
+                      </div>
+                    ) : (
+                      <div className="max-h-36 overflow-y-auto rounded-lg border border-gray-200 divide-y divide-gray-100">
+                        {allGuests.map((g) => (
+                          <button
+                            key={g.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedGuestId(g.id);
+                              setNewGuestForm({ name: g.name, phone: g.phone, email: "", idNumber: "", idType: "National ID", nationality: "", address: "", notes: "" });
+                            }}
+                            className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                              selectedGuestId === g.id
+                                ? "bg-violet-50 text-violet-800"
+                                : "bg-white text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            <User className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                            <span className="font-medium">{g.name}</span>
+                            <span className="text-xs text-gray-400 ml-auto">{g.phone}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Preview of selected guest */}
+                  {selectedGuestId && (
+                    <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 space-y-1">
+                      <p className="text-xs font-semibold text-violet-600 uppercase tracking-wide">Selected Guest</p>
+                      <p className="text-sm font-bold text-violet-900">{newGuestForm.name}</p>
+                      <p className="text-xs text-violet-700">{newGuestForm.phone}</p>
+                    </div>
+                  )}
                 </div>
               ) : (
+                /* New guest — full registration form */
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1.5">
                       <Label>Full Name <span className="text-rose-500">*</span></Label>
-                      <Input placeholder="John Doe" value={newGuestForm.name} onChange={(e) => setNewGuestForm({ ...newGuestForm, name: e.target.value })} />
+                      <Input
+                        placeholder="John Doe"
+                        value={newGuestForm.name}
+                        onChange={(e) => setNewGuestForm({ ...newGuestForm, name: e.target.value })}
+                      />
                     </div>
                     <div className="space-y-1.5">
                       <Label>Phone <span className="text-rose-500">*</span></Label>
-                      <Input placeholder="+251 9XX XXX XXX" value={newGuestForm.phone} onChange={(e) => setNewGuestForm({ ...newGuestForm, phone: e.target.value })} />
+                      <Input
+                        placeholder="+251 9XX XXX XXX"
+                        value={newGuestForm.phone}
+                        onChange={(e) => setNewGuestForm({ ...newGuestForm, phone: e.target.value })}
+                      />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1.5">
                       <Label>Email</Label>
-                      <Input type="email" placeholder="guest@email.com" value={newGuestForm.email} onChange={(e) => setNewGuestForm({ ...newGuestForm, email: e.target.value })} />
+                      <Input
+                        type="email"
+                        placeholder="guest@email.com"
+                        value={newGuestForm.email}
+                        onChange={(e) => setNewGuestForm({ ...newGuestForm, email: e.target.value })}
+                      />
                     </div>
                     <div className="space-y-1.5">
                       <Label>Nationality</Label>
-                      <Input placeholder="Ethiopian" value={newGuestForm.nationality} onChange={(e) => setNewGuestForm({ ...newGuestForm, nationality: e.target.value })} />
+                      <Input
+                        placeholder="Ethiopian"
+                        value={newGuestForm.nationality}
+                        onChange={(e) => setNewGuestForm({ ...newGuestForm, nationality: e.target.value })}
+                      />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1.5">
                       <Label>ID Type</Label>
                       <Select value={newGuestForm.idType} onValueChange={(v) => setNewGuestForm({ ...newGuestForm, idType: v })}>
@@ -916,114 +1009,148 @@ export default function ReservationsPage() {
                     </div>
                     <div className="space-y-1.5">
                       <Label>ID Number</Label>
-                      <Input placeholder="ID / Passport number" value={newGuestForm.idNumber} onChange={(e) => setNewGuestForm({ ...newGuestForm, idNumber: e.target.value })} />
+                      <Input
+                        placeholder="ID / Passport no."
+                        value={newGuestForm.idNumber}
+                        onChange={(e) => setNewGuestForm({ ...newGuestForm, idNumber: e.target.value })}
+                      />
                     </div>
                   </div>
                   <div className="space-y-1.5">
                     <Label>Address</Label>
-                    <Input placeholder="Guest address" value={newGuestForm.address} onChange={(e) => setNewGuestForm({ ...newGuestForm, address: e.target.value })} />
+                    <Input
+                      placeholder="Street / City"
+                      value={newGuestForm.address}
+                      onChange={(e) => setNewGuestForm({ ...newGuestForm, address: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Notes</Label>
+                    <Textarea
+                      placeholder="Any special notes about the guest..."
+                      rows={2}
+                      value={newGuestForm.notes}
+                      onChange={(e) => setNewGuestForm({ ...newGuestForm, notes: e.target.value })}
+                    />
                   </div>
                 </div>
               )}
             </div>
-          )}
 
-          {/* ── STEP 2: Booking ── */}
-          {wizardStep === 2 && (
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-              {/* Selected guest preview */}
-              {(() => {
-                const g = guestMode === "existing" ? allGuests.find((x) => x.id === selectedGuestId) : null;
-                return (
-                  <div className="flex items-center gap-2 rounded-lg bg-violet-50 border border-violet-100 px-3 py-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-200 text-violet-700 text-xs font-bold">
-                      {guestMode === "new" ? newGuestForm.name.charAt(0).toUpperCase() || "N" : g?.name.charAt(0).toUpperCase() || "?"}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-violet-900">
-                        {guestMode === "new" ? newGuestForm.name : g?.name}
-                      </p>
-                      <p className="text-xs text-violet-600">
-                        {guestMode === "new" ? newGuestForm.phone : g?.phone}
-                        {guestMode === "new" && " · New guest (will be created)"}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })()}
+            {/* ══ RIGHT: Booking Details ══ */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 pb-1 border-b">
+                <BedDouble className="h-4 w-4 text-emerald-500" />
+                <h3 className="text-sm font-semibold text-gray-800">Booking Details</h3>
+              </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label>Room <span className="text-rose-500">*</span></Label>
-                <Select value={createForm.roomId} onValueChange={(v) => setCreateForm({ ...createForm, roomId: v })}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select an available room..." />
-                  </SelectTrigger>
-                  <SelectContent>
+                {availableRooms.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-gray-200 py-4 text-center text-sm text-gray-400">
+                    No available rooms
+                  </div>
+                ) : (
+                  <div className="max-h-40 overflow-y-auto rounded-lg border border-gray-200 divide-y divide-gray-100">
                     {availableRooms.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>
-                        <span className="flex items-center gap-2">
-                          <BedDouble className="h-3.5 w-3.5 text-gray-400" />
-                          Room {r.number} — {r.type} — {formatCurrency(r.pricePerNight)}/night
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => setCreateForm({ ...createForm, roomId: r.id })}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-left text-sm transition-colors ${
+                          createForm.roomId === r.id
+                            ? "bg-emerald-50 text-emerald-800"
+                            : "bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        <span className="flex items-center gap-2 font-medium">
+                          <BedDouble className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                          Room {r.number}
+                          <span className="text-xs text-gray-400 font-normal">— {r.type}</span>
                         </span>
-                      </SelectItem>
+                        <span className={`text-xs font-semibold ${createForm.roomId === r.id ? "text-emerald-700" : "text-gray-500"}`}>
+                          {formatCurrency(r.pricePerNight)}/night
+                        </span>
+                      </button>
                     ))}
-                    {availableRooms.length === 0 && (
-                      <SelectItem value="__none" disabled>No available rooms</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
+                  </div>
+                )}
+                {createForm.roomId && (
+                  <p className="text-xs text-emerald-600 font-medium">
+                    ✓ Room {availableRooms.find(r => r.id === createForm.roomId)?.number} selected
+                  </p>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="check-in">Check-in <span className="text-rose-500">*</span></Label>
-                  <Input id="check-in" type="date" value={createForm.checkIn} onChange={(e) => setCreateForm({ ...createForm, checkIn: e.target.value })} />
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="ci-date">Check-in <span className="text-rose-500">*</span></Label>
+                  <Input
+                    id="ci-date"
+                    type="date"
+                    value={createForm.checkIn}
+                    onChange={(e) => setCreateForm({ ...createForm, checkIn: e.target.value })}
+                  />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="check-out">Check-out <span className="text-rose-500">*</span></Label>
-                  <Input id="check-out" type="date" value={createForm.checkOut} min={createForm.checkIn} onChange={(e) => setCreateForm({ ...createForm, checkOut: e.target.value })} />
+                <div className="space-y-1.5">
+                  <Label htmlFor="co-date">Check-out <span className="text-rose-500">*</span></Label>
+                  <Input
+                    id="co-date"
+                    type="date"
+                    value={createForm.checkOut}
+                    min={createForm.checkIn}
+                    onChange={(e) => setCreateForm({ ...createForm, checkOut: e.target.value })}
+                  />
                 </div>
               </div>
 
-              {/* Price summary */}
-              {(createNights > 0 || createForm.roomId) && (
-                <div className="rounded-lg border bg-gray-50 p-3 space-y-2">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Price Summary</p>
-                  <div className="flex justify-between text-sm"><span className="text-gray-600">Room Rate</span><span className="font-medium">{formatCurrency(createRate)}/night</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-gray-600">Nights</span><span className="font-medium">{createNights}</span></div>
-                  <Separator />
-                  <div className="flex justify-between text-sm"><span className="font-semibold text-gray-900">Total</span><span className="font-bold text-gray-900">{formatCurrency(createTotal)}</span></div>
+              {/* Price Summary */}
+              {(createNights > 0 && createForm.roomId) && (
+                <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-3 space-y-1.5">
+                  <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">Price Summary</p>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Room Rate</span>
+                    <span className="font-medium">{formatCurrency(createRate)}/night</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Nights</span>
+                    <span className="font-medium">{createNights}</span>
+                  </div>
+                  <Separator className="my-1" />
+                  <div className="flex justify-between text-sm font-bold text-gray-900">
+                    <span>Total</span>
+                    <span className="text-emerald-700">{formatCurrency(createTotal)}</span>
+                  </div>
                 </div>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="res-notes">Notes</Label>
-                <Textarea id="res-notes" placeholder="Special requests, preferences..." rows={2} value={createForm.notes} onChange={(e) => setCreateForm({ ...createForm, notes: e.target.value })} />
+              <div className="space-y-1.5">
+                <Label htmlFor="bk-notes">Booking Notes</Label>
+                <Textarea
+                  id="bk-notes"
+                  placeholder="Special requests, room preferences..."
+                  rows={3}
+                  value={createForm.notes}
+                  onChange={(e) => setCreateForm({ ...createForm, notes: e.target.value })}
+                />
               </div>
             </div>
-          )}
+          </div>
 
-          <DialogFooter className="flex-row gap-2">
-            {wizardStep === 1 ? (
-              <>
-                <Button variant="outline" onClick={closeCreateDialog}>Cancel</Button>
-                <Button onClick={() => setWizardStep(2)} disabled={!step1Valid} className="gap-1.5">
-                  Next — Booking Details
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button variant="outline" onClick={() => setWizardStep(1)} className="gap-1.5">
-                  <ChevronLeft className="h-4 w-4" />
-                  Back
-                </Button>
-                <Button onClick={handleCreate} disabled={creating} className="gap-1.5">
-                  {creating ? "Creating..." : "Create Reservation"}
+          <DialogFooter className="mt-4 flex-row gap-2 justify-end">
+            <Button variant="outline" onClick={closeCreateDialog}>Cancel</Button>
+            <Button
+              onClick={handleCreate}
+              disabled={creating || !createForm.roomId || !createForm.checkIn || !createForm.checkOut || (guestMode === "new" ? !newGuestForm.name || !newGuestForm.phone : !selectedGuestId)}
+              className="gap-2"
+            >
+              {creating ? "Saving..." : (
+                <>
                   <CheckCircle2 className="h-4 w-4" />
-                </Button>
-              </>
-            )}
+                  {guestMode === "new" ? "Register Guest & Book Room" : "Book Room"}
+                </>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

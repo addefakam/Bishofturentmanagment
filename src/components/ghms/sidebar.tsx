@@ -77,32 +77,38 @@ const POLICE_NAV_ITEMS: NavItem[] = [
   },
 ];
 
+// System Admin sees everything: all police views + full user management
+const SYSTEM_ADMIN_NAV_ITEMS: NavItem[] = [
+  { page: "police-dashboard", label: "Overview",         icon: LayoutDashboard },
+  { page: "providers",        label: "Providers",        icon: Building2 },
+  { page: "police-guests",    label: "Guests Search",    icon: Search },
+  { page: "users",            label: "All Users",        icon: UserCog },
+];
+
 const OPERATOR_EXCLUDED = new Set<string>([]);
 
 // ── Permission → page mapping for STAFF role ──
+// Keys MUST match the permission strings stored in the DB (set in PERMISSION_OPTIONS)
 const PERMISSION_PAGE_MAP: Record<string, NavItem> = {
-  rooms_view: { page: "rooms", label: "Rooms", icon: Bed },
-  guests_view: { page: "guests-reservations", label: "Guests & Reservations", icon: UsersRound },
-  reservations_view: { page: "guests-reservations", label: "Guests & Reservations", icon: UsersRound },
-  daytime_view: { page: "daytime", label: "Daytime", icon: Sun },
-  housekeeping_view: {
-    page: "housekeeping",
-    label: "Housekeeping",
-    icon: Sparkles,
-  },
-  reports_view: { page: "reports", label: "Reports", icon: BarChart3 },
-  reviews_view: { page: "reviews", label: "Reviews", icon: Star },
-  notifications_view: {
-    page: "notifications",
-    label: "Notifications",
-    icon: Bell,
-  },
-  settings_view: { page: "settings", label: "Settings", icon: Settings },
+  rooms:         { page: "rooms",                label: "Rooms",               icon: Bed },
+  guests:        { page: "guests-reservations",  label: "Guests & Reservations", icon: UsersRound },
+  reservations:  { page: "guests-reservations",  label: "Guests & Reservations", icon: UsersRound },
+  daytime:       { page: "daytime",              label: "Daytime",             icon: Sun },
+  housekeeping:  { page: "housekeeping",         label: "Housekeeping",        icon: Sparkles },
+  expenses:      { page: "expenses",             label: "Expenses",            icon: Receipt },
+  resources:     { page: "resources",            label: "Resources",           icon: Package },
+  reports:       { page: "reports",              label: "Reports",             icon: BarChart3 },
+  reviews:       { page: "reviews",              label: "Reviews",             icon: Star },
+  notifications: { page: "notifications",        label: "Notifications",       icon: Bell },
+  settings:      { page: "settings",             label: "Settings",            icon: Settings },
 };
 
 // ── Helper: get nav items based on role ──
 function getNavItems(user: CurrentUser): NavItem[] {
   switch (user.role) {
+    case "SYSTEM_ADMIN":
+      return SYSTEM_ADMIN_NAV_ITEMS;
+
     case "POLICE":
       return POLICE_NAV_ITEMS;
 
@@ -120,10 +126,12 @@ function getNavItems(user: CurrentUser): NavItem[] {
         label: "Dashboard",
         icon: LayoutDashboard,
       });
-      // Add items based on permissions
+      // Add items based on permissions — deduplicate by page key
+      const seenPages = new Set<string>();
       for (const perm of user.permissions) {
         const mapped = PERMISSION_PAGE_MAP[perm];
-        if (mapped) {
+        if (mapped && !seenPages.has(mapped.page)) {
+          seenPages.add(mapped.page);
           items.push(mapped);
         }
       }
@@ -153,9 +161,14 @@ function getRoleDisplay(role: string): {
   className: string;
 } {
   switch (role) {
+    case "SYSTEM_ADMIN":
+      return {
+        label: "System Admin",
+        className: "bg-violet-100 text-violet-700 border-violet-200",
+      };
     case "SUPERUSER":
       return {
-        label: "Superuser",
+        label: "Owner",
         className: "bg-amber-100 text-amber-700 border-amber-200",
       };
     case "OPERATOR":

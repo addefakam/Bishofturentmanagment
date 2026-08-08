@@ -18,6 +18,7 @@ export async function PUT(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    // OPERATOR can only edit STAFF accounts
     if (auth.role === "OPERATOR") {
       if (existing.role !== "STAFF") {
         return NextResponse.json(
@@ -33,6 +34,14 @@ export async function PUT(
       }
     }
 
+    // SUPERUSER cannot modify SYSTEM_ADMIN or POLICE accounts
+    if (auth.role === "SUPERUSER" && (existing.role === "SYSTEM_ADMIN" || existing.role === "POLICE")) {
+      return NextResponse.json(
+        { error: "Owners cannot modify System Admin or Police accounts" },
+        { status: 403 }
+      );
+    }
+
     const updateData: Record<string, unknown> = {};
     if (body.username !== undefined) updateData.username = body.username;
     if (body.password) updateData.password = body.password;
@@ -44,6 +53,7 @@ export async function PUT(
         : JSON.stringify(body.permissions);
     }
     if (body.providerId !== undefined) updateData.providerId = body.providerId;
+    if (body.disabled !== undefined) updateData.disabled = body.disabled;
 
     const user = await db.user.update({
       where: { id },
@@ -55,6 +65,7 @@ export async function PUT(
         name: true,
         permissions: true,
         providerId: true,
+        disabled: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -85,9 +96,24 @@ export async function DELETE(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    // Cannot delete self
+    const requesterId = req.headers.get("x-user-id");
+    if (requesterId && requesterId === id) {
+      return NextResponse.json({ error: "Cannot delete your own account" }, { status: 403 });
+    }
+
+    // OPERATOR can only delete STAFF
     if (auth.role === "OPERATOR" && existing.role !== "STAFF") {
       return NextResponse.json(
         { error: "Operators are only permitted to delete Staff accounts" },
+        { status: 403 }
+      );
+    }
+
+    // SUPERUSER cannot delete SYSTEM_ADMIN or POLICE
+    if (auth.role === "SUPERUSER" && (existing.role === "SYSTEM_ADMIN" || existing.role === "POLICE")) {
+      return NextResponse.json(
+        { error: "Owners cannot delete System Admin or Police accounts" },
         { status: 403 }
       );
     }
@@ -102,4 +128,4 @@ export async function DELETE(
       message.includes("permission") || message.includes("cannot") ? 403 : 500;
     return NextResponse.json({ error: message }, { status });
   }
-}
+}

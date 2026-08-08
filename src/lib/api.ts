@@ -7,6 +7,7 @@ function headers(): Record<string, string> {
     ...(user
       ? {
           "x-user-role": user.role,
+          "x-user-id": user.id,
           "x-provider-id": user.providerId || "",
           "x-user-permissions": JSON.stringify(user.permissions),
         }

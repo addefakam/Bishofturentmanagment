@@ -562,25 +562,24 @@ export default function RoomsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="room-type">Room Type</Label>
-                <Select
-                  value={form.type}
-                  onValueChange={(v) => setForm({ ...form, type: v })}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ROOM_TYPES.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        <span className="flex items-center gap-2">
-                          {ROOM_TYPE_ICONS[type]}
-                          {type}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Room Type</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {ROOM_TYPES.map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setForm({ ...form, type })}
+                      className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                        form.type === type
+                          ? ROOM_TYPE_COLORS[type] + " ring-1 ring-offset-0"
+                          : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      {ROOM_TYPE_ICONS[type]}
+                      {type}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
