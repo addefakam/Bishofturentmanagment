@@ -31,8 +31,9 @@ export async function PUT(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Only allow resetting credentials for SUPERUSER (owner) and POLICE accounts
-    if (existing.role !== "SUPERUSER" && existing.role !== "POLICE") {
+    // Only allow resetting credentials for SUPERUSER (owner), POLICE, OPERATOR, and STAFF accounts
+    // SUPERUSER can manage all account types; OPERATOR can only manage owner and police
+    if (auth.role === "OPERATOR" && existing.role !== "SUPERUSER" && existing.role !== "POLICE") {
       return NextResponse.json(
         { error: "Only owner and police accounts can be managed here. Contact your operator for other user management." },
         { status: 403 }
