@@ -12,6 +12,7 @@ import {
   Activity,
   Lock,
   Unlock,
+  ClipboardList,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -55,7 +56,7 @@ interface SystemStats {
  * - System audit review
  */
 export default function JointOperationsPage() {
-  const { currentUser, jointSession, setJointSession, setJointLoginDialogOpen } = useAppStore();
+  const { currentUser, jointSession, setJointSession, setJointLoginDialogOpen, setCurrentPage } = useAppStore();
   const [stats, setStats] = useState<SystemStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [actioning, setActioning] = useState(false);
@@ -318,6 +319,14 @@ export default function JointOperationsPage() {
             >
               <Users className="h-4 w-4" />
               View All User Accounts
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
+              onClick={() => setCurrentPage("super-audit-logs")}
+            >
+              <ClipboardList className="h-4 w-4" />
+              View Audit Logs
             </Button>
           </CardContent>
         </Card>
