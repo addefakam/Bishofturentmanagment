@@ -33,17 +33,17 @@ export async function DELETE(
     });
 
     // Delete all related records in order (cascade)
-    await db.$transaction([
-      db.daytimeBooking.deleteMany({ where: { providerId: id } }),
-      db.daytimeService.deleteMany({ where: { providerId: id } }),
-      db.reservation.deleteMany({ where: { providerId: id } }),
-      db.guest.deleteMany({ where: { providerId: id } }),
-      db.expense.deleteMany({ where: { providerId: id } }),
-      db.room.deleteMany({ where: { providerId: id } }),
-      db.notification.deleteMany({ where: { providerId: id } }),
-      db.user.deleteMany({ where: { providerId: id } }),
-      db.provider.delete({ where: { id } }),
-    ]);
+    await db.$transaction(async (tx) => {
+      await tx.daytimeBooking.deleteMany({ where: { providerId: id } });
+      await tx.daytimeService.deleteMany({ where: { providerId: id } });
+      await tx.reservation.deleteMany({ where: { providerId: id } });
+      await tx.guest.deleteMany({ where: { providerId: id } });
+      await tx.expense.deleteMany({ where: { providerId: id } });
+      await tx.room.deleteMany({ where: { providerId: id } });
+      await tx.notification.deleteMany({ where: { providerId: id } });
+      await tx.user.deleteMany({ where: { providerId: id } });
+      await tx.provider.delete({ where: { id } });
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
