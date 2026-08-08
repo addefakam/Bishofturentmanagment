@@ -27,7 +27,7 @@ export async function DELETE(
       data: {
         title: "Guesthouse Removed",
         message: `Your guesthouse "${provider.name}" has been permanently removed by the police. Reason: ${reason}. Please contact the police office for more information.`,
-        type: "ALERT",
+        type: "WARNING",
         providerId: id,
       },
     });
@@ -128,7 +128,7 @@ export async function PUT(
         data: {
           title: "Registration Rejected",
           message: "Your guesthouse registration has been rejected. Please contact the police office for more information.",
-          type: "ALERT",
+          type: "WARNING",
           providerId: id,
         },
       });
