@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS "Provider" (
   "ownerName" TEXT NOT NULL,
   "phone" TEXT NOT NULL,
   "email" TEXT NOT NULL DEFAULT '',
+  "website" TEXT NOT NULL DEFAULT '',
   "address" TEXT NOT NULL DEFAULT '',
   "subcity" TEXT NOT NULL DEFAULT '',
   "woreda" TEXT NOT NULL DEFAULT '',
@@ -505,6 +506,10 @@ EXCEPTION WHEN duplicate_column THEN null;
 END $$;
 DO $$ BEGIN
   ALTER TABLE "Provider" ADD COLUMN "woreda" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "Provider" ADD COLUMN "website" TEXT NOT NULL DEFAULT '';
 EXCEPTION WHEN duplicate_column THEN null;
 END $$;
 DO $$ BEGIN
