@@ -25,6 +25,7 @@ import {
   DoorOpen,
   Users,
   DollarSign,
+  Banknote,
   TrendingUp,
   AlertCircle,
   ShieldAlert,
@@ -181,10 +182,10 @@ export default function PoliceDashboardPage() {
           bg: "bg-violet-50",
         },
         {
-          title: "Revenue",
+          title: "Total Revenue",
           value: formatCurrency(dashboard.revenue),
-          icon: DollarSign,
-          color: "text-emerald-600",
+          icon: Banknote,
+          color: "text-emerald-700",
           bg: "bg-emerald-50",
         },
         {
